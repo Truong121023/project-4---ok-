@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Matcha Tea Admin</title>
+  <link rel="stylesheet" href="/admin.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Matcha Tea Control Room</p>
+        <h1>Control room for users, stores, inventory, events, news, dishes, orders, and reviews.</h1>
+        <p class="hero-copy">
+          Login with an ADMIN or MANAGER account. Admins can manage the full catalog, while managers can jump in to moderate reviews.
+        </p>
+      </div>
+      <div class="hero-card">
+        <h2>Dashboard Access</h2>
+        <label>
+          <span>Email</span>
+          <input id="login-email" type="email" placeholder="admin@example.com">
+        </label>
+        <label>
+          <span>Password</span>
+          <input id="login-password" type="password" placeholder="Your password">
+        </label>
+        <div class="hero-actions">
+          <button id="login-btn" type="button">Login</button>
+          <button id="logout-btn" type="button" class="ghost">Logout</button>
+        </div>
+        <label>
+          <span>Bearer token</span>
+          <textarea id="token-input" rows="3" placeholder="Bearer token is stored here after login"></textarea>
+        </label>
+        <button id="refresh-btn" type="button" class="ghost">Refresh Dashboard</button>
+        <p id="session-badge" class="session-badge">No active admin or manager session</p>
+      </div>
+    </header>
+
+    <section class="summary-grid" id="summary-grid">
+      <article class="summary-card"><span>Users</span><strong id="count-users">0</strong></article>
+      <article class="summary-card"><span>Stores</span><strong id="count-stores">0</strong></article>
+      <article class="summary-card"><span>Events</span><strong id="count-events">0</strong></article>
+      <article class="summary-card"><span>Categories</span><strong id="count-categories">0</strong></article>
+      <article class="summary-card"><span>Dishes</span><strong id="count-dishes">0</strong></article>
+      <article class="summary-card"><span>Reviews</span><strong id="count-reviews">0</strong></article>
+      <article class="summary-card"><span>News</span><strong id="count-news">0</strong></article>
+    </section>
+
+    <section class="workspace">
+      <aside class="section-nav" id="section-nav">
+        <button data-section="users" class="is-active">Users</button>
+        <button data-section="stores">Stores</button>
+        <button data-section="storeDishes">Store Dishes</button>
+        <button data-section="events">Events</button>
+        <button data-section="categories">Categories</button>
+        <button data-section="dishes">Dishes</button>
+        <button data-section="news">News</button>
+        <button data-section="reviews">Reviews</button>
+      </aside>
+
+      <main class="section-main">
+        <div class="panel list-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow" id="section-eyebrow">Admin Section</p>
+              <h2 id="section-title">Users</h2>
+            </div>
+            <button id="new-item-btn" type="button">New Item</button>
+          </div>
+          <div class="list-toolbar">
+            <label class="search-box">
+              <span>Search</span>
+              <input id="section-search" type="search" placeholder="Search current section">
+            </label>
+            <button id="clear-search-btn" type="button" class="ghost">Clear</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead id="table-head"></thead>
+              <tbody id="table-body"></tbody>
+            </table>
+          </div>
+          <div class="table-footer">
+            <p id="page-meta">Showing 0 item(s)</p>
+            <div class="page-actions">
+              <button id="prev-page-btn" type="button" class="ghost">Previous</button>
+              <span id="page-indicator">Page 1 / 1</span>
+              <button id="next-page-btn" type="button" class="ghost">Next</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel form-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Editor</p>
+              <h2 id="form-title">Create item</h2>
+            </div>
+          </div>
+          <form id="editor-form">
+            <input id="editor-id" type="hidden">
+            <div id="form-fields" class="form-fields"></div>
+            <div class="form-actions">
+              <button type="submit">Save</button>
+              <button id="delete-btn" type="button" class="danger">Delete</button>
+              <button id="reset-btn" type="button" class="ghost">Reset</button>
+            </div>
+          </form>
+        </div>
+      </main>
+    </section>
+
+    <section class="status-strip">
+      <p id="status-text">Ready. Login as ADMIN or MANAGER to load the dashboard.</p>
+    </section>
+  </div>
+
+  <script src="/admin.js"></script>
+</body>
+</html>

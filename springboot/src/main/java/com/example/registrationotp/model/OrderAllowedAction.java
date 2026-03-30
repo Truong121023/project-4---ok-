@@ -1,0 +1,14 @@
+package com.example.registrationotp.model;
+
+public enum OrderAllowedAction {
+	CONFIRM_ORDER,
+	CANCEL_ORDER,
+	MARK_PAID,
+	GENERATE_INVOICE,
+	VIEW_INVOICE,
+	ACCEPT_PREPARING,
+	MARK_READY,
+	ACCEPT_DELIVERY,
+	MARK_COMPLETED,
+	REFRESH_PAYMENT
+}

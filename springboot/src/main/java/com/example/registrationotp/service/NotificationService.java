@@ -1,0 +1,456 @@
+package com.example.registrationotp.service;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.example.registrationotp.dto.MessageResponse;
+import com.example.registrationotp.dto.PageResponse;
+import com.example.registrationotp.dto.UserNotificationResponse;
+import com.example.registrationotp.dto.UserNotificationUnreadCountResponse;
+import com.example.registrationotp.exception.ForbiddenException;
+import com.example.registrationotp.exception.NotFoundException;
+import com.example.registrationotp.model.EventItem;
+import com.example.registrationotp.model.NewsArticle;
+import com.example.registrationotp.model.Order;
+import com.example.registrationotp.model.OrderItem;
+import com.example.registrationotp.model.OrderStatus;
+import com.example.registrationotp.model.PaymentStatus;
+import com.example.registrationotp.model.Role;
+import com.example.registrationotp.model.User;
+import com.example.registrationotp.model.UserNotification;
+import com.example.registrationotp.model.UserNotificationType;
+import com.example.registrationotp.repository.OrderItemRepository;
+import com.example.registrationotp.repository.UserNotificationRepository;
+import com.example.registrationotp.repository.UserRepository;
+
+@Service
+public class NotificationService {
+
+	private static final int DEFAULT_PAGE_SIZE = 10;
+	private static final int MAX_PAGE_SIZE = 100;
+	private static final Sort DEFAULT_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
+	private static final String BRAND_NAME = "Tea Matcha";
+	private static final Set<Role> EMPLOYEE_NOTIFICATION_ROLES = EnumSet.of(Role.STAFF, Role.SHIPPER);
+
+	private final SessionAuthService sessionAuthService;
+	private final UserNotificationRepository userNotificationRepository;
+	private final UserRepository userRepository;
+	private final OrderItemRepository orderItemRepository;
+
+	public NotificationService(
+			SessionAuthService sessionAuthService,
+			UserNotificationRepository userNotificationRepository,
+			UserRepository userRepository,
+			OrderItemRepository orderItemRepository
+	) {
+		this.sessionAuthService = sessionAuthService;
+		this.userNotificationRepository = userNotificationRepository;
+		this.userRepository = userRepository;
+		this.orderItemRepository = orderItemRepository;
+	}
+
+	@Transactional(readOnly = true)
+	public PageResponse<UserNotificationResponse> listMyNotifications(
+			String authorizationHeader,
+			Boolean read,
+			int page,
+			int size
+	) {
+		return listNotifications(requireBuyerUser(authorizationHeader), read, page, size);
+	}
+
+	@Transactional(readOnly = true)
+	public PageResponse<UserNotificationResponse> listMyEmployeeNotifications(
+			String authorizationHeader,
+			Boolean read,
+			int page,
+			int size
+	) {
+		return listNotifications(requireEmployeeNotificationUser(authorizationHeader), read, page, size);
+	}
+
+	@Transactional(readOnly = true)
+	public UserNotificationUnreadCountResponse getUnreadCount(String authorizationHeader) {
+		return getUnreadCount(requireBuyerUser(authorizationHeader));
+	}
+
+	@Transactional(readOnly = true)
+	public UserNotificationUnreadCountResponse getEmployeeUnreadCount(String authorizationHeader) {
+		return getUnreadCount(requireEmployeeNotificationUser(authorizationHeader));
+	}
+
+	@Transactional
+	public UserNotificationResponse markAsRead(String authorizationHeader, Long id) {
+		return markAsRead(requireBuyerUser(authorizationHeader), id);
+	}
+
+	@Transactional
+	public UserNotificationResponse markEmployeeAsRead(String authorizationHeader, Long id) {
+		return markAsRead(requireEmployeeNotificationUser(authorizationHeader), id);
+	}
+
+	@Transactional
+	public UserNotificationResponse markAsUnread(String authorizationHeader, Long id) {
+		return markAsUnread(requireBuyerUser(authorizationHeader), id);
+	}
+
+	@Transactional
+	public UserNotificationResponse markEmployeeAsUnread(String authorizationHeader, Long id) {
+		return markAsUnread(requireEmployeeNotificationUser(authorizationHeader), id);
+	}
+
+	@Transactional
+	public MessageResponse markAllAsRead(String authorizationHeader) {
+		return markAllAsRead(requireBuyerUser(authorizationHeader));
+	}
+
+	@Transactional
+	public MessageResponse markAllEmployeeNotificationsAsRead(String authorizationHeader) {
+		return markAllAsRead(requireEmployeeNotificationUser(authorizationHeader));
+	}
+
+	@Transactional
+	public void deleteAllNotificationsForUser(Long userId) {
+		if (userId == null) {
+			return;
+		}
+		userNotificationRepository.deleteAllByUserId(userId);
+	}
+
+	@Transactional
+	public void notifyNewBrandEvent(EventItem eventItem) {
+		if (eventItem == null || !eventItem.isActive()) {
+			return;
+		}
+
+		List<User> users = userRepository.findAllByRoleAndEnabledTrue(Role.USER);
+		if (users.isEmpty()) {
+			return;
+		}
+
+		String storeName = eventItem.getStore() != null ? eventItem.getStore().getName() : null;
+		String message = storeName == null
+				? "%s vua co su kien moi \"%s\".".formatted(BRAND_NAME, eventItem.getName())
+				: "%s vua co su kien moi \"%s\" tai %s.".formatted(BRAND_NAME, eventItem.getName(), storeName);
+
+		List<UserNotification> notifications = new ArrayList<>();
+		for (User user : users) {
+			UserNotification notification = new UserNotification();
+			notification.setUser(user);
+			notification.setType(UserNotificationType.BRAND_EVENT);
+			notification.setTitle("Su kien moi cua %s".formatted(BRAND_NAME));
+			notification.setMessage(message);
+			notification.setRelatedEventId(eventItem.getId());
+			notification.setRelatedEventSlug(eventItem.getSlug());
+			if (eventItem.getSlug() != null && !eventItem.getSlug().isBlank()) {
+				notification.setActionUrl("/events/" + eventItem.getSlug());
+			}
+			if (eventItem.getStore() != null) {
+				notification.setRelatedStoreId(eventItem.getStore().getId());
+				notification.setRelatedStoreName(eventItem.getStore().getName());
+			}
+			notifications.add(notification);
+		}
+		userNotificationRepository.saveAll(notifications);
+	}
+
+	@Transactional
+	public void notifyPublishedNews(NewsArticle newsArticle) {
+		if (!isPublicNews(newsArticle)) {
+			return;
+		}
+
+		List<User> users = userRepository.findAllByRoleAndEnabledTrue(Role.USER);
+		if (users.isEmpty()) {
+			return;
+		}
+
+		String storeName = newsArticle.getRelatedStore() != null ? newsArticle.getRelatedStore().getName() : null;
+		String message = storeName == null
+				? "%s vua dang bai viet moi \"%s\".".formatted(BRAND_NAME, newsArticle.getTitle())
+				: "%s vua dang bai viet moi \"%s\" lien quan den %s.".formatted(BRAND_NAME, newsArticle.getTitle(), storeName);
+		String actionUrl = newsArticle.getSlug() == null || newsArticle.getSlug().isBlank()
+				? null
+				: "/news/" + newsArticle.getSlug();
+
+		List<UserNotification> notifications = new ArrayList<>();
+		for (User user : users) {
+			UserNotification notification = new UserNotification();
+			notification.setUser(user);
+			notification.setType(UserNotificationType.NEWS_ARTICLE);
+			notification.setTitle("Tin moi tu %s".formatted(BRAND_NAME));
+			notification.setMessage(message);
+			notification.setRelatedNewsId(newsArticle.getId());
+			notification.setRelatedNewsSlug(newsArticle.getSlug());
+			notification.setActionUrl(actionUrl);
+			if (newsArticle.getRelatedStore() != null) {
+				notification.setRelatedStoreId(newsArticle.getRelatedStore().getId());
+				notification.setRelatedStoreName(newsArticle.getRelatedStore().getName());
+			}
+			notifications.add(notification);
+		}
+		userNotificationRepository.saveAll(notifications);
+	}
+
+	@Transactional
+	public void notifyOrderCreated(Order order) {
+		if (!canNotifyOrder(order)) {
+			return;
+		}
+		createOrderNotification(
+				order,
+				"Don hang moi #%d".formatted(order.getId()),
+				"Don hang #%d da duoc tao. Vui long hoan tat thanh toan de cua hang xu ly.".formatted(order.getId())
+		);
+	}
+
+	@Transactional
+	public void notifyOrderStatusChanged(Order order, OrderStatus previousStatus, PaymentStatus previousPaymentStatus) {
+		if (!canNotifyOrder(order)) {
+			return;
+		}
+		if (previousStatus == order.getStatus() && previousPaymentStatus == order.getPaymentStatus()) {
+			return;
+		}
+		createOrderNotification(
+				order,
+				"Cap nhat don hang #%d".formatted(order.getId()),
+				buildOrderStatusMessage(order)
+		);
+	}
+
+	@Transactional
+	public void notifyPaidOrderWaitingForStaff(Order order) {
+		if (!isEmployeeTaskOrder(order)) {
+			return;
+		}
+
+		List<User> recipients = resolveTaskRecipients(order, Role.STAFF, order.getPreparingStaff());
+		if (recipients.isEmpty()) {
+			return;
+		}
+
+		String title = "Don hang da thanh toan #%d".formatted(order.getId());
+		String message = order.getPreparingStaff() != null
+				? "Ban duoc giao xu ly don hang #%d tai %s.".formatted(order.getId(), resolveOrderStoreName(order))
+				: "Don hang #%d tai %s da thanh toan. Nhan vien vui long nhan xu ly.".formatted(order.getId(), resolveOrderStoreName(order));
+		createOrderTaskNotifications(recipients, order, title, message);
+	}
+
+	@Transactional
+	public void notifyReadyOrderWaitingForShipper(Order order) {
+		if (!isEmployeeTaskOrder(order)) {
+			return;
+		}
+
+		List<User> recipients = resolveTaskRecipients(order, Role.SHIPPER, order.getDeliveringShipper());
+		if (recipients.isEmpty()) {
+			return;
+		}
+
+		String title = "Don hang san sang giao #%d".formatted(order.getId());
+		String message = order.getDeliveringShipper() != null
+				? "Ban duoc giao giao don hang #%d tai %s.".formatted(order.getId(), resolveOrderStoreName(order))
+				: "Don hang #%d tai %s da san sang ban giao. Shipper vui long nhan viec.".formatted(order.getId(), resolveOrderStoreName(order));
+		createOrderTaskNotifications(recipients, order, title, message);
+	}
+
+	private void createOrderNotification(Order order, String title, String message) {
+		UserNotification notification = new UserNotification();
+		notification.setUser(order.getUser());
+		notification.setType(UserNotificationType.ORDER_STATUS);
+		notification.setTitle(title);
+		notification.setMessage(message);
+		notification.setRelatedOrderId(order.getId());
+
+		resolveOrderStore(order).ifPresent(orderStore -> {
+			notification.setRelatedStoreId(orderStore.storeId());
+			notification.setRelatedStoreName(orderStore.storeName());
+		});
+
+		userNotificationRepository.save(notification);
+	}
+
+	private void createOrderTaskNotifications(List<User> recipients, Order order, String title, String message) {
+		List<UserNotification> notifications = new ArrayList<>();
+		for (User recipient : recipients) {
+			UserNotification notification = new UserNotification();
+			notification.setUser(recipient);
+			notification.setType(UserNotificationType.ORDER_TASK);
+			notification.setTitle(title);
+			notification.setMessage(message);
+			notification.setRelatedOrderId(order.getId());
+			notification.setActionUrl("/employee/orders/" + order.getId());
+
+			resolveOrderStore(order).ifPresent(orderStore -> {
+				notification.setRelatedStoreId(orderStore.storeId());
+				notification.setRelatedStoreName(orderStore.storeName());
+			});
+			notifications.add(notification);
+		}
+		userNotificationRepository.saveAll(notifications);
+	}
+
+	private String buildOrderStatusMessage(Order order) {
+		Long orderId = order.getId();
+		if (order.getStatus() == OrderStatus.CANCELLED || order.getPaymentStatus() == PaymentStatus.CANCELLED) {
+			return "Don hang #%d da bi huy.".formatted(orderId);
+		}
+		if (order.getPaymentStatus() == PaymentStatus.FAILED) {
+			return "Thanh toan cua don hang #%d that bai.".formatted(orderId);
+		}
+		if (order.getPaymentStatus() != PaymentStatus.PAID) {
+			return "Don hang #%d dang cho thanh toan.".formatted(orderId);
+		}
+		return switch (order.getStatus()) {
+			case PENDING, CONFIRMED -> "Don hang #%d da thanh toan thanh cong va dang cho cua hang xu ly.".formatted(orderId);
+			case PREPARING -> "Don hang #%d dang duoc cua hang chuan bi.".formatted(orderId);
+			case READY_FOR_SHIPPER -> "Don hang #%d da san sang ban giao cho shipper.".formatted(orderId);
+			case OUT_FOR_DELIVERY -> "Don hang #%d dang duoc giao den ban.".formatted(orderId);
+			case COMPLETED -> "Don hang #%d da giao thanh cong.".formatted(orderId);
+			case CANCELLED -> "Don hang #%d da bi huy.".formatted(orderId);
+		};
+	}
+
+	private boolean canNotifyOrder(Order order) {
+		return order != null
+				&& order.getId() != null
+				&& order.getUser() != null
+				&& order.getUser().getRole() == Role.USER;
+	}
+
+	private boolean isEmployeeTaskOrder(Order order) {
+		return order != null
+				&& order.getId() != null
+				&& resolveOrderStore(order).isPresent();
+	}
+
+	private Optional<OrderStoreSnapshot> resolveOrderStore(Order order) {
+		List<OrderItem> orderItems = orderItemRepository.findAllByOrderId(order.getId());
+		if (orderItems.isEmpty() || orderItems.get(0).getStore() == null) {
+			return Optional.empty();
+		}
+		return Optional.of(new OrderStoreSnapshot(
+				orderItems.get(0).getStore().getId(),
+				orderItems.get(0).getStore().getName()
+		));
+	}
+
+	private List<User> resolveTaskRecipients(Order order, Role recipientRole, User assignedUser) {
+		if (assignedUser != null && assignedUser.getId() != null && assignedUser.isEnabled()) {
+			return List.of(assignedUser);
+		}
+		return resolveOrderStore(order)
+				.map(orderStore -> userRepository.findAllByWorkingStoreIdAndRoleInAndEnabledTrue(
+						orderStore.storeId(),
+						List.of(recipientRole)
+				))
+				.orElse(List.of());
+	}
+
+	private String resolveOrderStoreName(Order order) {
+		return resolveOrderStore(order)
+				.map(OrderStoreSnapshot::storeName)
+				.orElse(BRAND_NAME);
+	}
+
+	private boolean isPublicNews(NewsArticle newsArticle) {
+		return newsArticle != null
+				&& newsArticle.isPublished()
+				&& newsArticle.getPublishedAt() != null
+				&& !newsArticle.getPublishedAt().isAfter(Instant.now());
+	}
+
+	private PageResponse<UserNotificationResponse> listNotifications(User user, Boolean read, int page, int size) {
+		Pageable pageable = buildPageable(page, size);
+		if (read == null) {
+			return PageResponse.from(userNotificationRepository.findAllByUserId(user.getId(), pageable)
+					.map(UserNotificationResponse::from));
+		}
+		if (read) {
+			return PageResponse.from(userNotificationRepository.findAllByUserIdAndReadAtIsNotNull(user.getId(), pageable)
+					.map(UserNotificationResponse::from));
+		}
+		return PageResponse.from(userNotificationRepository.findAllByUserIdAndReadAtIsNull(user.getId(), pageable)
+				.map(UserNotificationResponse::from));
+	}
+
+	private UserNotificationUnreadCountResponse getUnreadCount(User user) {
+		return new UserNotificationUnreadCountResponse(userNotificationRepository.countByUserIdAndReadAtIsNull(user.getId()));
+	}
+
+	private UserNotificationResponse markAsRead(User user, Long id) {
+		UserNotification notification = findOwnedNotification(id, user.getId());
+		if (notification.getReadAt() == null) {
+			notification.setReadAt(Instant.now());
+			userNotificationRepository.save(notification);
+		}
+		return UserNotificationResponse.from(notification);
+	}
+
+	private UserNotificationResponse markAsUnread(User user, Long id) {
+		UserNotification notification = findOwnedNotification(id, user.getId());
+		notification.setReadAt(null);
+		return UserNotificationResponse.from(userNotificationRepository.save(notification));
+	}
+
+	private MessageResponse markAllAsRead(User user) {
+		List<UserNotification> unreadNotifications = userNotificationRepository.findAllByUserIdAndReadAtIsNull(user.getId());
+		if (unreadNotifications.isEmpty()) {
+			return new MessageResponse("No unread notifications");
+		}
+
+		Instant readAt = Instant.now();
+		for (UserNotification notification : unreadNotifications) {
+			notification.setReadAt(readAt);
+		}
+		userNotificationRepository.saveAll(unreadNotifications);
+		return new MessageResponse("Marked %d notification(s) as read".formatted(unreadNotifications.size()));
+	}
+
+	private User requireBuyerUser(String authorizationHeader) {
+		User user = sessionAuthService.requireUser(authorizationHeader);
+		if (user.getRole() != Role.USER) {
+			throw new ForbiddenException("Only USER accounts can access notifications");
+		}
+		return user;
+	}
+
+	private User requireEmployeeNotificationUser(String authorizationHeader) {
+		User user = sessionAuthService.requireUser(authorizationHeader);
+		if (!EMPLOYEE_NOTIFICATION_ROLES.contains(user.getRole())) {
+			throw new ForbiddenException("Only STAFF and SHIPPER accounts can access employee notifications");
+		}
+		if (!user.isEnabled()) {
+			throw new ForbiddenException("Employee account is disabled");
+		}
+		if (user.getWorkingStore() == null || user.getWorkingStore().getId() == null) {
+			throw new ForbiddenException("Employee account must be assigned to a working store");
+		}
+		return user;
+	}
+
+	private UserNotification findOwnedNotification(Long id, Long userId) {
+		return userNotificationRepository.findByIdAndUserId(id, userId)
+				.orElseThrow(() -> new NotFoundException("Notification not found"));
+	}
+
+	private Pageable buildPageable(int page, int size) {
+		int resolvedPage = Math.max(page, 0);
+		int resolvedSize = size <= 0 ? DEFAULT_PAGE_SIZE : Math.min(size, MAX_PAGE_SIZE);
+		return PageRequest.of(resolvedPage, resolvedSize, DEFAULT_SORT);
+	}
+
+	private record OrderStoreSnapshot(Long storeId, String storeName) {
+	}
+}

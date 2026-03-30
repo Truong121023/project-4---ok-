@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Trebuchet MS", "Gill Sans", "Segoe UI", sans-serif;
+  --color-matcha-50: #f7f1e3;
+  --color-matcha-100: #efe6cf;
+  --color-matcha-200: #dde4ca;
+  --color-matcha-300: #b9c59a;
+  --color-matcha-500: #718355;
+  --color-matcha-700: #596c3d;
+  --color-matcha-900: #222818;
+  --color-tea-300: #b08e76;
+  --color-tea-500: #8d6a52;
+  --color-tea-700: #6f4e37;
+  --color-tea-900: #35261a;
+  --color-foam: #fff8ef;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at top left, rgba(217, 196, 144, 0.75), transparent 28%),
+      radial-gradient(circle at 85% 15%, rgba(113, 131, 85, 0.18), transparent 25%),
+      linear-gradient(135deg, #efe5d2 0%, #ece2cc 38%, #d8e1c6 100%);
+    color: var(--color-tea-900);
+    font-family: var(--font-sans);
+  }
+
+  body,
+  #root {
+    margin: 0;
+    min-height: 100vh;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  a {
+    text-decoration: none;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+}
+
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.toast-enter {
+  animation: toast-slide-in 180ms ease-out;
+}

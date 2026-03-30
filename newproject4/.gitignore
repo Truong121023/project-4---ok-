@@ -1,0 +1,7 @@
+node_modules
+dist
+public/uploads/*
+!public/uploads/.gitkeep
+.env
+.env.local
+.env.*.local
