@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/app.dart';
 import '../../core/models/models.dart';
+import '../../core/utils/formatters.dart';
 import '../../widgets/app_widgets.dart';
 import 'admin_query_screen.dart';
 import 'admin_resource_list_screen.dart';
@@ -17,6 +18,13 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Future<_AdminDashboardBundle>? _future;
+  late final TextEditingController _storeScopeController;
+
+  @override
+  void initState() {
+    super.initState();
+    _storeScopeController = TextEditingController();
+  }
 
   @override
   void didChangeDependencies() {
@@ -24,11 +32,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _future ??= _load();
   }
 
+  @override
+  void dispose() {
+    _storeScopeController.dispose();
+    super.dispose();
+  }
+
+  int? get _selectedStoreId {
+    final raw = _storeScopeController.text.trim();
+    if (raw.isEmpty) {
+      return null;
+    }
+    return int.tryParse(raw);
+  }
+
   Future<_AdminDashboardBundle> _load() async {
     final controller = AppScope.of(context);
+    final scopedStoreId = controller.isAdmin
+        ? _selectedStoreId
+        : controller.session?.user.workingStoreId;
     final values = await Future.wait<dynamic>([
-      controller.loadAdminSummary(),
-      controller.loadAdminDashboard(),
+      controller.loadAdminSummary(storeId: scopedStoreId),
+      controller.loadAdminDashboard(storeId: scopedStoreId),
     ]);
     return _AdminDashboardBundle(
       summary: values[0] as AdminSummary,
@@ -80,7 +105,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             moduleById('stores'),
             moduleById('dishes'),
             moduleById('feedbacks'),
-            moduleById('work-schedules'),
+            moduleById('news'),
           ];
 
           return RefreshIndicator(
@@ -107,14 +132,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           runSpacing: 8,
                           children: [
                             _HeroChip(label: 'ADMIN'),
-                            _HeroChip(label: controller.config.useMockData ? 'Mock mode' : 'Live API'),
-                            _HeroChip(label: controller.session?.user.email ?? 'Guest'),
+                            _HeroChip(
+                                label: controller.config.useMockData
+                                    ? 'Che do demo'
+                                    : 'Ket noi live'),
+                            _HeroChip(
+                                label:
+                                    controller.session?.user.email ?? 'Guest'),
                           ],
                         ),
                         const SizedBox(height: 16),
                         Text(
                           'Phong dieu hanh mobile cho admin',
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
+                              ?.copyWith(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w800,
                               ),
@@ -122,14 +155,55 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         const SizedBox(height: 10),
                         Text(
                           'Tap trung nhin so lieu tong quan, mo nhanh module va doc chi tiet du lieu that tu /api/admin/*. ',
-                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                color: Colors.white.withValues(alpha: 0.92),
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.92),
+                                  ),
                         ),
                       ],
                     ),
                   ),
                 ),
+                if (controller.isAdmin) ...[
+                  const SizedBox(height: 16),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextField(
+                            controller: _storeScopeController,
+                            keyboardType: TextInputType.number,
+                            onSubmitted: (_) => _refresh(),
+                            decoration: const InputDecoration(
+                              labelText: 'Scope theo Store ID',
+                              hintText: 'Bo trong de xem tat ca store',
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              FilledButton.tonal(
+                                onPressed: _refresh,
+                                child: const Text('Loc'),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  _storeScopeController.clear();
+                                  _refresh();
+                                },
+                                child: const Text('Tat ca'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 24),
                 const SectionHeader(
                   title: 'Tong quan',
@@ -140,16 +214,90 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   crossAxisCount: 2,
                   mainAxisSpacing: 12,
                   crossAxisSpacing: 12,
-                  childAspectRatio: 1.35,
+                  childAspectRatio: 1.1,
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   children: [
-                    AdminMetricCard(label: 'Users', value: '${bundle.summary.userCount}', icon: Icons.group_outlined),
-                    AdminMetricCard(label: 'Stores', value: '${bundle.summary.storeCount}', icon: Icons.storefront_outlined),
-                    AdminMetricCard(label: 'Events', value: '${bundle.summary.eventCount}', icon: Icons.event_outlined),
-                    AdminMetricCard(label: 'Categories', value: '${bundle.summary.categoryCount}', icon: Icons.category_outlined),
-                    AdminMetricCard(label: 'Dishes', value: '${bundle.summary.dishCount}', icon: Icons.ramen_dining_outlined),
-                    AdminMetricCard(label: 'News', value: '${bundle.summary.newsCount}', icon: Icons.newspaper_outlined),
+                    AdminMetricCard(
+                        label: 'Users',
+                        value: '${bundle.summary.userCount}',
+                        icon: Icons.group_outlined),
+                    AdminMetricCard(
+                        label: 'Orders',
+                        value: '${bundle.summary.orderCount}',
+                        icon: Icons.receipt_long_outlined),
+                    AdminMetricCard(
+                        label: 'Stores',
+                        value: '${bundle.summary.storeCount}',
+                        icon: Icons.storefront_outlined),
+                    AdminMetricCard(
+                        label: 'Events',
+                        value: '${bundle.summary.eventCount}',
+                        icon: Icons.event_outlined),
+                    AdminMetricCard(
+                        label: 'Categories',
+                        value: '${bundle.summary.categoryCount}',
+                        icon: Icons.category_outlined),
+                    AdminMetricCard(
+                        label: 'Dishes',
+                        value: '${bundle.summary.dishCount}',
+                        icon: Icons.ramen_dining_outlined),
+                    AdminMetricCard(
+                        label: 'Store Dishes',
+                        value: '${bundle.summary.storeDishCount}',
+                        icon: Icons.local_mall_outlined),
+                    AdminMetricCard(
+                        label: 'Promotions',
+                        value: '${bundle.summary.promotionCount}',
+                        icon: Icons.local_offer_outlined),
+                    AdminMetricCard(
+                        label: 'Reviews',
+                        value: '${bundle.summary.reviewCount}',
+                        icon: Icons.reviews_outlined),
+                    AdminMetricCard(
+                        label: 'News',
+                        value: '${bundle.summary.newsCount}',
+                        icon: Icons.newspaper_outlined),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                const SectionHeader(
+                  title: 'Revenue',
+                  subtitle: 'Scope theo note backend moi nhat.',
+                ),
+                const SizedBox(height: 12),
+                GridView.count(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 1.1,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    AdminMetricCard(
+                      label: 'Today',
+                      value: Formatters.currency(
+                          bundle.summary.revenue.todayRevenue),
+                      icon: Icons.today_outlined,
+                    ),
+                    AdminMetricCard(
+                      label: 'Week',
+                      value: Formatters.currency(
+                          bundle.summary.revenue.weekRevenue),
+                      icon: Icons.date_range_outlined,
+                    ),
+                    AdminMetricCard(
+                      label: 'Month',
+                      value: Formatters.currency(
+                          bundle.summary.revenue.monthRevenue),
+                      icon: Icons.calendar_month_outlined,
+                    ),
+                    AdminMetricCard(
+                      label: 'Year',
+                      value: Formatters.currency(
+                          bundle.summary.revenue.yearRevenue),
+                      icon: Icons.auto_graph_outlined,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -170,7 +318,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 const SizedBox(height: 24),
                 const SectionHeader(
                   title: 'Dashboard preview',
-                  subtitle: 'Lay tu GET /api/admin/dashboard de xem nhanh du lieu gan day.',
+                  subtitle:
+                      'Lay tu GET /api/admin/dashboard de xem nhanh du lieu gan day.',
                 ),
                 const SizedBox(height: 12),
                 _PreviewPanel(
@@ -202,10 +351,113 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   entries: bundle.dashboard.news,
                   fallback: 'Chua co preview news.',
                 ),
+                const SizedBox(height: 12),
+                _TopSellingPanel(entries: bundle.dashboard.topSellingDishes),
               ],
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _TopSellingPanel extends StatelessWidget {
+  const _TopSellingPanel({
+    required this.entries,
+  });
+
+  final List<AdminTopSellingDish> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = AppScope.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Top selling dishes',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 12),
+            if (entries.isEmpty)
+              const Text('Chua co du lieu best seller.')
+            else
+              ...entries.take(5).map(
+                    (entry) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF6F3EA),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        padding: const EdgeInsets.all(14),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 72,
+                              height: 72,
+                              child: NetworkOrFallbackImage(
+                                imageUrl: controller.config.resolveImageUrl(
+                                  entry.imagePaths.isEmpty
+                                      ? null
+                                      : entry.imagePaths.first,
+                                ),
+                                height: 72,
+                                label: entry.dishName,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    entry.dishName,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(fontWeight: FontWeight.w800),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    entry.storeName,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      MetricChip(
+                                          label:
+                                              '${entry.quantitySold} da ban'),
+                                      MetricChip(
+                                          label: '${entry.orderCount} don'),
+                                      MetricChip(
+                                          label: Formatters.currency(
+                                              entry.revenue)),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+          ],
+        ),
       ),
     );
   }
@@ -232,41 +484,49 @@ class _PreviewPanel extends StatelessWidget {
           children: [
             Text(
               title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 12),
             if (entries.isEmpty)
               Text(fallback)
             else
               ...entries.take(3).map(
-                (entry) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF6F3EA),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          adminPrimaryText(entry),
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                    (entry) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF6F3EA),
+                          borderRadius: BorderRadius.circular(18),
                         ),
-                        if (adminSecondaryText(entry).isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            adminSecondaryText(entry),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ],
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              adminPrimaryText(entry),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.w800),
+                            ),
+                            if (adminSecondaryText(entry).isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                adminSecondaryText(entry),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
           ],
         ),
       ),

@@ -31,6 +31,37 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
 	@Query("""
 			select coalesce(sum(o.totalAmount), 0)
 			from Order o
+			where o.paymentStatus = com.example.registrationotp.model.PaymentStatus.PAID
+			  and o.paidAt >= :start
+			  and o.paidAt < :end
+			""")
+	BigDecimal sumPaidTotalAmountBetween(
+			@Param("start") Instant start,
+			@Param("end") Instant end
+	);
+
+	@Query("""
+			select coalesce(sum(o.totalAmount), 0)
+			from Order o
+			where o.paymentStatus = com.example.registrationotp.model.PaymentStatus.PAID
+			  and o.paidAt >= :start
+			  and o.paidAt < :end
+			  and exists (
+			  	select 1
+			  	from OrderItem oi
+			  	where oi.order = o
+			  	  and oi.store.id = :storeId
+			  )
+			""")
+	BigDecimal sumPaidTotalAmountByStoreIdBetween(
+			@Param("storeId") Long storeId,
+			@Param("start") Instant start,
+			@Param("end") Instant end
+	);
+
+	@Query("""
+			select coalesce(sum(o.totalAmount), 0)
+			from Order o
 			where o.user.id = :userId
 			  and o.paymentStatus = com.example.registrationotp.model.PaymentStatus.PAID
 			  and o.paidAt >= :start

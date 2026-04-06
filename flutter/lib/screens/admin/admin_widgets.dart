@@ -22,7 +22,8 @@ class AdminMetricCard extends StatelessWidget {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               width: 46,
@@ -34,19 +35,26 @@ class AdminMetricCard extends StatelessWidget {
               alignment: Alignment.center,
               child: Icon(icon, color: const Color(0xFF17332A)),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    value,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(label),
-                ],
+            const Spacer(),
+            SizedBox(
+              width: double.infinity,
+              child: FittedBox(
+                alignment: Alignment.centerLeft,
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  value,
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
               ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -101,7 +109,12 @@ class AdminModuleCard extends StatelessWidget {
               const SizedBox(height: 14),
               Text(
                 module.title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w800),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 8),
               Text(
@@ -162,7 +175,12 @@ class AdminRecordCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       adminPrimaryText(record),
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w800),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -187,7 +205,8 @@ class AdminRecordCard extends StatelessWidget {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: chips.map((chip) => MetricChip(label: chip)).toList(),
+                  children:
+                      chips.map((chip) => MetricChip(label: chip)).toList(),
                 ),
               ],
               if (updatedAt != null && updatedAt.isNotEmpty) ...[
@@ -220,9 +239,8 @@ List<Widget> buildAdminDetailSections(
       .where((entry) => entry.key != 'imagePaths')
       .toList();
   final objectEntries = adminObjectEntries(data);
-  final objectLists = adminObjectLists(data)
-      .where((entry) => entry.key != 'files')
-      .toList();
+  final objectLists =
+      adminObjectLists(data).where((entry) => entry.key != 'files').toList();
   final sections = adminSections(data);
   final widgets = <Widget>[
     if (imagePath != null)
@@ -240,7 +258,10 @@ List<Widget> buildAdminDetailSections(
           children: [
             Text(
               adminPrimaryText(data),
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(context)
+                  .textTheme
+                  .headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 10),
             if (adminSecondaryText(data).isNotEmpty)
@@ -253,7 +274,9 @@ List<Widget> buildAdminDetailSections(
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: adminChips(data).map((chip) => MetricChip(label: chip)).toList(),
+                children: adminChips(data)
+                    .map((chip) => MetricChip(label: chip))
+                    .toList(),
               ),
             ],
           ],
@@ -276,7 +299,10 @@ List<Widget> buildAdminDetailSections(
                 children: [
                   Text(
                     adminFieldLabel(entry.key),
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 8),
                   Text(entry.value),
@@ -300,7 +326,10 @@ List<Widget> buildAdminDetailSections(
             children: [
               Text(
                 'Thong tin chinh',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 12),
               ...scalarEntries.map(
@@ -313,16 +342,22 @@ List<Widget> buildAdminDetailSections(
                         width: 132,
                         child: Text(
                           adminFieldLabel(entry.key),
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           formatAdminValue(entry.key, entry.value),
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                       ),
                     ],
@@ -350,13 +385,18 @@ List<Widget> buildAdminDetailSections(
                 children: [
                   Text(
                     adminFieldLabel(entry.key),
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: entry.value.map((value) => MetricChip(label: value)).toList(),
+                    children: entry.value
+                        .map((value) => MetricChip(label: value))
+                        .toList(),
                   ),
                 ],
               ),
@@ -372,7 +412,8 @@ List<Widget> buildAdminDetailSections(
     widgets.add(
       SectionHeader(
         title: 'Sections',
-        subtitle: 'Noi dung dai ma admin da nhap cho ${module.title.toLowerCase()}.',
+        subtitle:
+            'Noi dung dai ma admin da nhap cho ${module.title.toLowerCase()}.',
       ),
     );
     widgets.add(const SizedBox(height: 12));
@@ -389,14 +430,19 @@ List<Widget> buildAdminDetailSections(
                   if (section.title.isNotEmpty)
                     Text(
                       section.title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w800),
                     ),
                   if (section.title.isNotEmpty) const SizedBox(height: 8),
                   if (section.imagePath != null) ...[
                     NetworkOrFallbackImage(
-                      imageUrl: controller.config.resolveImageUrl(section.imagePath),
+                      imageUrl:
+                          controller.config.resolveImageUrl(section.imagePath),
                       height: 170,
-                      label: section.title.isEmpty ? module.title : section.title,
+                      label:
+                          section.title.isEmpty ? module.title : section.title,
                     ),
                     const SizedBox(height: 12),
                   ],
@@ -424,7 +470,10 @@ List<Widget> buildAdminDetailSections(
                 children: [
                   Text(
                     adminFieldLabel(entry.key),
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 12),
                   ...adminScalarEntries(entry.value).map(
@@ -437,13 +486,20 @@ List<Widget> buildAdminDetailSections(
                             width: 132,
                             child: Text(
                               adminFieldLabel(field.key),
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
                                   ),
                             ),
                           ),
                           const SizedBox(width: 12),
-                          Expanded(child: Text(formatAdminValue(field.key, field.value))),
+                          Expanded(
+                              child: Text(
+                                  formatAdminValue(field.key, field.value))),
                         ],
                       ),
                     ),
@@ -471,7 +527,10 @@ List<Widget> buildAdminDetailSections(
                 children: [
                   Text(
                     adminFieldLabel(entry.key),
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 12),
                   ...entry.value.map(
@@ -488,7 +547,12 @@ List<Widget> buildAdminDetailSections(
                           children: [
                             Text(
                               adminPrimaryText(item),
-                              style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.w800),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
                             if (adminSecondaryText(item).isNotEmpty) ...[
                               const SizedBox(height: 6),
@@ -499,7 +563,9 @@ List<Widget> buildAdminDetailSections(
                               Wrap(
                                 spacing: 8,
                                 runSpacing: 8,
-                                children: adminChips(item).map((chip) => MetricChip(label: chip)).toList(),
+                                children: adminChips(item)
+                                    .map((chip) => MetricChip(label: chip))
+                                    .toList(),
                               ),
                             ],
                           ],

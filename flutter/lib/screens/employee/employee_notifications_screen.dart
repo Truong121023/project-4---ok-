@@ -9,10 +9,12 @@ class EmployeeNotificationsScreen extends StatefulWidget {
   const EmployeeNotificationsScreen({super.key});
 
   @override
-  State<EmployeeNotificationsScreen> createState() => _EmployeeNotificationsScreenState();
+  State<EmployeeNotificationsScreen> createState() =>
+      _EmployeeNotificationsScreenState();
 }
 
-class _EmployeeNotificationsScreenState extends State<EmployeeNotificationsScreen> {
+class _EmployeeNotificationsScreenState
+    extends State<EmployeeNotificationsScreen> {
   Future<_EmployeeNotificationBundle>? _future;
 
   @override
@@ -105,23 +107,23 @@ class _EmployeeNotificationsScreenState extends State<EmployeeNotificationsScree
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(18),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${data.unreadCount} thong bao chua doc',
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-                              ),
-                              const SizedBox(height: 6),
-                              const Text('Tap vao tung card de doi read/unread nhanh.'),
-                            ],
-                          ),
+                        Text(
+                          '${data.unreadCount} thong bao chua doc',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
                         ),
+                        const SizedBox(height: 6),
+                        const Text(
+                            'Tap vao tung card de doi read/unread nhanh.'),
+                        const SizedBox(height: 12),
                         FilledButton.tonal(
-                          onPressed: data.notifications.isEmpty ? null : _markAllRead,
+                          onPressed:
+                              data.notifications.isEmpty ? null : _markAllRead,
                           child: const Text('Read all'),
                         ),
                       ],
@@ -132,7 +134,8 @@ class _EmployeeNotificationsScreenState extends State<EmployeeNotificationsScree
                 if (data.notifications.isEmpty)
                   const EmptyStateCard(
                     title: 'Khong co thong bao',
-                    message: 'Thong bao task va cap nhat ca lam se hien tai day.',
+                    message:
+                        'Thong bao don hang va cap nhat cong viec se hien tai day.',
                   )
                 else
                   ...data.notifications.map(

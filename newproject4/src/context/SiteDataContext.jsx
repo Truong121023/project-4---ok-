@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { getApiErrorMessage } from "../lib/api";
 import {
   addUserCartItem,
+  fetchAdminNotifications,
+  fetchAdminNotificationUnreadCount,
   clearUserCart,
   checkoutUserCart,
   createUserFeedback,
@@ -23,6 +25,9 @@ import {
   fetchUserNotificationUnreadCount,
   fetchUserNotifications,
   normalizeTargetType,
+  markAdminNotificationRead,
+  markAdminNotificationUnread,
+  markAllAdminNotificationsRead,
   markAllUserNotificationsRead,
   markUserNotificationRead,
   markUserNotificationUnread,
@@ -274,6 +279,9 @@ export function SiteDataProvider({ children }) {
 
   const canUseUserFeatures =
     auth.isAuthenticated && String(auth.user?.role ?? "").toUpperCase() === "USER";
+  const canUseAdminNotifications =
+    auth.isAuthenticated && ["ADMIN", "MANAGER"].includes(String(auth.user?.role ?? "").toUpperCase());
+  const canUseNotificationCenter = canUseUserFeatures || canUseAdminNotifications;
   const canUseGuestCart = !auth.isAuthenticated;
 
   const currentUserProfile = useMemo(() => {
@@ -347,9 +355,11 @@ export function SiteDataProvider({ children }) {
       setFeedbacks([]);
       setCart(guestCart);
       setDeliveryAddresses([]);
-      setNotificationFeed(emptyNotificationFeed());
-      setUnreadNotificationCount(0);
-      setNotificationError("");
+      if (!canUseNotificationCenter) {
+        setNotificationFeed(emptyNotificationFeed());
+        setUnreadNotificationCount(0);
+        setNotificationError("");
+      }
       setUserDataError("");
       return;
     }
@@ -360,9 +370,11 @@ export function SiteDataProvider({ children }) {
       setFeedbacks([]);
       setCart(emptyCart());
       setDeliveryAddresses([]);
-      setNotificationFeed(emptyNotificationFeed());
-      setUnreadNotificationCount(0);
-      setNotificationError("");
+      if (!canUseNotificationCenter) {
+        setNotificationFeed(emptyNotificationFeed());
+        setUnreadNotificationCount(0);
+        setNotificationError("");
+      }
       setUserDataError("");
       return;
     }
@@ -411,10 +423,11 @@ export function SiteDataProvider({ children }) {
     auth.tokenType,
     auth.user?.id,
     auth.user?.role,
+    canUseNotificationCenter,
   ]);
 
   useEffect(() => {
-    if (auth.initializing || !canUseUserFeatures) {
+    if (auth.initializing || !canUseNotificationCenter) {
       setNotificationFeed(emptyNotificationFeed());
       setUnreadNotificationCount(0);
       setNotificationError("");
@@ -430,7 +443,7 @@ export function SiteDataProvider({ children }) {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [auth.initializing, canUseUserFeatures, auth.token, auth.tokenType, auth.user?.id]);
+  }, [auth.initializing, canUseNotificationCenter, auth.token, auth.tokenType, auth.user?.id]);
 
   const isFavorite = (targetType, targetId) =>
     favoriteKeySet.has(buildTargetKey(targetType, targetId));
@@ -574,7 +587,7 @@ export function SiteDataProvider({ children }) {
   };
 
   async function refreshNotifications({ silent = false, query = { page: 0, size: 8 } } = {}) {
-    if (!canUseUserFeatures) {
+    if (!canUseNotificationCenter) {
       setNotificationFeed(emptyNotificationFeed());
       setUnreadNotificationCount(0);
       setNotificationError("");
@@ -588,8 +601,12 @@ export function SiteDataProvider({ children }) {
 
     try {
       const [nextFeed, nextUnreadCount] = await Promise.all([
-        fetchUserNotifications(auth, query),
-        fetchUserNotificationUnreadCount(auth),
+        canUseAdminNotifications
+          ? fetchAdminNotifications(auth, query)
+          : fetchUserNotifications(auth, query),
+        canUseAdminNotifications
+          ? fetchAdminNotificationUnreadCount(auth)
+          : fetchUserNotificationUnreadCount(auth),
       ]);
 
       setNotificationFeed(nextFeed);
@@ -871,12 +888,16 @@ export function SiteDataProvider({ children }) {
   };
 
   const markNotificationRead = async (notificationId) => {
-    if (!canUseUserFeatures) {
-      return { ok: false, message: "Only USER accounts can manage notifications." };
+    if (!canUseNotificationCenter) {
+      return { ok: false, message: "This account cannot manage notifications." };
     }
 
     try {
-      await markUserNotificationRead(auth, notificationId);
+      if (canUseAdminNotifications) {
+        await markAdminNotificationRead(auth, notificationId);
+      } else {
+        await markUserNotificationRead(auth, notificationId);
+      }
       await refreshNotifications({ silent: true });
       return { ok: true, message: "Notification marked as read." };
     } catch (error) {
@@ -888,12 +909,16 @@ export function SiteDataProvider({ children }) {
   };
 
   const markNotificationUnread = async (notificationId) => {
-    if (!canUseUserFeatures) {
-      return { ok: false, message: "Only USER accounts can manage notifications." };
+    if (!canUseNotificationCenter) {
+      return { ok: false, message: "This account cannot manage notifications." };
     }
 
     try {
-      await markUserNotificationUnread(auth, notificationId);
+      if (canUseAdminNotifications) {
+        await markAdminNotificationUnread(auth, notificationId);
+      } else {
+        await markUserNotificationUnread(auth, notificationId);
+      }
       await refreshNotifications({ silent: true });
       return { ok: true, message: "Notification marked as unread." };
     } catch (error) {
@@ -905,12 +930,16 @@ export function SiteDataProvider({ children }) {
   };
 
   const markAllNotificationsRead = async () => {
-    if (!canUseUserFeatures) {
-      return { ok: false, message: "Only USER accounts can manage notifications." };
+    if (!canUseNotificationCenter) {
+      return { ok: false, message: "This account cannot manage notifications." };
     }
 
     try {
-      await markAllUserNotificationsRead(auth);
+      if (canUseAdminNotifications) {
+        await markAllAdminNotificationsRead(auth);
+      } else {
+        await markAllUserNotificationsRead(auth);
+      }
       await refreshNotifications({ silent: true });
       return { ok: true, message: "All notifications marked as read." };
     } catch (error) {

@@ -5,7 +5,8 @@ import { getOrderPublicQrHref } from "../lib/orderWorkflow";
 export default function OrderQrCard({
   order,
   title = "Order QR",
-  subtitle = "Quet ma nay de mo hoa don cong khai. App noi bo co the quet cung ma nay va tu tach token.",
+  subtitle =
+    "Quet ma nay de mo hoa don cong khai. App noi bo se doc cung token nay va goi mobile QR flow theo role hien tai.",
   className = "",
 }) {
   const [qrImageUrl, setQrImageUrl] = useState("");
@@ -106,8 +107,9 @@ export default function OrderQrCard({
           </div>
 
           <div className="mt-4 rounded-[1.2rem] border border-dashed border-matcha-900/15 bg-white/70 px-4 py-3 text-sm leading-7 text-stone-600">
-            `USER` quet se mo invoice cong khai. `STAFF/SHIPPER` quet trong app noi bo se tu lay
-            token tu URL nay truoc khi gui len backend.
+            `USER` quet se mo invoice cong khai. `STAFF` quet trong app se nhan buoc chuan bi,
+            `SHIPPER` quet se nhan giao hang khi don da san sang, con `MANAGER/ADMIN` se mo
+            man hinh xem don theo `allowedActions` backend tra ve.
           </div>
         </div>
       </div>

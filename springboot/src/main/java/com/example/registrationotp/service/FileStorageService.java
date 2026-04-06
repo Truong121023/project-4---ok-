@@ -61,6 +61,19 @@ public class FileStorageService {
 		return new UploadImagesResponse("Images uploaded successfully", paths, uploadedFiles);
 	}
 
+	public UploadedFileResponse storeImage(MultipartFile file, String folder) {
+		String sanitizedFolder = sanitizeFolder(folder);
+		Path targetDirectory = uploadRoot.resolve(sanitizedFolder);
+
+		try {
+			Files.createDirectories(targetDirectory);
+		} catch (IOException exception) {
+			throw new StorageException("Unable to create upload directory", exception);
+		}
+
+		return storeSingleFile(file, sanitizedFolder, targetDirectory);
+	}
+
 	private UploadedFileResponse storeSingleFile(MultipartFile file, String folder, Path targetDirectory) {
 		if (file == null || file.isEmpty()) {
 			throw new BadRequestException("Uploaded image must not be empty");

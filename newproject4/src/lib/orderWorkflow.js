@@ -55,7 +55,7 @@ export function extractOrderQrToken(value) {
   }
 
   const extractFromPath = (path) => {
-    const match = String(path ?? "").match(/\/api\/public\/order-qr\/([^/?#]+)/i);
+    const match = String(path ?? "").match(/\/api\/(?:public|mobile)\/order-qr\/([^/?#]+)/i);
     return match ? decodeURIComponent(match[1]) : "";
   };
 

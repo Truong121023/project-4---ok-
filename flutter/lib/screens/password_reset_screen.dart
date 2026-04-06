@@ -5,7 +5,12 @@ import '../core/services/api_service.dart';
 import '../core/utils/formatters.dart';
 
 class PasswordResetScreen extends StatefulWidget {
-  const PasswordResetScreen({super.key});
+  const PasswordResetScreen({
+    super.key,
+    this.initialEmail,
+  });
+
+  final String? initialEmail;
 
   @override
   State<PasswordResetScreen> createState() => _PasswordResetScreenState();
@@ -18,6 +23,12 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
   String? _message;
   String? _error;
   DateTime? _expiresAt;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController.text = widget.initialEmail?.trim() ?? '';
+  }
 
   @override
   void dispose() {

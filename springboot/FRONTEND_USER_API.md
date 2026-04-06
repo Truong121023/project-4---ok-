@@ -438,17 +438,6 @@ Scope: this section is for the staff/shipper app, not the customer storefront.
 | `PUT` | `/api/employee/notifications/{id}/unread` | Header only | `UserNotificationResponse` | Marks one task notification as unread |
 | `PUT` | `/api/employee/notifications/read-all` | Header only | `MessageResponse` | Marks all employee notifications as read |
 
-### Employee Attendance APIs
-
-| Method | Path | Query / Body | Response | Notes |
-| --- | --- | --- | --- | --- |
-| `GET` | `/api/employee/work-schedules/today` | Header only | `EmployeeWorkScheduleResponse` | Today's assigned shift |
-| `GET` | `/api/employee/work-schedules/monthly` | `?month=2026-03` | `EmployeeWorkScheduleMonthResponse` | Monthly shift calendar |
-| `GET` | `/api/employee/attendance/today` | Header only | `EmployeeAttendanceResponse` | Today's attendance record |
-| `POST` | `/api/employee/attendance/check-in` | Header only | `EmployeeAttendanceResponse` | Requires a shift today |
-| `POST` | `/api/employee/attendance/check-out` | Header only | `EmployeeAttendanceResponse` | Closes the active attendance record |
-| `GET` | `/api/employee/attendance/history` | `?fromDate=2026-03-01&toDate=2026-03-31&page=0&size=10` | `PageResponse<EmployeeAttendanceResponse>` | Employee attendance history |
-
 ### Employee Workflow Notes
 
 - `STAFF` and `SHIPPER` must use the same bearer token pattern: `Authorization: Bearer <accessToken>`.
@@ -463,6 +452,7 @@ Scope: this section is for the staff/shipper app, not the customer storefront.
 - `POST /api/employee/orders/{id}/complete-delivery` moves the order to `COMPLETED`.
 - Employee notifications use the same `UserNotificationResponse` shape as customer notifications, but `type` is `ORDER_TASK` and `actionUrl` points to `/employee/orders/{id}`.
 - For `GET /api/employee/orders`, `mine=true` returns only the current employee's active accepted work. Without `mine`, the API returns both available work and the employee's own in-progress task.
+- Work schedule and attendance APIs are disabled and should not be used by frontend/mobile.
 
 ### Employee Response DTOs
 

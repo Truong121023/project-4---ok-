@@ -53,13 +53,19 @@ public class AdminController {
 	}
 
 	@GetMapping("/dashboard")
-	public ResponseEntity<AdminDashboardResponse> dashboard(@RequestHeader("Authorization") String authorizationHeader) {
-		return ResponseEntity.ok(adminService.dashboard(authorizationHeader));
+	public ResponseEntity<AdminDashboardResponse> dashboard(
+			@RequestHeader("Authorization") String authorizationHeader,
+			@RequestParam(required = false) Long storeId
+	) {
+		return ResponseEntity.ok(adminService.dashboard(authorizationHeader, storeId));
 	}
 
 	@GetMapping("/summary")
-	public ResponseEntity<AdminSummaryResponse> summary(@RequestHeader("Authorization") String authorizationHeader) {
-		return ResponseEntity.ok(adminService.summary(authorizationHeader));
+	public ResponseEntity<AdminSummaryResponse> summary(
+			@RequestHeader("Authorization") String authorizationHeader,
+			@RequestParam(required = false) Long storeId
+	) {
+		return ResponseEntity.ok(adminService.summary(authorizationHeader, storeId));
 	}
 
 	@PostMapping(value = "/uploads/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

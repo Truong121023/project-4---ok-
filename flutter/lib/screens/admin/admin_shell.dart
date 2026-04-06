@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../ai_chat_screen.dart';
 import 'admin_account_screen.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_modules_screen.dart';
+import '../role_order_qr_scan_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -17,6 +19,12 @@ class _AdminShellState extends State<AdminShell> {
   late final List<Widget> _pages = const [
     AdminDashboardScreen(),
     AdminModulesScreen(),
+    RoleOrderQrScanScreen(
+      title: 'Admin QR',
+      headerTitle: 'Quet QR don hang',
+      headerSubtitle: 'Admin co the quet de xem nhanh thong tin don va ai da nhan xu ly.',
+      roleLabel: 'ADMIN',
+    ),
     AdminAccountScreen(),
   ];
 
@@ -30,6 +38,7 @@ class _AdminShellState extends State<AdminShell> {
           children: _pages,
         ),
       ),
+      floatingActionButton: const AiChatFab(),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         destinations: const [
@@ -42,6 +51,11 @@ class _AdminShellState extends State<AdminShell> {
             icon: Icon(Icons.dashboard_customize_outlined),
             selectedIcon: Icon(Icons.dashboard_customize),
             label: 'Modules',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.qr_code_scanner_outlined),
+            selectedIcon: Icon(Icons.qr_code_scanner),
+            label: 'Scan',
           ),
           NavigationDestination(
             icon: Icon(Icons.admin_panel_settings_outlined),

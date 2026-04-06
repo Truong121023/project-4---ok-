@@ -4,6 +4,7 @@ Scope: this file covers only admin-facing APIs for the Tea Matcha backend.
 All endpoints expect an authenticated admin token in the `Authorization` header.
 Quick endpoint-to-sample lookup is available in `API_QUICK_REFERENCE.md`.
 Latest role matrix and manager scope note is available in `FRONTEND_ROLE_API_NOTE.md`.
+AI form draft handoff is available in `FRONTEND_ADMIN_AI_DRAFT_NOTE.md`.
 
 ## Common Rules
 
@@ -77,8 +78,9 @@ Latest role matrix and manager scope note is available in `FRONTEND_ROLE_API_NOT
 
 | Method | Path | Body / Query | Response | Notes |
 | --- | --- | --- | --- | --- |
-| `GET` | `/api/admin/dashboard` | Header only | `AdminDashboardResponse` | Big dashboard payload |
-| `GET` | `/api/admin/summary` | Header only | `AdminSummaryResponse` | Lightweight counts |
+| `GET` | `/api/admin/dashboard` | Optional `storeId` | `AdminDashboardResponse` | Big dashboard payload |
+| `GET` | `/api/admin/summary` | Optional `storeId` | `AdminSummaryResponse` | Lightweight counts |
+| `POST` | `/api/admin/ai/form-drafts/{formType}` | `AdminAiFormDraftRequest` | `AdminAiFormDraftResponse` | AI generates form draft for admin/manager |
 | `POST` | `/api/admin/uploads/images` | `files`, optional `folder` | `UploadImagesResponse` | Multipart upload |
 
 ### Upload DTOs
@@ -102,16 +104,80 @@ Latest role matrix and manager scope note is available in `FRONTEND_ROLE_API_NOT
   - `events`
   - `categories`
   - `dishes`
+  - `storeDishes`
+  - `orders`
   - `reviews`
+  - `feedbacks`
+  - `promotions`
   - `news`
+  - `topSellingDishes`
+  - `revenue`
 - `AdminSummaryResponse`
   - `userCount`
   - `storeCount`
   - `eventCount`
   - `categoryCount`
   - `dishCount`
+  - `storeDishCount`
+  - `promotionCount`
+  - `orderCount`
   - `reviewCount`
   - `newsCount`
+  - `revenue`
+- `AdminRevenueSummaryResponse`
+  - `scopeStoreId`
+  - `scopeStoreName`
+  - `todayRevenue`
+  - `weekRevenue`
+  - `monthRevenue`
+  - `yearRevenue`
+- `AdminTopSellingDishResponse`
+  - `storeId`
+  - `storeName`
+  - `dishId`
+  - `dishName`
+  - `imagePaths`
+  - `quantitySold`
+  - `orderCount`
+  - `revenue`
+
+### Dashboard notes
+
+- `MANAGER` always receives a store-scoped dashboard and summary for `workingStoreId`.
+- `ADMIN` can optionally pass `storeId` to `GET /api/admin/dashboard` and `GET /api/admin/summary` to scope analytics and preview lists to one store.
+- If `ADMIN` omits `storeId`, the dashboard stays aggregated across all stores.
+- `topSellingDishes` is sorted by `quantitySold` descending, then `revenue` descending, then `dishName` ascending.
+
+### AI draft DTOs
+
+- Path param `formType` supports:
+  - `STORE`
+  - `CATEGORY`
+  - `DISH`
+  - `EVENT`
+  - `NEWS`
+  - `STORE_DISH`
+- `AdminAiFormDraftRequest`
+  - `prompt`
+  - Optional `storeId`
+  - Optional `currentForm`
+- `AdminAiFormDraftResponse`
+  - `formType`
+  - `draft`
+  - `warnings`
+  - `missingFields`
+  - `scopeStoreId`
+  - `scopeStoreName`
+  - `model`
+
+### AI draft notes
+
+- `ADMIN` can omit `storeId` or pass one store for tighter AI context.
+- `MANAGER` is always restricted to their own `workingStoreId` even if another `storeId` is sent.
+- AI returns only a draft object for the selected form type; backend does not auto-save anything.
+- `warnings` explains values that were removed or adjusted after backend validation.
+- `missingFields` tells frontend which important fields still need manual input.
+- AI does not upload images. `imagePaths` usually comes back empty until frontend uploads files separately.
 
 ## 2. Users
 
@@ -492,101 +558,15 @@ Latest role matrix and manager scope note is available in `FRONTEND_ROLE_API_NOT
 - `status` and `paymentStatus` can still be combined with `stage` for stricter filtering
 - `storeId` is optional for `ADMIN`; `MANAGER` accounts are always restricted to their own store
 
-## Work Schedules And Attendance
+## Work Schedule And Attendance
 
-| Method | Path | Query / Body | Response | Notes |
-| --- | --- | --- | --- | --- |
-| `PUT` | `/api/admin/work-schedules/monthly` | `EmployeeWorkScheduleMonthlyUpsertRequest` | `EmployeeWorkScheduleMonthResponse` | Admin assigns the full final monthly schedule for one store |
-| `GET` | `/api/admin/work-schedules/monthly` | `storeId`, `month`, optional `userId`, `role`, `search` | `EmployeeWorkScheduleMonthResponse` | `MANAGER` can read only their own store |
-| `GET` | `/api/admin/attendances` | `storeId`, `userId`, `role`, `workDate`, `checkedOut`, `search`, `page`, `size` | `PageResponse<EmployeeAttendanceResponse>` | Attendance log |
-| `GET` | `/api/admin/attendances/summary` | `storeId`, `workDate` | `EmployeeAttendanceSummaryResponse` | Daily summary based on scheduled staff/shipper for that date |
-
-### Work schedule request DTOs
-
-- `EmployeeWorkScheduleMonthlyUpsertRequest`
-  - `storeId`
-  - `month`
-  - `entries`
-- `EmployeeWorkScheduleEntryRequest`
-  - `userId`
-  - `workDate`
-  - `scheduledStartTime`
-  - `scheduledEndTime`
-  - `note`
-
-### Work schedule response DTOs
-
-- `EmployeeWorkScheduleMonthResponse`
-  - `month`
-  - `storeId`
-  - `storeName`
-  - `items`
-- `EmployeeWorkScheduleResponse`
-  - `id`
-  - `userId`
-  - `fullName`
-  - `email`
-  - `role`
-  - `storeId`
-  - `storeName`
-  - `storeAddress`
-  - `workDate`
-  - `scheduledStartTime`
-  - `scheduledEndTime`
-  - `scheduledMinutes`
-  - `note`
-  - `attendanceId`
-  - `checkInAt`
-  - `checkOutAt`
-  - `workedMinutes`
-  - `checkedIn`
-  - `checkedOut`
-  - `currentlyWorking`
-
-### Attendance response DTOs
-
-- `EmployeeAttendanceResponse`
-  - `id`
-  - `workScheduleId`
-  - `userId`
-  - `fullName`
-  - `email`
-  - `role`
-  - `storeId`
-  - `storeName`
-  - `storeAddress`
-  - `workDate`
-  - `scheduledStartTime`
-  - `scheduledEndTime`
-  - `scheduleNote`
-  - `checkInAt`
-  - `checkOutAt`
-  - `workedMinutes`
-  - `checkedIn`
-  - `checkedOut`
-  - `currentlyWorking`
-- `EmployeeAttendanceSummaryResponse`
-  - `workDate`
-  - `storeId`
-  - `storeName`
-  - `totalAssignedEmployees`
-  - `totalAssignedStaff`
-  - `totalAssignedShippers`
-  - `presentCount`
-  - `presentStaffCount`
-  - `presentShipperCount`
-  - `checkedOutCount`
-  - `currentlyWorkingCount`
-
-### Work schedule and attendance notes
-
-- `PUT /api/admin/work-schedules/monthly` is replace-style for one store and one month.
-- The frontend should send the full final `entries` array for that store/month, not only diffs.
-- Each employee can have at most one schedule per day.
-- Only users with role `STAFF` or `SHIPPER` and `workingStoreId` matching `storeId` can be scheduled.
-- `scheduledEndTime` must be after `scheduledStartTime`.
-- If attendance already exists for a removed schedule entry, backend rejects the update instead of deleting historical references.
-- Employee check-in now requires a schedule for that day, so the admin UI should publish the monthly roster before staff/shipper start using attendance.
+- Work schedule and attendance APIs are disabled.
+- Frontend should remove:
+  - work schedule calendar
+  - attendance log pages
+  - check-in/check-out actions
+  - attendance summary widgets
+  - staff/shipper shift pages based on backend APIs
 
 ## 11. Promotions
 
@@ -965,8 +945,52 @@ Latest role matrix and manager scope note is available in `FRONTEND_ROLE_API_NOT
     "eventCount": 12,
     "categoryCount": 8,
     "dishCount": 42,
+    "storeDishCount": 60,
+    "promotionCount": 4,
+    "orderCount": 280,
     "reviewCount": 180,
-    "newsCount": 16
+    "newsCount": 16,
+    "revenue": {
+      "scopeStoreId": null,
+      "scopeStoreName": "All stores",
+      "todayRevenue": 3500000,
+      "weekRevenue": 18900000,
+      "monthRevenue": 74400000,
+      "yearRevenue": 311250000
+    }
+  },
+  "adminDashboardResponse": {
+    "users": [],
+    "stores": [],
+    "events": [],
+    "categories": [],
+    "dishes": [],
+    "storeDishes": [],
+    "orders": [],
+    "reviews": [],
+    "feedbacks": [],
+    "promotions": [],
+    "news": [],
+    "topSellingDishes": [
+      {
+        "storeId": 1,
+        "storeName": "Tea House Q1",
+        "dishId": 88,
+        "dishName": "Matcha Latte",
+        "imagePaths": ["/uploads/dishes/matcha-latte.jpg"],
+        "quantitySold": 124,
+        "orderCount": 98,
+        "revenue": 11160000
+      }
+    ],
+    "revenue": {
+      "scopeStoreId": null,
+      "scopeStoreName": "All stores",
+      "todayRevenue": 3500000,
+      "weekRevenue": 18900000,
+      "monthRevenue": 74400000,
+      "yearRevenue": 311250000
+    }
   },
   "pageResponse": {
     "items": [

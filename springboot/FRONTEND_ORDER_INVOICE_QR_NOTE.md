@@ -55,6 +55,10 @@ These fields are now included in `OrderResponse`:
 - `invoiceDownloadUrl`: `String`
 - `invoicePreviewUrl`: `String`
 - `orderQrToken`: `String`
+- `confirmedByUserId`: `Long`
+- `confirmedByUserName`: `String`
+- `confirmedByUserRole`: `String`
+- `confirmedAt`: `Instant`
 - `allowedActions`: `List<OrderAllowedAction>`
 - `preparingStaffId`: `Long`
 - `preparingStaffName`: `String`
@@ -89,6 +93,10 @@ Notes:
   "discountAmount": 20000,
   "totalAmount": 160000,
   "deliveryType": "DELIVERY",
+  "confirmedByUserId": 5,
+  "confirmedByUserName": "Store Manager",
+  "confirmedByUserRole": "MANAGER",
+  "confirmedAt": "2026-03-30T10:18:00Z",
   "preparingStaffId": null,
   "preparingStaffName": null,
   "deliveringShipperId": null,
@@ -126,6 +134,12 @@ Notes:
 ## 4. allowedActions By Role
 
 Frontend should trust `allowedActions` from backend.
+
+Progress display recommendation:
+- render the confirmation stage from `confirmedByUserName`
+- render the preparing stage from `preparingStaffName`
+- render the delivery stage from `deliveringShipperName`
+- show them in that order on the order processing timeline
 
 ### `ADMIN` and `MANAGER`
 
@@ -430,4 +444,3 @@ Example invalid QR:
 - `ACCEPT_DELIVERY` -> button: `Accept delivery`
 - `MARK_COMPLETED` -> button: `Mark completed`
 - `REFRESH_PAYMENT` -> button: `Create new PayOS payment`
-

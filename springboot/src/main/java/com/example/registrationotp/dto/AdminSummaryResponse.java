@@ -10,6 +10,7 @@ public record AdminSummaryResponse(
 		long promotionCount,
 		long orderCount,
 		long reviewCount,
-		long newsCount
+		long newsCount,
+		AdminRevenueSummaryResponse revenue
 ) {
 }

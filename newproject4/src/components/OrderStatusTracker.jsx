@@ -100,43 +100,83 @@ function formatDateTime(value) {
   }).format(date);
 }
 
+function formatActor(name, role) {
+  const actorName = String(name ?? "").trim();
+  const actorRole = String(role ?? "").trim().toUpperCase();
+
+  if (!actorName) {
+    return "";
+  }
+
+  return actorRole ? `${actorName} (${actorRole})` : actorName;
+}
+
 function getStepMeta(stepKey, order, state) {
   const normalizedStepKey = String(stepKey ?? "").toUpperCase();
   const createdAt = formatDateTime(order?.createdAt);
   const updatedAt = formatDateTime(order?.updatedAt);
   const paidAt = formatDateTime(order?.paidAt);
+  const confirmedAt = formatDateTime(order?.confirmedAt);
+  const confirmedBy = formatActor(order?.confirmedByUserName, order?.confirmedByUserRole);
   const preparingStaffName = String(order?.preparingStaffName ?? "").trim();
   const deliveringShipperName = String(order?.deliveringShipperName ?? "").trim();
+  const deliveryProofCapturedAt = formatDateTime(order?.deliveryProofCapturedAt);
+  const deliveryProofUploadedAt = formatDateTime(order?.deliveryProofUploadedAt);
+  const statusSummary = String(order?.statusSummary ?? "").trim();
 
   if (state === "pending") {
     return [];
   }
 
-  const prefix = state === "current" ? "Dang xu ly" : "Da xong";
+  const isCurrent = state === "current";
 
   switch (normalizedStepKey) {
     case "PENDING":
-      return createdAt ? [`${prefix}: ${createdAt}`] : [];
+      return createdAt
+        ? [isCurrent ? `Tao luc: ${createdAt}` : `Da tao luc: ${createdAt}`]
+        : [];
     case "CONFIRMED":
       return [
-        paidAt ? `${prefix}: ${paidAt}` : updatedAt ? `Cap nhat: ${updatedAt}` : "",
+        confirmedBy ? `Xac nhan boi: ${confirmedBy}` : "",
+        confirmedAt
+          ? `${isCurrent ? "Dang xac nhan tu" : "Da xac nhan luc"}: ${confirmedAt}`
+          : paidAt
+            ? `Thanh toan luc: ${paidAt}`
+            : updatedAt
+              ? `Cap nhat luc: ${updatedAt}`
+              : "",
       ].filter(Boolean);
     case "PREPARING":
       return [
-        preparingStaffName ? `Staff: ${preparingStaffName}` : "",
-        updatedAt ? `${state === "current" ? "Dang tu" : "Cap nhat"}: ${updatedAt}` : "",
+        preparingStaffName ? `Staff phu trach: ${preparingStaffName}` : "",
+        updatedAt
+          ? `${isCurrent ? "Dang chuan bi tu" : "Cap nhat lan cuoi"}: ${updatedAt}`
+          : "",
+        statusSummary && isCurrent ? statusSummary : "",
       ].filter(Boolean);
     case "READY_FOR_SHIPPER":
-      return [updatedAt ? `${prefix}: ${updatedAt}` : ""].filter(Boolean);
+      return [
+        preparingStaffName ? `Staff hoan tat: ${preparingStaffName}` : "",
+        updatedAt
+          ? `${isCurrent ? "Cho shipper tu" : "San sang giao luc"}: ${updatedAt}`
+          : "",
+      ].filter(Boolean);
     case "OUT_FOR_DELIVERY":
       return [
-        deliveringShipperName ? `Shipper: ${deliveringShipperName}` : "",
-        updatedAt ? `${state === "current" ? "Dang tu" : "Cap nhat"}: ${updatedAt}` : "",
+        deliveringShipperName ? `Shipper phu trach: ${deliveringShipperName}` : "",
+        updatedAt
+          ? `${isCurrent ? "Dang giao tu" : "Nhan giao luc"}: ${updatedAt}`
+          : "",
+        statusSummary && isCurrent ? statusSummary : "",
       ].filter(Boolean);
     case "COMPLETED":
       return [
-        deliveringShipperName ? `Shipper: ${deliveringShipperName}` : "",
-        updatedAt ? `Hoan tat: ${updatedAt}` : "",
+        deliveringShipperName ? `Shipper hoan tat: ${deliveringShipperName}` : "",
+        updatedAt ? `Hoan tat luc: ${updatedAt}` : "",
+        deliveryProofCapturedAt ? `Bang chung chup luc: ${deliveryProofCapturedAt}` : "",
+        !deliveryProofCapturedAt && deliveryProofUploadedAt
+          ? `Bang chung tai len luc: ${deliveryProofUploadedAt}`
+          : "",
       ].filter(Boolean);
     default:
       return updatedAt ? [`Cap nhat: ${updatedAt}`] : [];

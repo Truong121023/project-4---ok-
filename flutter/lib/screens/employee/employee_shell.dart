@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'employee_account_screen.dart';
-import 'employee_home_screen.dart';
-import 'employee_notifications_screen.dart';
-import 'employee_orders_screen.dart';
-import 'employee_schedule_screen.dart';
+import '../ai_chat_screen.dart';
+import 'employee_active_orders_screen.dart';
+import 'employee_completed_orders_screen.dart';
+import 'employee_scan_screen.dart';
 import 'employee_support.dart';
 
 class EmployeeShell extends StatefulWidget {
@@ -23,11 +22,9 @@ class _EmployeeShellState extends State<EmployeeShell> {
   int _index = 0;
 
   List<Widget> get _pages => [
-        EmployeeHomeScreen(kind: widget.kind),
-        EmployeeOrdersScreen(kind: widget.kind),
-        const EmployeeScheduleScreen(),
-        const EmployeeNotificationsScreen(),
-        const EmployeeAccountScreen(),
+        EmployeeScanScreen(kind: widget.kind),
+        EmployeeActiveOrdersScreen(kind: widget.kind),
+        EmployeeCompletedOrdersScreen(kind: widget.kind),
       ];
 
   @override
@@ -40,33 +37,24 @@ class _EmployeeShellState extends State<EmployeeShell> {
           children: _pages,
         ),
       ),
+      floatingActionButton: const AiChatFab(),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.flash_on_outlined),
-            selectedIcon: Icon(Icons.flash_on),
-            label: 'Today',
+            icon: Icon(Icons.qr_code_scanner_outlined),
+            selectedIcon: Icon(Icons.qr_code_scanner),
+            label: 'Scan',
           ),
           NavigationDestination(
-            icon: Icon(Icons.assignment_outlined),
-            selectedIcon: Icon(Icons.assignment),
-            label: 'Orders',
+            icon: Icon(employeeRoleIcon(widget.kind)),
+            selectedIcon: Icon(employeeRoleIcon(widget.kind)),
+            label: employeePrimaryQueueLabel(widget.kind),
           ),
           NavigationDestination(
-            icon: Icon(Icons.calendar_month_outlined),
-            selectedIcon: Icon(Icons.calendar_month),
-            label: 'Schedule',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.notifications_outlined),
-            selectedIcon: Icon(Icons.notifications),
-            label: 'Noti',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Account',
+            icon: Icon(Icons.checklist_rtl_outlined),
+            selectedIcon: Icon(Icons.checklist_rtl),
+            label: employeeCompletedQueueLabel(widget.kind),
           ),
         ],
         onDestinationSelected: (index) => setState(() => _index = index),

@@ -40,7 +40,7 @@ public class NotificationService {
 	private static final int MAX_PAGE_SIZE = 100;
 	private static final Sort DEFAULT_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
 	private static final String BRAND_NAME = "Tea Matcha";
-	private static final Set<Role> EMPLOYEE_NOTIFICATION_ROLES = EnumSet.of(Role.STAFF, Role.SHIPPER);
+	private static final Set<Role> EMPLOYEE_NOTIFICATION_ROLES = EnumSet.of(Role.MANAGER, Role.STAFF, Role.SHIPPER);
 
 	private final SessionAuthService sessionAuthService;
 	private final UserNotificationRepository userNotificationRepository;
@@ -80,6 +80,16 @@ public class NotificationService {
 	}
 
 	@Transactional(readOnly = true)
+	public PageResponse<UserNotificationResponse> listAdminNotifications(
+			String authorizationHeader,
+			Boolean read,
+			int page,
+			int size
+	) {
+		return listNotifications(requireAdminNotificationUser(authorizationHeader), read, page, size);
+	}
+
+	@Transactional(readOnly = true)
 	public UserNotificationUnreadCountResponse getUnreadCount(String authorizationHeader) {
 		return getUnreadCount(requireBuyerUser(authorizationHeader));
 	}
@@ -87,6 +97,11 @@ public class NotificationService {
 	@Transactional(readOnly = true)
 	public UserNotificationUnreadCountResponse getEmployeeUnreadCount(String authorizationHeader) {
 		return getUnreadCount(requireEmployeeNotificationUser(authorizationHeader));
+	}
+
+	@Transactional(readOnly = true)
+	public UserNotificationUnreadCountResponse getAdminUnreadCount(String authorizationHeader) {
+		return getUnreadCount(requireAdminNotificationUser(authorizationHeader));
 	}
 
 	@Transactional
@@ -100,6 +115,11 @@ public class NotificationService {
 	}
 
 	@Transactional
+	public UserNotificationResponse markAdminAsRead(String authorizationHeader, Long id) {
+		return markAsRead(requireAdminNotificationUser(authorizationHeader), id);
+	}
+
+	@Transactional
 	public UserNotificationResponse markAsUnread(String authorizationHeader, Long id) {
 		return markAsUnread(requireBuyerUser(authorizationHeader), id);
 	}
@@ -110,6 +130,11 @@ public class NotificationService {
 	}
 
 	@Transactional
+	public UserNotificationResponse markAdminAsUnread(String authorizationHeader, Long id) {
+		return markAsUnread(requireAdminNotificationUser(authorizationHeader), id);
+	}
+
+	@Transactional
 	public MessageResponse markAllAsRead(String authorizationHeader) {
 		return markAllAsRead(requireBuyerUser(authorizationHeader));
 	}
@@ -117,6 +142,11 @@ public class NotificationService {
 	@Transactional
 	public MessageResponse markAllEmployeeNotificationsAsRead(String authorizationHeader) {
 		return markAllAsRead(requireEmployeeNotificationUser(authorizationHeader));
+	}
+
+	@Transactional
+	public MessageResponse markAllAdminNotificationsAsRead(String authorizationHeader) {
+		return markAllAsRead(requireAdminNotificationUser(authorizationHeader));
 	}
 
 	@Transactional
@@ -212,6 +242,49 @@ public class NotificationService {
 				"Don hang moi #%d".formatted(order.getId()),
 				"Don hang #%d da duoc tao. Vui long hoan tat thanh toan de cua hang xu ly.".formatted(order.getId())
 		);
+	}
+
+	@Transactional
+	public void notifyManagerAboutNewOrder(Order order) {
+		if (order == null || order.getId() == null) {
+			return;
+		}
+
+		Optional<OrderStoreSnapshot> storeSnapshot = resolveOrderStore(order);
+		if (storeSnapshot.isEmpty()) {
+			return;
+		}
+
+		OrderStoreSnapshot orderStore = storeSnapshot.get();
+		List<User> managers = userRepository.findAllByWorkingStoreIdAndRoleInAndEnabledTrue(
+				orderStore.storeId(),
+				List.of(Role.MANAGER)
+		);
+		if (managers.isEmpty()) {
+			return;
+		}
+
+		String title = "Don hang moi tai %s".formatted(orderStore.storeName());
+		String message = order.getPaymentStatus() == PaymentStatus.PAID
+				? "Khach vua tao don hang #%d tai %s. Don hang da thanh toan va dang cho cua hang xu ly."
+						.formatted(order.getId(), orderStore.storeName())
+				: "Khach vua tao don hang #%d tai %s. Don hang dang cho thanh toan."
+						.formatted(order.getId(), orderStore.storeName());
+
+		List<UserNotification> notifications = new ArrayList<>();
+		for (User manager : managers) {
+			UserNotification notification = new UserNotification();
+			notification.setUser(manager);
+			notification.setType(UserNotificationType.ORDER_STATUS);
+			notification.setTitle(title);
+			notification.setMessage(message);
+			notification.setRelatedOrderId(order.getId());
+			notification.setRelatedStoreId(orderStore.storeId());
+			notification.setRelatedStoreName(orderStore.storeName());
+			notification.setActionUrl("/admin/orders/" + order.getId());
+			notifications.add(notification);
+		}
+		userNotificationRepository.saveAll(notifications);
 	}
 
 	@Transactional
@@ -429,7 +502,7 @@ public class NotificationService {
 	private User requireEmployeeNotificationUser(String authorizationHeader) {
 		User user = sessionAuthService.requireUser(authorizationHeader);
 		if (!EMPLOYEE_NOTIFICATION_ROLES.contains(user.getRole())) {
-			throw new ForbiddenException("Only STAFF and SHIPPER accounts can access employee notifications");
+			throw new ForbiddenException("Only MANAGER, STAFF, and SHIPPER accounts can access employee notifications");
 		}
 		if (!user.isEnabled()) {
 			throw new ForbiddenException("Employee account is disabled");
@@ -438,6 +511,10 @@ public class NotificationService {
 			throw new ForbiddenException("Employee account must be assigned to a working store");
 		}
 		return user;
+	}
+
+	private User requireAdminNotificationUser(String authorizationHeader) {
+		return sessionAuthService.requireAdminOrManager(authorizationHeader);
 	}
 
 	private UserNotification findOwnedNotification(Long id, Long userId) {

@@ -30,6 +30,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.util.StringUtils;
 
@@ -43,6 +44,7 @@ import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
 import com.example.registrationotp.config.PayOsProperties;
 import com.example.registrationotp.dto.CheckoutRequest;
 import com.example.registrationotp.dto.CheckoutResponse;
+import com.example.registrationotp.dto.DeliveryProofUploadResponse;
 import com.example.registrationotp.dto.EmployeeOrderScanRequest;
 import com.example.registrationotp.dto.EmployeeOrderScanResponse;
 import com.example.registrationotp.dto.MobileOrderQrResolveResponse;
@@ -57,6 +59,7 @@ import com.example.registrationotp.dto.PayOsCreatePaymentLinkRequest;
 import com.example.registrationotp.dto.PayOsPaymentLinkData;
 import com.example.registrationotp.dto.PayOsPaymentStatusResponse;
 import com.example.registrationotp.dto.PayOsWebhookRequest;
+import com.example.registrationotp.dto.UploadedFileResponse;
 import com.example.registrationotp.exception.BadRequestException;
 import com.example.registrationotp.exception.ConflictException;
 import com.example.registrationotp.exception.ForbiddenException;
@@ -118,6 +121,7 @@ public class OrderService {
 	private final NotificationService notificationService;
 	private final TokenGenerator tokenGenerator;
 	private final AppMobileProperties appMobileProperties;
+	private final FileStorageService fileStorageService;
 
 	public OrderService(
 			SessionAuthService sessionAuthService,
@@ -139,7 +143,8 @@ public class OrderService {
 			EmailSender emailSender,
 			NotificationService notificationService,
 			TokenGenerator tokenGenerator,
-			AppMobileProperties appMobileProperties
+			AppMobileProperties appMobileProperties,
+			FileStorageService fileStorageService
 	) {
 		this.sessionAuthService = sessionAuthService;
 		this.cartRepository = cartRepository;
@@ -161,6 +166,7 @@ public class OrderService {
 		this.notificationService = notificationService;
 		this.tokenGenerator = tokenGenerator;
 		this.appMobileProperties = appMobileProperties;
+		this.fileStorageService = fileStorageService;
 	}
 
 	@Transactional
@@ -454,7 +460,8 @@ public class OrderService {
 			case USER -> resolveUserMobileQr(actor, order);
 			case STAFF -> resolveStaffMobileQr(actor, order);
 			case SHIPPER -> resolveShipperMobileQr(actor, order);
-			case ADMIN, MANAGER -> resolveAdminMobileQr(actor, order);
+			case MANAGER -> resolveManagerMobileQr(actor, order);
+			case ADMIN -> resolveAdminMobileQr(actor, order);
 		};
 	}
 
@@ -468,7 +475,7 @@ public class OrderService {
 		}
 
 		Map<Long, OrderStateSnapshot> previousStates = snapshotOrderStates(List.of(order));
-		order.setStatus(OrderStatus.CONFIRMED);
+		applyConfirmation(order, operator);
 		Order savedOrder = orderRepository.save(order);
 		notifyEmployeeTaskChanges(List.of(savedOrder), previousStates);
 		notifyOrderStateChanges(List.of(savedOrder), previousStates);
@@ -703,6 +710,39 @@ public class OrderService {
 		return toResponse(savedOrder, shipper.getWorkingStore().getId(), shipper);
 	}
 
+	@Transactional
+	public DeliveryProofUploadResponse uploadDeliveryProof(
+			String authorizationHeader,
+			Long id,
+			MultipartFile file,
+			String capturedAtText,
+			String note
+	) {
+		User shipper = requireEmployeeOperator(authorizationHeader, Role.SHIPPER);
+		Order order = findOrder(id);
+		ensureShipperCanUploadDeliveryProof(shipper, order);
+
+		UploadedFileResponse uploadedFile = fileStorageService.storeImage(file, "delivery-proofs");
+		Instant uploadedAt = Instant.now();
+		Instant capturedAt = parseOptionalInstant(capturedAtText, "capturedAt");
+		String normalizedNote = normalizeOptionalNote(note);
+
+		order.setDeliveryProofImagePath(uploadedFile.path());
+		order.setDeliveryProofCapturedAt(capturedAt);
+		order.setDeliveryProofUploadedAt(uploadedAt);
+		order.setDeliveryProofNote(normalizedNote);
+		orderRepository.save(order);
+
+		return new DeliveryProofUploadResponse(
+				"Delivery proof uploaded successfully",
+				order.getId(),
+				uploadedFile.path(),
+				capturedAt,
+				normalizedNote,
+				uploadedAt
+		);
+	}
+
 	@Transactional(readOnly = true)
 	public PageResponse<OrderResponse> listOrders(
 			String authorizationHeader,
@@ -761,7 +801,7 @@ public class OrderService {
 			if (request.status() == OrderStatus.CANCELLED && paymentGroup.size() > 1) {
 				throw new BadRequestException("Shared payment orders cannot be cancelled individually");
 			}
-			applyStatusUpdate(order, request.status());
+			applyStatusUpdate(order, request.status(), operator);
 		}
 
 		orderRepository.saveAll(paymentGroup);
@@ -1049,12 +1089,22 @@ public class OrderService {
 		return true;
 	}
 
-	private void applyStatusUpdate(Order order, OrderStatus targetStatus) {
+	private void applyStatusUpdate(Order order, OrderStatus targetStatus, User operator) {
 		if (targetStatus == OrderStatus.CANCELLED) {
 			cancelOrder(order);
 			return;
 		}
+		if (targetStatus == OrderStatus.CONFIRMED) {
+			applyConfirmation(order, operator);
+			return;
+		}
 		order.setStatus(targetStatus);
+	}
+
+	private void applyConfirmation(Order order, User operator) {
+		order.setStatus(OrderStatus.CONFIRMED);
+		order.setConfirmedByUser(operator);
+		order.setConfirmedAt(Instant.now());
 	}
 
 	private boolean applyPaymentStatusUpdate(List<Order> orders, PaymentStatus targetPaymentStatus) {
@@ -1255,6 +1305,44 @@ public class OrderService {
 		if (!canAccess) {
 			throw new ForbiddenException("Order is not available for your shipper workflow");
 		}
+	}
+
+	private void ensureShipperCanUploadDeliveryProof(User shipper, Order order) {
+		Long workingStoreId = shipper.getWorkingStore().getId();
+		if (!orderItemRepository.existsByOrderIdAndStoreId(order.getId(), workingStoreId)) {
+			throw new ForbiddenException("Order does not belong to your store");
+		}
+		if (order.getPaymentStatus() != PaymentStatus.PAID) {
+			throw new ForbiddenException("Only paid orders can have delivery proof uploaded");
+		}
+		if (order.getStatus() != OrderStatus.OUT_FOR_DELIVERY) {
+			throw new ConflictException("Delivery proof can only be uploaded while the order is out for delivery.");
+		}
+		if (order.getDeliveringShipper() == null || !order.getDeliveringShipper().getId().equals(shipper.getId())) {
+			throw new ConflictException("Order is assigned to another shipper.");
+		}
+	}
+
+	private Instant parseOptionalInstant(String value, String fieldName) {
+		if (!StringUtils.hasText(value)) {
+			return null;
+		}
+		try {
+			return Instant.parse(value.trim());
+		} catch (RuntimeException exception) {
+			throw new BadRequestException(fieldName + " must be a valid ISO-8601 instant");
+		}
+	}
+
+	private String normalizeOptionalNote(String note) {
+		if (!StringUtils.hasText(note)) {
+			return null;
+		}
+		String normalized = note.trim();
+		if (normalized.length() > 500) {
+			throw new BadRequestException("note must be 500 characters or fewer");
+		}
+		return normalized;
 	}
 
 	private void markDeliveryAddressUsed(UserDeliveryAddress deliveryAddress) {
@@ -1931,6 +2019,10 @@ public class OrderService {
 				order.getDeliveryFullName(),
 				order.getDeliveryPhoneNumber(),
 				order.getDeliveryAddress(),
+				order.getConfirmedByUser() != null ? order.getConfirmedByUser().getId() : null,
+				order.getConfirmedByUser() != null ? order.getConfirmedByUser().getFullName() : null,
+				order.getConfirmedByUser() != null && order.getConfirmedByUser().getRole() != null ? order.getConfirmedByUser().getRole().name() : null,
+				order.getConfirmedAt(),
 				order.getPreparingStaff() != null ? order.getPreparingStaff().getId() : null,
 				order.getPreparingStaff() != null ? order.getPreparingStaff().getFullName() : null,
 				order.getDeliveringShipper() != null ? order.getDeliveringShipper().getId() : null,
@@ -1942,11 +2034,74 @@ public class OrderService {
 				invoiceDownloadUrl,
 				invoicePreviewUrl,
 				order.getInvoiceQrToken(),
+				order.getDeliveryProofImagePath(),
+				order.getDeliveryProofCapturedAt(),
+				order.getDeliveryProofUploadedAt(),
+				order.getDeliveryProofNote(),
 				resolveAllowedActions(order, actor, visibleStoreId, invoiceAvailable),
 				resolveStatusSummary(order),
 				items,
 				order.getCreatedAt(),
 				order.getUpdatedAt()
+		);
+	}
+
+	private OrderResponse restrictOrderActionsForQr(OrderResponse response, OrderAllowedAction... allowedActions) {
+		List<OrderAllowedAction> allowed = List.of(allowedActions).stream()
+				.filter(response.allowedActions()::contains)
+				.toList();
+		return new OrderResponse(
+				response.id(),
+				response.userId(),
+				response.storeId(),
+				response.storeSlug(),
+				response.storeName(),
+				response.status(),
+				response.paymentStatus(),
+				response.paymentProvider(),
+				response.payosOrderCode(),
+				response.paymentLinkId(),
+				response.paymentCheckoutUrl(),
+				response.paymentQrCode(),
+				response.paymentExpiresAt(),
+				response.paidAt(),
+				response.paymentReference(),
+				response.subtotalAmount(),
+				response.discountAmount(),
+				response.totalAmount(),
+				response.promotionCode(),
+				response.promotionScope(),
+				response.promotionEligibleAmount(),
+				response.promotionDishIds(),
+				response.deliveryType(),
+				response.scheduledDeliveryAt(),
+				response.deliveryFullName(),
+				response.deliveryPhoneNumber(),
+				response.deliveryAddress(),
+				response.confirmedByUserId(),
+				response.confirmedByUserName(),
+				response.confirmedByUserRole(),
+				response.confirmedAt(),
+				response.preparingStaffId(),
+				response.preparingStaffName(),
+				response.deliveringShipperId(),
+				response.deliveringShipperName(),
+				response.invoiceAvailable(),
+				response.invoiceId(),
+				response.invoiceNumber(),
+				response.invoiceIssuedAt(),
+				response.invoiceDownloadUrl(),
+				response.invoicePreviewUrl(),
+				response.orderQrToken(),
+				response.deliveryProofImagePath(),
+				response.deliveryProofCapturedAt(),
+				response.deliveryProofUploadedAt(),
+				response.deliveryProofNote(),
+				allowed,
+				response.statusSummary(),
+				response.items(),
+				response.createdAt(),
+				response.updatedAt()
 		);
 	}
 
@@ -2155,8 +2310,32 @@ public class OrderService {
 		);
 	}
 
+	private MobileOrderQrResolveResponse resolveManagerMobileQr(User manager, Order order) {
+		Long visibleStoreId = resolveVisibleStoreId(manager, order);
+		OrderResponse response = restrictOrderActionsForQr(
+				toResponse(order, visibleStoreId, manager),
+				OrderAllowedAction.CONFIRM_ORDER,
+				OrderAllowedAction.VIEW_INVOICE
+		);
+		return new MobileOrderQrResolveResponse(
+				manager.getRole(),
+				"ADMIN_ORDER_DETAIL",
+				false,
+				"Order loaded",
+				null,
+				null,
+				null,
+				null,
+				response
+		);
+	}
+
 	private MobileOrderQrResolveResponse resolveAdminMobileQr(User operator, Order order) {
 		Long visibleStoreId = resolveVisibleStoreId(operator, order);
+		OrderResponse response = restrictOrderActionsForQr(
+				toResponse(order, visibleStoreId, operator),
+				OrderAllowedAction.VIEW_INVOICE
+		);
 		return new MobileOrderQrResolveResponse(
 				operator.getRole(),
 				"ADMIN_ORDER_DETAIL",
@@ -2166,7 +2345,7 @@ public class OrderService {
 				null,
 				null,
 				null,
-				toResponse(order, visibleStoreId, operator)
+				response
 		);
 	}
 
@@ -2254,9 +2433,15 @@ public class OrderService {
 			return "Cho cua hang xac nhan";
 		}
 		if (order.getStatus() == OrderStatus.CONFIRMED) {
+			if (order.getConfirmedByUser() != null) {
+				return order.getConfirmedByUser().getFullName() + " da xac nhan don - cho nhan vien nhan don";
+			}
 			return "Cho nhan vien nhan don";
 		}
 		if (order.getStatus() == OrderStatus.READY_FOR_SHIPPER) {
+			if (order.getPreparingStaff() != null) {
+				return order.getPreparingStaff().getFullName() + " da lam xong - cho shipper";
+			}
 			return "Da lam xong - cho shipper";
 		}
 		if (order.getStatus() == OrderStatus.OUT_FOR_DELIVERY) {
@@ -2449,6 +2634,7 @@ public class OrderService {
 	private void createOrderCreatedNotifications(List<Order> orders) {
 		for (Order order : orders) {
 			notificationService.notifyOrderCreated(order);
+			notificationService.notifyManagerAboutNewOrder(order);
 		}
 	}
 

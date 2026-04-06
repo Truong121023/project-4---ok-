@@ -146,6 +146,32 @@ class UserSession {
   }
 }
 
+enum SessionInterruptionKind {
+  replaced,
+  expired,
+  loginRequired,
+}
+
+class SessionInterruptionNotice {
+  const SessionInterruptionNotice({
+    required this.kind,
+    required this.title,
+    required this.message,
+    required this.primaryActionLabel,
+    this.secondaryActionLabel,
+    this.email,
+  });
+
+  final SessionInterruptionKind kind;
+  final String title;
+  final String message;
+  final String primaryActionLabel;
+  final String? secondaryActionLabel;
+  final String? email;
+
+  bool get supportsPasswordReset => secondaryActionLabel != null && secondaryActionLabel!.trim().isNotEmpty;
+}
+
 class RegisterResult {
   const RegisterResult({
     required this.message,

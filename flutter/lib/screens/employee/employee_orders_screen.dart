@@ -142,7 +142,7 @@ class _EmployeeOrdersScreenState extends State<EmployeeOrdersScreen> {
                 if (pending.isEmpty)
                   const EmptyStateCard(
                     title: 'Khong co don cho nhan',
-                    message: 'Khi backend day don vao hang doi, card se hien o day.',
+                    message: 'Khi co don moi, card se hien o day de ban nhan viec nhanh.',
                   )
                 else
                   ...pending.map(

@@ -1,4 +1,4 @@
-import { apiRequest, ApiError } from "./api";
+import { apiRequest, ApiError, parseApiResponsePayload, resolveApiUrl } from "./api";
 import { normalizeImagePathList } from "./images";
 
 function toNumber(value, fallback = 0) {
@@ -468,6 +468,10 @@ function mapCustomerFeedback(feedback) {
     relatedStoreSlug: pickText(feedback?.relatedStoreSlug, feedback?.storeSlug),
     relatedStoreName: pickText(feedback?.relatedStoreName, feedback?.storeName),
     relatedStoreAddress: pickText(feedback?.relatedStoreAddress, feedback?.storeAddress),
+    relatedOrderId: toId(feedback?.relatedOrderId),
+    relatedOrderStatus: pickText(feedback?.relatedOrderStatus),
+    relatedOrderPaymentStatus: pickText(feedback?.relatedOrderPaymentStatus),
+    relatedOrderPaymentReference: pickText(feedback?.relatedOrderPaymentReference),
     subject: pickText(feedback?.subject),
     message: pickText(feedback?.message),
     replyMessage: pickText(feedback?.replyMessage),
@@ -719,6 +723,19 @@ function mapOrder(payload, includeNestedOrders = true) {
     promotionDishIds: ensureArray(payload?.promotionDishIds).map((dishId) => toId(dishId)),
     deliveryType: pickText(payload?.deliveryType),
     scheduledDeliveryAt: pickText(payload?.scheduledDeliveryAt),
+    confirmedByUserId: toId(
+      pickValue(payload?.confirmedByUserId, payload?.confirmedByUser?.id),
+    ),
+    confirmedByUserName: pickText(
+      payload?.confirmedByUserName,
+      payload?.confirmedByUser?.fullName,
+      payload?.confirmedByUser?.name,
+    ),
+    confirmedByUserRole: pickText(
+      payload?.confirmedByUserRole,
+      payload?.confirmedByUser?.role,
+    ),
+    confirmedAt: pickText(payload?.confirmedAt),
     preparingStaffId: toId(pickValue(payload?.preparingStaffId, payload?.preparingStaff?.id)),
     preparingStaffName: pickText(
       payload?.preparingStaffName,
@@ -737,6 +754,10 @@ function mapOrder(payload, includeNestedOrders = true) {
     deliveryFullName: pickText(payload?.deliveryFullName),
     deliveryPhoneNumber: pickText(payload?.deliveryPhoneNumber),
     deliveryAddress: pickText(payload?.deliveryAddress),
+    deliveryProofImagePath: pickText(payload?.deliveryProofImagePath),
+    deliveryProofCapturedAt: pickText(payload?.deliveryProofCapturedAt),
+    deliveryProofUploadedAt: pickText(payload?.deliveryProofUploadedAt),
+    deliveryProofNote: pickText(payload?.deliveryProofNote),
     items: fallbackItems,
     orders: includeNestedOrders ? ensureArray(payload?.orders).map((order) => mapOrder(order, false)) : [],
     createdAt: pickText(payload?.createdAt),
@@ -752,6 +773,27 @@ function mapEmployeeOrderScanResponse(payload) {
     claimedByUserName: pickText(payload?.claimedByUserName),
     claimedByUserRole: pickText(payload?.claimedByUserRole),
     order: payload?.order ? mapOrder(payload.order) : null,
+  };
+}
+
+function mapMobileOrderQrResponse(payload) {
+  return {
+    success: payload?.success === undefined ? true : Boolean(payload?.success),
+    message: pickText(payload?.message),
+    targetScreen: pickText(payload?.targetScreen),
+    qrToken: pickText(payload?.qrToken, payload?.token),
+    order: payload?.order ? mapOrder(payload.order) : payload?.id ? mapOrder(payload) : null,
+  };
+}
+
+function mapDeliveryProofResponse(payload) {
+  return {
+    message: pickText(payload?.message),
+    orderId: toId(payload?.orderId),
+    imagePath: pickText(payload?.imagePath),
+    capturedAt: pickText(payload?.capturedAt),
+    note: pickText(payload?.note),
+    uploadedAt: pickText(payload?.uploadedAt),
   };
 }
 
@@ -980,6 +1022,48 @@ export async function markUserNotificationUnread(auth, notificationId) {
 
 export async function markAllUserNotificationsRead(auth) {
   return apiRequest("/api/user/notifications/read-all", {
+    method: "PUT",
+    ...authOptions(auth),
+  });
+}
+
+export async function fetchAdminNotifications(auth, query = {}) {
+  const payload = await apiRequest(
+    `/api/admin/notifications${buildQueryString(query)}`,
+    authOptions(auth),
+  );
+  const paged = normalizePagedPayload(payload);
+
+  return {
+    ...paged,
+    items: paged.items.map(mapUserNotification),
+  };
+}
+
+export async function fetchAdminNotificationUnreadCount(auth) {
+  const payload = await apiRequest("/api/admin/notifications/unread-count", authOptions(auth));
+  return toNumber(
+    pickValue(payload?.unreadCount, payload?.count, payload?.total, payload),
+    0,
+  );
+}
+
+export async function markAdminNotificationRead(auth, notificationId) {
+  return apiRequest(`/api/admin/notifications/${notificationId}/read`, {
+    method: "PUT",
+    ...authOptions(auth),
+  });
+}
+
+export async function markAdminNotificationUnread(auth, notificationId) {
+  return apiRequest(`/api/admin/notifications/${notificationId}/unread`, {
+    method: "PUT",
+    ...authOptions(auth),
+  });
+}
+
+export async function markAllAdminNotificationsRead(auth) {
+  return apiRequest("/api/admin/notifications/read-all", {
     method: "PUT",
     ...authOptions(auth),
   });
@@ -1336,6 +1420,46 @@ export async function completeEmployeeDelivery(auth, orderId) {
   return mapOrder(payload);
 }
 
+export async function uploadEmployeeDeliveryProof(auth, orderId, payload = {}) {
+  const file = payload?.file;
+
+  if (!file) {
+    throw new Error("Please choose a delivery proof image first.");
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  if (String(payload?.capturedAt ?? "").trim()) {
+    formData.append("capturedAt", String(payload.capturedAt).trim());
+  }
+
+  if (String(payload?.note ?? "").trim()) {
+    formData.append("note", String(payload.note).trim());
+  }
+
+  const requestHeaders = new Headers();
+
+  if (auth?.token) {
+    requestHeaders.set("Authorization", `${auth?.tokenType ?? "Bearer"} ${auth.token}`);
+  }
+
+  const response = await fetch(resolveApiUrl(`/api/employee/orders/${orderId}/delivery-proof`), {
+    method: "POST",
+    headers: requestHeaders,
+    body: formData,
+  });
+
+  const parsedPayload = await parseApiResponsePayload(response, {
+    path: `/api/employee/orders/${orderId}/delivery-proof`,
+    method: "POST",
+    token: auth?.token,
+    tokenType: auth?.tokenType ?? "Bearer",
+  });
+
+  return mapDeliveryProofResponse(parsedPayload);
+}
+
 export async function scanEmployeeOrder(auth, payload = {}) {
   const response = await apiRequest("/api/employee/orders/scan", {
     method: "POST",
@@ -1347,6 +1471,14 @@ export async function scanEmployeeOrder(auth, payload = {}) {
   });
 
   return mapEmployeeOrderScanResponse(response);
+}
+
+export async function fetchMobileOrderQr(auth, qrToken) {
+  const payload = await apiRequest(
+    `/api/mobile/order-qr/${encodeURIComponent(pickText(qrToken))}`,
+    authOptions(auth),
+  );
+  return mapMobileOrderQrResponse(payload);
 }
 
 export async function fetchEmployeeNotifications(auth, query = {}) {

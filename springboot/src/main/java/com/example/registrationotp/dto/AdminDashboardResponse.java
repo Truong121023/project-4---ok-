@@ -13,6 +13,8 @@ public record AdminDashboardResponse(
 		List<ReviewResponse> reviews,
 		List<CustomerFeedbackResponse> feedbacks,
 		List<PromotionResponse> promotions,
-		List<NewsArticleResponse> news
+		List<NewsArticleResponse> news,
+		List<AdminTopSellingDishResponse> topSellingDishes,
+		AdminRevenueSummaryResponse revenue
 ) {
 }

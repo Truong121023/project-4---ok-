@@ -11,6 +11,8 @@ class SessionStore {
 
   static const _sessionKey = 'tea_matcha.session';
   static const _mockCartKey = 'tea_matcha.mock_cart';
+  static const _pendingOrderQrTokenKey = 'tea_matcha.pending_order_qr_token';
+  static const _orderProofRecordsKey = 'tea_matcha.order_proof_records';
 
   UserSession? loadSession() {
     final raw = _prefs.getString(_sessionKey);
@@ -33,7 +35,7 @@ class SessionStore {
     return _prefs.remove(_sessionKey);
   }
 
-  Cart loadMockCart() {
+  Cart loadLocalCart() {
     final raw = _prefs.getString(_mockCartKey);
     if (raw == null || raw.isEmpty) {
       return Cart.empty();
@@ -46,11 +48,65 @@ class SessionStore {
     }
   }
 
-  Future<void> saveMockCart(Cart cart) {
+  Future<void> saveLocalCart(Cart cart) {
     return _prefs.setString(_mockCartKey, jsonEncode(cart.toJson()));
   }
 
-  Future<void> clearMockCart() {
+  Future<void> clearLocalCart() {
     return _prefs.remove(_mockCartKey);
+  }
+
+  Cart loadMockCart() {
+    return loadLocalCart();
+  }
+
+  Future<void> saveMockCart(Cart cart) {
+    return saveLocalCart(cart);
+  }
+
+  Future<void> clearMockCart() {
+    return clearLocalCart();
+  }
+
+  String? loadPendingOrderQrToken() {
+    final raw = _prefs.getString(_pendingOrderQrTokenKey);
+    if (raw == null || raw.trim().isEmpty) {
+      return null;
+    }
+    return raw.trim();
+  }
+
+  Future<void> savePendingOrderQrToken(String token) {
+    return _prefs.setString(_pendingOrderQrTokenKey, token);
+  }
+
+  Future<void> clearPendingOrderQrToken() {
+    return _prefs.remove(_pendingOrderQrTokenKey);
+  }
+
+  List<OrderProofRecord> loadOrderProofRecords() {
+    final raw = _prefs.getString(_orderProofRecordsKey);
+    if (raw == null || raw.isEmpty) {
+      return const [];
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) {
+        return const [];
+      }
+      return decoded
+          .whereType<Map>()
+          .map((item) => OrderProofRecord.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> saveOrderProofRecords(List<OrderProofRecord> records) {
+    return _prefs.setString(
+      _orderProofRecordsKey,
+      jsonEncode(records.map((record) => record.toJson()).toList()),
+    );
   }
 }

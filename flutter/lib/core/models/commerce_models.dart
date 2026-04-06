@@ -182,6 +182,11 @@ class OrderSummary {
     required this.totalAmount,
     required this.statusSummary,
     required this.createdAt,
+    this.confirmedByUserName,
+    this.confirmedAt,
+    this.preparingStaffName,
+    this.deliveringShipperName,
+    this.deliveryProofImagePath,
   });
 
   factory OrderSummary.fromJson(JsonMap json) {
@@ -193,6 +198,11 @@ class OrderSummary {
       totalAmount: asDouble(json['totalAmount']),
       statusSummary: asString(json['statusSummary']),
       createdAt: asDateTime(json['createdAt']),
+      confirmedByUserName: asNullableString(json['confirmedByUserName']),
+      confirmedAt: asDateTime(json['confirmedAt']),
+      preparingStaffName: asNullableString(json['preparingStaffName']),
+      deliveringShipperName: asNullableString(json['deliveringShipperName']),
+      deliveryProofImagePath: asNullableString(json['deliveryProofImagePath']),
     );
   }
 
@@ -203,6 +213,11 @@ class OrderSummary {
   final double totalAmount;
   final String statusSummary;
   final DateTime? createdAt;
+  final String? confirmedByUserName;
+  final DateTime? confirmedAt;
+  final String? preparingStaffName;
+  final String? deliveringShipperName;
+  final String? deliveryProofImagePath;
 }
 
 class DeliveryAddress {

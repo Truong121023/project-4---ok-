@@ -177,70 +177,6 @@ const List<AdminModuleDefinition> adminModules = [
     icon: Icons.reviews_outlined,
     searchHint: 'Tim theo user hoac comment',
   ),
-  AdminModuleDefinition(
-    id: 'attendances',
-    title: 'Attendances',
-    subtitle: 'Log cham cong, co filter theo store, user va ngay.',
-    path: '/api/admin/attendances',
-    group: 'Staffing',
-    icon: Icons.fact_check_outlined,
-    searchHint: 'Tim theo ten nhan vien',
-    filters: [
-      AdminQueryField(key: 'storeId', label: 'Store ID', hint: 'Vi du 1'),
-      AdminQueryField(key: 'userId', label: 'User ID', hint: 'Vi du 21'),
-      AdminQueryField(key: 'role', label: 'Role', hint: 'STAFF hoac SHIPPER'),
-      AdminQueryField(
-        key: 'workDate',
-        label: 'Work Date',
-        hint: 'YYYY-MM-DD',
-        preset: AdminFieldPreset.currentDate,
-      ),
-      AdminQueryField(key: 'checkedOut', label: 'Checked Out', hint: 'true hoac false'),
-    ],
-  ),
-  AdminModuleDefinition(
-    id: 'work-schedules',
-    title: 'Work Schedules',
-    subtitle: 'Xem lich thang theo store, thang va role.',
-    path: '/api/admin/work-schedules/monthly',
-    group: 'Staffing',
-    icon: Icons.calendar_month_outlined,
-    supportsSearch: false,
-    mode: AdminModuleMode.queryDetail,
-    filters: [
-      AdminQueryField(key: 'storeId', label: 'Store ID', hint: 'Nhap store id', required: true),
-      AdminQueryField(
-        key: 'month',
-        label: 'Month',
-        hint: 'YYYY-MM',
-        required: true,
-        preset: AdminFieldPreset.currentMonth,
-      ),
-      AdminQueryField(key: 'userId', label: 'User ID', hint: 'Loc theo nhan vien'),
-      AdminQueryField(key: 'role', label: 'Role', hint: 'STAFF hoac SHIPPER'),
-      AdminQueryField(key: 'search', label: 'Search', hint: 'Tim theo ten'),
-    ],
-  ),
-  AdminModuleDefinition(
-    id: 'attendance-summary',
-    title: 'Attendance Summary',
-    subtitle: 'Tong hop ngay theo store de kiem soat ca lam.',
-    path: '/api/admin/attendances/summary',
-    group: 'Staffing',
-    icon: Icons.analytics_outlined,
-    supportsSearch: false,
-    mode: AdminModuleMode.queryDetail,
-    filters: [
-      AdminQueryField(key: 'storeId', label: 'Store ID', hint: 'Nhap store id', required: true),
-      AdminQueryField(
-        key: 'workDate',
-        label: 'Work Date',
-        hint: 'YYYY-MM-DD',
-        required: true,
-        preset: AdminFieldPreset.currentDate,
-      ),
-    ],
-  ),
 ];
 
 List<AdminModuleDefinition> modulesForGroup(String group) {
@@ -297,7 +233,7 @@ String adminSecondaryText(JsonMap item) {
   final storeName = asString(item['storeName']).trim();
   final orderStatus = asString(item['status']).trim();
   if (storeName.isNotEmpty || orderStatus.isNotEmpty) {
-    return [storeName, orderStatus].where((value) => value.isNotEmpty).join(' • ');
+    return [storeName, orderStatus].where((value) => value.isNotEmpty).join(' - ');
   }
   return '';
 }

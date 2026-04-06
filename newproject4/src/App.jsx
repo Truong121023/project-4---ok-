@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 import RouteErrorBoundary from "./components/RouteErrorBoundary";
+import SessionSecurityOverlay from "./components/SessionSecurityOverlay";
 import SiteLayout from "./components/SiteLayout";
 import AccountPage from "./pages/AccountPage";
 import AdminPage from "./pages/AdminPage";
@@ -28,6 +29,7 @@ import VerifyOtpPage from "./pages/VerifyOtpPage";
 export default function App() {
   return (
     <BrowserRouter>
+      <SessionSecurityOverlay />
       <Routes>
         <Route path="/" element={<SiteLayout />}>
           <Route index element={<HomePage />} />
@@ -67,6 +69,14 @@ export default function App() {
           <Route element={<ProtectedRoute allowedRoles={["ADMIN", "MANAGER"]} />}>
             <Route
               path="admin"
+              element={
+                <RouteErrorBoundary>
+                  <AdminPage />
+                </RouteErrorBoundary>
+              }
+            />
+            <Route
+              path="admin/orders/:orderId"
               element={
                 <RouteErrorBoundary>
                   <AdminPage />

@@ -1,9 +1,17 @@
 package com.example.registrationotp.service;
 
+import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -12,6 +20,7 @@ import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -23,7 +32,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.example.registrationotp.dto.AdminDashboardResponse;
+import com.example.registrationotp.dto.AdminRevenueSummaryResponse;
 import com.example.registrationotp.dto.AdminSummaryResponse;
+import com.example.registrationotp.dto.AdminTopSellingDishResponse;
 import com.example.registrationotp.dto.ContentSectionRequest;
 import com.example.registrationotp.dto.AdminUserRequest;
 import com.example.registrationotp.dto.AdminUserResponse;
@@ -65,6 +76,7 @@ import com.example.registrationotp.model.FavoriteTargetType;
 import com.example.registrationotp.model.NewsArticle;
 import com.example.registrationotp.model.OrderAllowedAction;
 import com.example.registrationotp.model.Order;
+import com.example.registrationotp.model.OrderItem;
 import com.example.registrationotp.model.Review;
 import com.example.registrationotp.model.ReviewTargetType;
 import com.example.registrationotp.model.Role;
@@ -100,6 +112,7 @@ public class AdminService {
 	private static final int DEFAULT_PAGE_SIZE = 10;
 	private static final int MAX_PAGE_SIZE = 100;
 	private static final Sort DEFAULT_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
+	private static final Collection<Role> MANAGED_EMPLOYEE_ROLES = List.of(Role.STAFF, Role.SHIPPER);
 
 	private final SessionAuthService sessionAuthService;
 	private final UserRepository userRepository;
@@ -122,6 +135,7 @@ public class AdminService {
 	private final PromotionRepository promotionRepository;
 	private final FileStorageService fileStorageService;
 	private final NotificationService notificationService;
+	private final ZoneId zoneId = ZoneId.systemDefault();
 
 	public AdminService(
 			SessionAuthService sessionAuthService,
@@ -170,37 +184,42 @@ public class AdminService {
 	}
 
 	@Transactional(readOnly = true)
-	public AdminDashboardResponse dashboard(String authorizationHeader) {
-		sessionAuthService.requireAdmin(authorizationHeader);
+	public AdminDashboardResponse dashboard(String authorizationHeader, Long storeId) {
+		User operator = requireAdminOrManagerOperator(authorizationHeader);
+		DashboardScope scope = resolveDashboardScope(operator, storeId);
 		return new AdminDashboardResponse(
-				listUsersPreview(),
-				listStoresPreview(),
-				listEventsPreview(),
-				listCategoriesPreview(),
-				listDishesPreview(),
-				listStoreDishesPreview(),
-				listOrdersPreview(),
-				listReviewsPreview(),
-				listFeedbacksPreview(),
-				listPromotionsPreview(),
-				listNewsPreview()
+				listUsersPreview(scope),
+				listStoresPreview(scope),
+				listEventsPreview(scope),
+				listCategoriesPreview(scope),
+				listDishesPreview(scope),
+				listStoreDishesPreview(scope),
+				listOrdersPreview(scope),
+				listReviewsPreview(scope),
+				listFeedbacksPreview(scope),
+				listPromotionsPreview(scope),
+				listNewsPreview(scope),
+				buildTopSellingDishes(scope),
+				buildRevenueSummary(scope)
 		);
 	}
 
 	@Transactional(readOnly = true)
-	public AdminSummaryResponse summary(String authorizationHeader) {
-		sessionAuthService.requireAdmin(authorizationHeader);
+	public AdminSummaryResponse summary(String authorizationHeader, Long storeId) {
+		User operator = requireAdminOrManagerOperator(authorizationHeader);
+		DashboardScope scope = resolveDashboardScope(operator, storeId);
 		return new AdminSummaryResponse(
-				userRepository.count(),
-				storeRepository.count(),
-				eventItemRepository.count(),
-				categoryRepository.count(),
-				dishRepository.count(),
-				storeDishRepository.count(),
-				promotionRepository.count(),
-				orderRepository.count(),
-				reviewRepository.count(),
-				newsArticleRepository.count()
+				countUsers(scope),
+				countStores(scope),
+				countEvents(scope),
+				countCategories(scope),
+				countDishes(scope),
+				countStoreDishes(scope),
+				countPromotions(scope),
+				countOrders(scope),
+				countReviews(scope),
+				countNews(scope),
+				buildRevenueSummary(scope)
 		);
 	}
 
@@ -782,57 +801,57 @@ public class AdminService {
 		return new MessageResponse("News deleted successfully");
 	}
 
-	private List<AdminUserResponse> listUsersPreview() {
-		return userRepository.findAll(PageRequest.of(0, DEFAULT_PAGE_SIZE, DEFAULT_SORT))
+	private List<AdminUserResponse> listUsersPreview(DashboardScope scope) {
+		return userRepository.findAll(userPreviewSpecification(scope), buildPreviewPageable())
 				.stream()
 				.map(AdminUserResponse::from)
 				.toList();
 	}
 
-	private List<StoreResponse> listStoresPreview() {
-		return storeRepository.findAll(PageRequest.of(0, DEFAULT_PAGE_SIZE, DEFAULT_SORT))
+	private List<StoreResponse> listStoresPreview(DashboardScope scope) {
+		return storeRepository.findAll(storePreviewSpecification(scope), buildPreviewPageable())
 				.stream()
 				.map(StoreResponse::from)
 				.toList();
 	}
 
-	private List<EventItemResponse> listEventsPreview() {
-		return eventItemRepository.findAll(PageRequest.of(0, DEFAULT_PAGE_SIZE, DEFAULT_SORT))
+	private List<EventItemResponse> listEventsPreview(DashboardScope scope) {
+		return eventItemRepository.findAll(eventPreviewSpecification(scope), buildPreviewPageable())
 				.stream()
 				.map(EventItemResponse::from)
 				.toList();
 	}
 
-	private List<CategoryResponse> listCategoriesPreview() {
-		return categoryRepository.findAll(PageRequest.of(0, DEFAULT_PAGE_SIZE, DEFAULT_SORT))
+	private List<CategoryResponse> listCategoriesPreview(DashboardScope scope) {
+		return categoryRepository.findAll(categoryPreviewSpecification(scope), buildPreviewPageable())
 				.stream()
 				.map(CategoryResponse::from)
 				.toList();
 	}
 
-	private List<DishResponse> listDishesPreview() {
-		return dishRepository.findAll(PageRequest.of(0, DEFAULT_PAGE_SIZE, DEFAULT_SORT))
+	private List<DishResponse> listDishesPreview(DashboardScope scope) {
+		return dishRepository.findAll(dishPreviewSpecification(scope), buildPreviewPageable())
 				.stream()
 				.map(DishResponse::from)
 				.toList();
 	}
 
-	private List<StoreDishResponse> listStoreDishesPreview() {
-		return storeDishRepository.findAll(PageRequest.of(0, DEFAULT_PAGE_SIZE, DEFAULT_SORT))
+	private List<StoreDishResponse> listStoreDishesPreview(DashboardScope scope) {
+		return storeDishRepository.findAll(storeDishPreviewSpecification(scope), buildPreviewPageable())
 				.stream()
 				.map(StoreDishResponse::from)
 				.toList();
 	}
 
-	private List<OrderResponse> listOrdersPreview() {
-		return orderRepository.findAll(PageRequest.of(0, DEFAULT_PAGE_SIZE, DEFAULT_SORT))
+	private List<OrderResponse> listOrdersPreview(DashboardScope scope) {
+		return orderRepository.findAll(orderPreviewSpecification(scope), buildPreviewPageable())
 				.stream()
 				.map(this::toOrderPreview)
 				.toList();
 	}
 
-	private List<ReviewResponse> listReviewsPreview() {
-		return reviewRepository.findAll(PageRequest.of(0, DEFAULT_PAGE_SIZE, DEFAULT_SORT))
+	private List<ReviewResponse> listReviewsPreview(DashboardScope scope) {
+		return reviewRepository.findAll(reviewPreviewSpecification(scope), buildPreviewPageable())
 				.stream()
 				.filter(review -> ReviewTargetSupport.isSupported(review.getTargetType()))
 				.map(review -> ReviewResponse.from(
@@ -844,22 +863,25 @@ public class AdminService {
 				.toList();
 	}
 
-	private List<CustomerFeedbackResponse> listFeedbacksPreview() {
-		return customerFeedbackRepository.findAll(PageRequest.of(0, DEFAULT_PAGE_SIZE, DEFAULT_SORT))
+	private List<CustomerFeedbackResponse> listFeedbacksPreview(DashboardScope scope) {
+		return customerFeedbackRepository.findAll(feedbackPreviewSpecification(scope), buildPreviewPageable())
 				.stream()
 				.map(CustomerFeedbackResponse::from)
 				.toList();
 	}
 
-	private List<PromotionResponse> listPromotionsPreview() {
-		return promotionRepository.findAll(PageRequest.of(0, DEFAULT_PAGE_SIZE, DEFAULT_SORT))
+	private List<PromotionResponse> listPromotionsPreview(DashboardScope scope) {
+		if (scope.storeScoped()) {
+			return List.of();
+		}
+		return promotionRepository.findAll(buildPreviewPageable())
 				.stream()
 				.map(PromotionResponse::from)
 				.toList();
 	}
 
-	private List<NewsArticleResponse> listNewsPreview() {
-		return newsArticleRepository.findAll(PageRequest.of(0, DEFAULT_PAGE_SIZE, DEFAULT_SORT))
+	private List<NewsArticleResponse> listNewsPreview(DashboardScope scope) {
+		return newsArticleRepository.findAll(newsPreviewSpecification(scope), buildPreviewPageable())
 				.stream()
 				.map(NewsArticleResponse::from)
 				.toList();
@@ -867,6 +889,274 @@ public class AdminService {
 
 	private User requireAdminOrManagerOperator(String authorizationHeader) {
 		return sessionAuthService.requireAdminOrManager(authorizationHeader);
+	}
+
+	private DashboardScope resolveDashboardScope(User operator, Long requestedStoreId) {
+		if (operator.getRole() == Role.MANAGER) {
+			Long workingStoreId = requireManagerWorkingStoreId(operator);
+			if (requestedStoreId != null && !Objects.equals(workingStoreId, requestedStoreId)) {
+				throw new ForbiddenException("Manager dashboard is limited to the assigned working store");
+			}
+			Store store = findStore(workingStoreId);
+			return new DashboardScope(store.getId(), store.getName(), true);
+		}
+
+		if (requestedStoreId == null) {
+			return new DashboardScope(null, "All stores", false);
+		}
+
+		Store store = findStore(requestedStoreId);
+		return new DashboardScope(store.getId(), store.getName(), true);
+	}
+
+	private List<AdminTopSellingDishResponse> buildTopSellingDishes(DashboardScope scope) {
+		List<OrderItemRepository.TopSellingDishProjection> projections = scope.storeScoped()
+				? orderItemRepository.findTopSellingDishStatsByStoreId(scope.storeId(), buildTopSellingPageable())
+				: orderItemRepository.findTopSellingDishStats(buildTopSellingPageable());
+		if (projections.isEmpty()) {
+			return List.of();
+		}
+
+		Map<Long, List<String>> dishImagePathsById = new HashMap<>();
+		List<Long> dishIds = projections.stream()
+				.map(OrderItemRepository.TopSellingDishProjection::getDishId)
+				.filter(Objects::nonNull)
+				.distinct()
+				.toList();
+		for (Dish dish : dishRepository.findAllById(dishIds)) {
+			dishImagePathsById.put(dish.getId(), List.copyOf(dish.getImagePaths()));
+		}
+
+		return projections.stream()
+				.map(projection -> new AdminTopSellingDishResponse(
+						projection.getStoreId(),
+						projection.getStoreName(),
+						projection.getDishId(),
+						projection.getDishName(),
+						dishImagePathsById.getOrDefault(projection.getDishId(), List.of()),
+						projection.getQuantitySold() == null ? 0L : projection.getQuantitySold(),
+						projection.getOrderCount() == null ? 0L : projection.getOrderCount(),
+						projection.getRevenue() == null ? BigDecimal.ZERO : projection.getRevenue()
+				))
+				.toList();
+	}
+
+	private AdminRevenueSummaryResponse buildRevenueSummary(DashboardScope scope) {
+		LocalDate today = LocalDate.now(zoneId);
+		Instant todayStart = startOfDay(today);
+		Instant tomorrowStart = startOfDay(today.plusDays(1));
+		Instant weekStart = startOfDay(today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)));
+		Instant monthStart = startOfDay(today.withDayOfMonth(1));
+		Instant yearStart = startOfDay(today.withDayOfYear(1));
+		return new AdminRevenueSummaryResponse(
+				scope.storeId(),
+				scope.scopeStoreName(),
+				sumPaidRevenue(scope.storeId(), todayStart, tomorrowStart),
+				sumPaidRevenue(scope.storeId(), weekStart, tomorrowStart),
+				sumPaidRevenue(scope.storeId(), monthStart, tomorrowStart),
+				sumPaidRevenue(scope.storeId(), yearStart, tomorrowStart)
+		);
+	}
+
+	private Instant startOfDay(LocalDate date) {
+		return date.atStartOfDay(zoneId).toInstant();
+	}
+
+	private BigDecimal sumPaidRevenue(Long storeId, Instant start, Instant end) {
+		return storeId == null
+				? orderRepository.sumPaidTotalAmountBetween(start, end)
+				: orderRepository.sumPaidTotalAmountByStoreIdBetween(storeId, start, end);
+	}
+
+	private long countUsers(DashboardScope scope) {
+		return userRepository.count(userPreviewSpecification(scope));
+	}
+
+	private long countStores(DashboardScope scope) {
+		return storeRepository.count(storePreviewSpecification(scope));
+	}
+
+	private long countEvents(DashboardScope scope) {
+		return eventItemRepository.count(eventPreviewSpecification(scope));
+	}
+
+	private long countCategories(DashboardScope scope) {
+		return categoryRepository.count(categoryPreviewSpecification(scope));
+	}
+
+	private long countDishes(DashboardScope scope) {
+		return dishRepository.count(dishPreviewSpecification(scope));
+	}
+
+	private long countStoreDishes(DashboardScope scope) {
+		return storeDishRepository.count(storeDishPreviewSpecification(scope));
+	}
+
+	private long countPromotions(DashboardScope scope) {
+		return scope.storeScoped() ? 0 : promotionRepository.count();
+	}
+
+	private long countOrders(DashboardScope scope) {
+		return orderRepository.count(orderPreviewSpecification(scope));
+	}
+
+	private long countReviews(DashboardScope scope) {
+		return reviewRepository.count(reviewPreviewSpecification(scope));
+	}
+
+	private long countNews(DashboardScope scope) {
+		return newsArticleRepository.count(newsPreviewSpecification(scope));
+	}
+
+	private Pageable buildPreviewPageable() {
+		return PageRequest.of(0, DEFAULT_PAGE_SIZE, DEFAULT_SORT);
+	}
+
+	private Pageable buildTopSellingPageable() {
+		return PageRequest.of(0, DEFAULT_PAGE_SIZE);
+	}
+
+	private Specification<User> userPreviewSpecification(DashboardScope scope) {
+		if (!scope.storeScoped()) {
+			return (root, query, criteriaBuilder) -> criteriaBuilder.conjunction();
+		}
+		return (root, query, criteriaBuilder) -> criteriaBuilder.and(
+				criteriaBuilder.equal(root.join("workingStore", JoinType.LEFT).get("id"), scope.storeId()),
+				root.get("role").in(MANAGED_EMPLOYEE_ROLES)
+		);
+	}
+
+	private Specification<Store> storePreviewSpecification(DashboardScope scope) {
+		if (!scope.storeScoped()) {
+			return (root, query, criteriaBuilder) -> criteriaBuilder.conjunction();
+		}
+		return (root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("id"), scope.storeId());
+	}
+
+	private Specification<EventItem> eventPreviewSpecification(DashboardScope scope) {
+		if (!scope.storeScoped()) {
+			return (root, query, criteriaBuilder) -> criteriaBuilder.conjunction();
+		}
+		return (root, query, criteriaBuilder) -> criteriaBuilder.equal(
+				root.join("store", JoinType.LEFT).get("id"),
+				scope.storeId()
+		);
+	}
+
+	private Specification<Category> categoryPreviewSpecification(DashboardScope scope) {
+		if (!scope.storeScoped()) {
+			return (root, query, criteriaBuilder) -> criteriaBuilder.conjunction();
+		}
+		return (root, query, criteriaBuilder) -> criteriaBuilder.equal(
+				root.join("store", JoinType.LEFT).get("id"),
+				scope.storeId()
+		);
+	}
+
+	private Specification<Dish> dishPreviewSpecification(DashboardScope scope) {
+		if (!scope.storeScoped()) {
+			return (root, query, criteriaBuilder) -> criteriaBuilder.conjunction();
+		}
+		return (root, query, criteriaBuilder) -> criteriaBuilder.equal(
+				root.join("category", JoinType.LEFT).join("store", JoinType.LEFT).get("id"),
+				scope.storeId()
+		);
+	}
+
+	private Specification<StoreDish> storeDishPreviewSpecification(DashboardScope scope) {
+		if (!scope.storeScoped()) {
+			return (root, query, criteriaBuilder) -> criteriaBuilder.conjunction();
+		}
+		return (root, query, criteriaBuilder) -> criteriaBuilder.equal(
+				root.join("store", JoinType.LEFT).get("id"),
+				scope.storeId()
+		);
+	}
+
+	private Specification<Order> orderPreviewSpecification(DashboardScope scope) {
+		if (!scope.storeScoped()) {
+			return (root, query, criteriaBuilder) -> criteriaBuilder.conjunction();
+		}
+		return (root, query, criteriaBuilder) -> {
+			Subquery<Long> subquery = query.subquery(Long.class);
+			Root<OrderItem> orderItem = subquery.from(OrderItem.class);
+			subquery.select(orderItem.get("id"))
+					.where(
+							criteriaBuilder.equal(orderItem.get("order"), root),
+							criteriaBuilder.equal(orderItem.get("store").get("id"), scope.storeId())
+					);
+			return criteriaBuilder.exists(subquery);
+		};
+	}
+
+	private Specification<CustomerFeedback> feedbackPreviewSpecification(DashboardScope scope) {
+		if (!scope.storeScoped()) {
+			return (root, query, criteriaBuilder) -> criteriaBuilder.conjunction();
+		}
+		return (root, query, criteriaBuilder) -> criteriaBuilder.equal(
+				root.join("relatedStore", JoinType.LEFT).get("id"),
+				scope.storeId()
+		);
+	}
+
+	private Specification<NewsArticle> newsPreviewSpecification(DashboardScope scope) {
+		if (!scope.storeScoped()) {
+			return (root, query, criteriaBuilder) -> criteriaBuilder.conjunction();
+		}
+		return (root, query, criteriaBuilder) -> criteriaBuilder.equal(
+				root.join("relatedStore", JoinType.LEFT).get("id"),
+				scope.storeId()
+		);
+	}
+
+	private Specification<Review> reviewPreviewSpecification(DashboardScope scope) {
+		if (!scope.storeScoped()) {
+			return (root, query, criteriaBuilder) -> {
+				if (query != null) {
+					query.distinct(true);
+				}
+				return root.get("targetType").in(ReviewTargetSupport.supportedTypes());
+			};
+		}
+
+		List<Long> eventIds = eventItemRepository.findAll(eventPreviewSpecification(scope))
+				.stream()
+				.map(EventItem::getId)
+				.toList();
+		List<Long> dishIds = dishRepository.findAll(dishPreviewSpecification(scope))
+				.stream()
+				.map(Dish::getId)
+				.toList();
+
+		return (root, query, criteriaBuilder) -> {
+			if (query != null) {
+				query.distinct(true);
+			}
+			List<Predicate> predicates = new ArrayList<>();
+			predicates.add(criteriaBuilder.and(
+					criteriaBuilder.equal(root.get("targetType"), ReviewTargetType.STORE),
+					criteriaBuilder.equal(root.get("targetId"), scope.storeId())
+			));
+			if (!eventIds.isEmpty()) {
+				predicates.add(criteriaBuilder.and(
+						criteriaBuilder.equal(root.get("targetType"), ReviewTargetType.EVENT),
+						root.get("targetId").in(eventIds)
+				));
+			}
+			if (!dishIds.isEmpty()) {
+				predicates.add(criteriaBuilder.and(
+						criteriaBuilder.equal(root.get("targetType"), ReviewTargetType.DISH),
+						root.get("targetId").in(dishIds)
+				));
+			}
+			return criteriaBuilder.and(
+					root.get("targetType").in(ReviewTargetSupport.supportedTypes()),
+					criteriaBuilder.or(predicates.toArray(Predicate[]::new))
+			);
+		};
+	}
+
+	private record DashboardScope(Long storeId, String scopeStoreName, boolean storeScoped) {
 	}
 
 	private OrderResponse toOrderPreview(Order order) {
@@ -909,6 +1199,10 @@ public class AdminService {
 				order.getDeliveryFullName(),
 				order.getDeliveryPhoneNumber(),
 				order.getDeliveryAddress(),
+				order.getConfirmedByUser() != null ? order.getConfirmedByUser().getId() : null,
+				order.getConfirmedByUser() != null ? order.getConfirmedByUser().getFullName() : null,
+				order.getConfirmedByUser() != null && order.getConfirmedByUser().getRole() != null ? order.getConfirmedByUser().getRole().name() : null,
+				order.getConfirmedAt(),
 				order.getPreparingStaff() != null ? order.getPreparingStaff().getId() : null,
 				order.getPreparingStaff() != null ? order.getPreparingStaff().getFullName() : null,
 				order.getDeliveringShipper() != null ? order.getDeliveringShipper().getId() : null,
@@ -920,6 +1214,10 @@ public class AdminService {
 				invoiceDownloadUrl,
 				invoicePreviewUrl,
 				order.getInvoiceQrToken(),
+				order.getDeliveryProofImagePath(),
+				order.getDeliveryProofCapturedAt(),
+				order.getDeliveryProofUploadedAt(),
+				order.getDeliveryProofNote(),
 				List.<OrderAllowedAction>of(),
 				order.getStatus() != null ? order.getStatus().name() : "UNKNOWN",
 				items,

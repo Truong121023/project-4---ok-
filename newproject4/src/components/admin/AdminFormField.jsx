@@ -68,17 +68,38 @@ export default function AdminFormField({
   onChange,
   onUploadFiles,
   uploadState,
+  highlight = false,
+  highlightMessage = "",
 }) {
   const baseClass = `${ui.input} text-sm`;
   const helper = field.description ? (
     <span className="text-xs leading-6 text-stone-500">{field.description}</span>
   ) : null;
   const canUploadImages = field.type === "image-gallery" && typeof onUploadFiles === "function";
+  const wrapField = (content) => {
+    if (!highlight) {
+      return content;
+    }
+
+    return (
+      <div className="rounded-[1.4rem] border border-amber-300/90 bg-amber-50/75 p-3 shadow-[0_16px_36px_rgba(186,140,55,0.12)]">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-amber-800">
+            Needs review
+          </span>
+          <span className="text-xs font-medium leading-6 text-amber-900">
+            {highlightMessage || "Backend still expects manual input for this field."}
+          </span>
+        </div>
+        {content}
+      </div>
+    );
+  };
 
   if (field.type === "image-gallery") {
     const imagePaths = Array.isArray(value) ? value : [];
 
-    return (
+    return wrapField(
       <div className="grid gap-3">
         <div className="grid gap-1">
           <span className="text-sm font-semibold text-tea-900">{field.label}</span>
@@ -161,7 +182,7 @@ export default function AdminFormField({
             ) : null}
           </div>
         ) : null}
-      </div>
+      </div>,
     );
   }
 
@@ -182,7 +203,7 @@ export default function AdminFormField({
       );
     };
 
-    return (
+    return wrapField(
       <div className="grid gap-4">
         <div className="grid gap-1">
           <span className="text-sm font-semibold text-tea-900">{field.label}</span>
@@ -461,12 +482,12 @@ export default function AdminFormField({
             </button>
           ) : null}
         </div>
-      </div>
+      </div>,
     );
   }
 
   if (field.type === "textarea") {
-    return (
+    return wrapField(
       <label className="grid gap-2">
         <span className="text-sm font-semibold text-tea-900">{field.label}</span>
         <textarea
@@ -480,14 +501,14 @@ export default function AdminFormField({
           onChange={(event) => onChange(field.name, event.target.value)}
         />
         {helper}
-      </label>
+      </label>,
     );
   }
 
   if (field.type === "select") {
     const options = field.options ?? [];
 
-    return (
+    return wrapField(
       <label className="grid gap-2">
         <span className="text-sm font-semibold text-tea-900">{field.label}</span>
         <select
@@ -509,11 +530,11 @@ export default function AdminFormField({
           )}
         </select>
         {helper}
-      </label>
+      </label>,
     );
   }
 
-  return (
+  return wrapField(
     <label className="grid gap-2">
       <span className="text-sm font-semibold text-tea-900">{field.label}</span>
       <input
@@ -531,6 +552,6 @@ export default function AdminFormField({
         onChange={(event) => onChange(field.name, event.target.value)}
       />
       {helper}
-    </label>
+    </label>,
   );
 }

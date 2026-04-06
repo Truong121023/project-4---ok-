@@ -16,7 +16,7 @@ class CartScreen extends StatelessWidget {
       animation: controller,
       builder: (context, _) {
         final cart = controller.cart;
-        final showLoginPrompt = !controller.config.useMockData && !controller.isLoggedIn;
+        final isGuestCart = !controller.config.useMockData && controller.isGuestCartActive;
         return Scaffold(
           appBar: AppBar(
             title: const Text('Cart'),
@@ -31,10 +31,11 @@ class CartScreen extends StatelessWidget {
           body: ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 140),
             children: [
-              if (showLoginPrompt) ...[
+              if (isGuestCart) ...[
                 EmptyStateCard(
-                  title: 'Can dang nhap de dung cart backend',
-                  message: 'Theo API guide, gio hang that nam o /api/user/cart.',
+                  title: 'Ban dang dung gio hang tam',
+                  message:
+                      'Ban van co the them mon khi chua dang nhap. Dang nhap de dong bo gio hang va tiep tuc checkout.',
                   actionLabel: 'Dang nhap',
                   onAction: () {
                     Navigator.of(context).push(
@@ -153,6 +154,15 @@ class CartScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 10),
+                  if (isGuestCart && cart.items.isNotEmpty) ...[
+                    Text(
+                      'Dang nhap de dong bo gio hang va chon dia chi giao hang.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFF6E6259),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -173,7 +183,9 @@ class CartScreen extends StatelessWidget {
                                 ),
                               );
                             },
-                      child: const Text('Chon dia chi va checkout'),
+                      child: Text(
+                        isGuestCart ? 'Dang nhap de checkout' : 'Chon dia chi va checkout',
+                      ),
                     ),
                   ),
                 ],

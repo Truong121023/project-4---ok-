@@ -2,6 +2,7 @@ package com.example.registrationotp.controller;
 
 import jakarta.validation.Valid;
 
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -11,7 +12,9 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
+import com.example.registrationotp.dto.DeliveryProofUploadResponse;
 import com.example.registrationotp.dto.EmployeeOrderScanRequest;
 import com.example.registrationotp.dto.EmployeeOrderScanResponse;
 import com.example.registrationotp.dto.OrderResponse;
@@ -85,6 +88,17 @@ public class EmployeeOrderController {
 			@PathVariable Long id
 	) {
 		return ResponseEntity.ok(orderService.completeDeliveryOrder(authorizationHeader, id));
+	}
+
+	@PostMapping(value = "/{id}/delivery-proof", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	public ResponseEntity<DeliveryProofUploadResponse> uploadDeliveryProof(
+			@RequestHeader("Authorization") String authorizationHeader,
+			@PathVariable Long id,
+			@RequestParam("file") MultipartFile file,
+			@RequestParam(value = "capturedAt", required = false) String capturedAt,
+			@RequestParam(value = "note", required = false) String note
+	) {
+		return ResponseEntity.ok(orderService.uploadDeliveryProof(authorizationHeader, id, file, capturedAt, note));
 	}
 
 	@PostMapping("/scan")

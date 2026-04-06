@@ -1,5 +1,9 @@
+export 'ai_chat_models.dart';
 export 'admin_models.dart';
 export 'auth_models.dart';
 export 'catalog_models.dart';
 export 'commerce_models.dart';
 export 'common_models.dart';
+export 'order_qr_models.dart';
+export 'support_chat_models.dart';
+export 'user_front_models.dart';

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../app/app.dart';
 import '../../widgets/app_widgets.dart';
+import '../backoffice_notifications_screen.dart';
+import '../backoffice_support_chat_screen.dart';
 
 class ManagerAccountScreen extends StatelessWidget {
   const ManagerAccountScreen({super.key});
@@ -55,9 +57,41 @@ class ManagerAccountScreen extends StatelessWidget {
                       const SizedBox(height: 18),
                     ],
                     const EmptyStateCard(
-                      title: 'Rule hien tai',
+                      title: 'Pham vi quan ly',
                       message:
-                          'Theo FRONTEND_ROLE_API_NOTE.md, manager khong duoc mo dashboard tong, promotions, user levels, hay tao/xoa store branch. UI nay giu dung nhung tac vu trong pham vi store.',
+                          'Tai khoan manager chi thao tac trong cua hang duoc phan cong, gom don hang, nhan su va phan hoi khach hang.',
+                    ),
+                    const SizedBox(height: 18),
+                    FutureBuilder<int>(
+                      future: controller.loadAdminNotificationUnreadCount(),
+                      builder: (context, snapshot) {
+                        final unread = snapshot.data ?? 0;
+                        return ActionMenuCard(
+                          icon: Icons.notifications_none,
+                          title: 'Thong bao cua hang',
+                          subtitle: 'Doc thong bao don moi va cac cap nhat can xu ly cho cua hang.',
+                          badgeLabel: unread == 0 ? null : '$unread',
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(builder: (_) => const BackofficeNotificationsScreen()),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    ActionMenuCard(
+                      icon: Icons.support_agent_outlined,
+                      title: 'Support cua hang',
+                      subtitle:
+                          'Mo inbox ho tro scope theo cua hang ban dang phu trach.',
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const BackofficeSupportChatScreen(),
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 18),
                     SizedBox(

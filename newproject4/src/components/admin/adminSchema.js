@@ -253,10 +253,14 @@ export function createEmptyDraft(sectionKey, collections) {
         discountValue: "",
         minOrderAmount: "",
         maxDiscountAmount: "",
+        minStoreBillAmount: "",
+        minCrossStoreBillAmount: "",
         usageLimit: "",
         startsAt: "",
         endsAt: "",
         applicableDishIdsText: "",
+        eligibleStoreIdsText: "",
+        eligibleUserLevelIdsText: "",
         active: "true",
       };
     case "userLevels":
@@ -428,6 +432,14 @@ export function hydrateSectionDraft(sectionKey, entity) {
               ? ""
               : String(entity.maximumDiscountAmount)
             : String(entity.maxDiscountAmount),
+        minStoreBillAmount:
+          entity.minStoreBillAmount === undefined || entity.minStoreBillAmount === null
+            ? ""
+            : String(entity.minStoreBillAmount),
+        minCrossStoreBillAmount:
+          entity.minCrossStoreBillAmount === undefined || entity.minCrossStoreBillAmount === null
+            ? ""
+            : String(entity.minCrossStoreBillAmount),
         usageLimit:
           entity.usageLimit === undefined || entity.usageLimit === null
             ? ""
@@ -439,6 +451,12 @@ export function hydrateSectionDraft(sectionKey, entity) {
           : Array.isArray(entity.promotionDishIds)
             ? entity.promotionDishIds.join(", ")
             : "",
+        eligibleStoreIdsText: Array.isArray(entity.eligibleStoreIds)
+          ? entity.eligibleStoreIds.join(", ")
+          : "",
+        eligibleUserLevelIdsText: Array.isArray(entity.eligibleUserLevelIds)
+          ? entity.eligibleUserLevelIds.join(", ")
+          : "",
         active: toBooleanString(entity.active),
       };
     case "userLevels":
@@ -621,6 +639,8 @@ export function serializeSectionDraft(sectionKey, draft) {
       {
         const minOrderAmount = toNullableNumber(draft.minOrderAmount);
         const maxDiscountAmount = toNullableNumber(draft.maxDiscountAmount);
+        const minStoreBillAmount = toNullableNumber(draft.minStoreBillAmount);
+        const minCrossStoreBillAmount = toNullableNumber(draft.minCrossStoreBillAmount);
         const applicableDishIds =
           draft.scope === "DISH"
             ? String(draft.applicableDishIdsText ?? "")
@@ -628,6 +648,14 @@ export function serializeSectionDraft(sectionKey, draft) {
                 .map((value) => Number(String(value).trim()))
                 .filter((value) => Number.isFinite(value))
             : [];
+        const eligibleStoreIds = String(draft.eligibleStoreIdsText ?? "")
+          .split(",")
+          .map((value) => Number(String(value).trim()))
+          .filter((value) => Number.isFinite(value));
+        const eligibleUserLevelIds = String(draft.eligibleUserLevelIdsText ?? "")
+          .split(",")
+          .map((value) => Number(String(value).trim()))
+          .filter((value) => Number.isFinite(value));
 
       return {
         name: draft.name.trim() || undefined,
@@ -640,11 +668,15 @@ export function serializeSectionDraft(sectionKey, draft) {
         minimumOrderAmount: minOrderAmount,
         maxDiscountAmount,
         maximumDiscountAmount: maxDiscountAmount,
+        minStoreBillAmount,
+        minCrossStoreBillAmount,
         usageLimit: toNullableNumber(draft.usageLimit),
         startsAt: toApiDateTime(draft.startsAt),
         endsAt: toApiDateTime(draft.endsAt),
         applicableDishIds,
         promotionDishIds: applicableDishIds,
+        eligibleStoreIds,
+        eligibleUserLevelIds,
         active: fromBooleanString(draft.active),
       };
       }
@@ -1443,6 +1475,22 @@ export function buildSectionConfigs({
           placeholder: "30000",
         },
         {
+          name: "minStoreBillAmount",
+          label: "Minimum store bill",
+          type: "number",
+          min: "0",
+          step: "0.01",
+          placeholder: "100000",
+        },
+        {
+          name: "minCrossStoreBillAmount",
+          label: "Minimum cross-store bill",
+          type: "number",
+          min: "0",
+          step: "0.01",
+          placeholder: "250000",
+        },
+        {
           name: "usageLimit",
           label: "Usage limit",
           type: "number",
@@ -1464,11 +1512,27 @@ export function buildSectionConfigs({
         },
         {
           name: "applicableDishIdsText",
-          label: "Applicable dish IDs",
+          label: "Promotion dish IDs",
           type: "textarea",
           placeholder: "10, 11, 12",
           description:
-            "Only used when scope = DISH. Enter dishId values separated by commas, for example: 10, 11, 12.",
+            "Only used when scope = DISH. Enter dishId values separated by commas. Frontend will send both applicableDishIds and promotionDishIds.",
+        },
+        {
+          name: "eligibleStoreIdsText",
+          label: "Eligible store IDs",
+          type: "textarea",
+          placeholder: "1, 2",
+          description:
+            "Optional. Limit the promotion to specific stores by storeId. Leave blank to allow all eligible stores.",
+        },
+        {
+          name: "eligibleUserLevelIdsText",
+          label: "Eligible user level IDs",
+          type: "textarea",
+          placeholder: "5, 6",
+          description:
+            "Optional. Limit the promotion to specific store-level definitions by userLevelId.",
         },
         {
           name: "active",

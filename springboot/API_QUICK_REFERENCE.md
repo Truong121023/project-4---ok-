@@ -6,6 +6,8 @@ This file is optimized for frontend implementation speed: each endpoint maps to 
 Detailed guides:
 - `FRONTEND_USER_API.md`
 - `FRONTEND_ADMIN_API.md`
+- `FRONTEND_ADMIN_AI_DRAFT_NOTE.md`
+- `FRONTEND_AI_CHAT_NOTE.md`
 
 ## Common Rules
 
@@ -52,6 +54,12 @@ Detailed guides:
 | `POST` | `/api/auth/logout` | Header only | `logoutResponse` |
 
 ## User APIs
+
+### AI Chat
+
+| Method | Path | Request Example | Response Example |
+| --- | --- | --- | --- |
+| `POST` | `/api/ai/chat/query` | `aiChatQueryRequest` | `aiChatResponse` |
 
 ### Cart And Checkout
 
@@ -103,12 +111,6 @@ Detailed guides:
 | `PUT` | `/api/employee/notifications/{id}/read` | Header only | `userNotificationResponse` |
 | `PUT` | `/api/employee/notifications/{id}/unread` | Header only | `userNotificationResponse` |
 | `PUT` | `/api/employee/notifications/read-all` | Header only | `messageResponse` |
-| `GET` | `/api/employee/work-schedules/today` | Header only | `employeeWorkScheduleResponse` |
-| `GET` | `/api/employee/work-schedules/monthly` | `?month=2026-03` | `employeeWorkScheduleMonthResponse` |
-| `GET` | `/api/employee/attendance/today` | Header only | `employeeAttendanceResponse` |
-| `POST` | `/api/employee/attendance/check-in` | Header only | `employeeAttendanceResponse` |
-| `POST` | `/api/employee/attendance/check-out` | Header only | `employeeAttendanceResponse` |
-| `GET` | `/api/employee/attendance/history` | `?fromDate=2026-03-01&toDate=2026-03-31&page=0&size=10` | `employeeAttendancePageResponse` |
 | `GET` | `/api/reviews` or `/api/user/reviews` | `?targetType=STORE&sort=date_desc&page=0&size=10` | `reviewPageResponse` |
 | `POST` | `/api/reviews` or `/api/user/reviews` | `userReviewRequest` | `reviewResponse` |
 | `PUT` | `/api/reviews/{id}` or `/api/user/reviews/{id}` | `userReviewRequest` | `reviewResponse` |
@@ -127,8 +129,9 @@ Detailed guides:
 
 | Method | Path | Request Example | Response Example |
 | --- | --- | --- | --- |
-| `GET` | `/api/admin/dashboard` | Header only | `adminDashboardResponse` |
-| `GET` | `/api/admin/summary` | Header only | `adminSummaryResponse` |
+| `GET` | `/api/admin/dashboard` | Optional `?storeId=1` | `adminDashboardResponse` |
+| `GET` | `/api/admin/summary` | Optional `?storeId=1` | `adminSummaryResponse` |
+| `POST` | `/api/admin/ai/form-drafts/{formType}` | `adminAiFormDraftRequest` | `adminAiFormDraftResponse` |
 | `POST` | `/api/admin/uploads/images` | multipart `files`, optional `folder` | `uploadImagesResponse` |
 | `GET` | `/api/admin/users` | `?page=0&size=10&search=anna` | `adminUserPageResponse` |
 | `GET` | `/api/admin/users/{id}` | Header only | `adminUserResponse` |
@@ -172,10 +175,6 @@ Detailed guides:
 | `GET` | `/api/admin/orders` | `?page=0&size=10&stage=PAID` | `orderPageResponse` |
 | `GET` | `/api/admin/orders/{id}` | Header only | `orderResponse` |
 | `PUT` | `/api/admin/orders/{id}/status` | `orderStatusUpdateRequest` | `orderResponse` |
-| `PUT` | `/api/admin/work-schedules/monthly` | `employeeWorkScheduleMonthlyUpsertRequest` | `employeeWorkScheduleMonthResponse` |
-| `GET` | `/api/admin/work-schedules/monthly` | `?storeId=1&month=2026-03&role=STAFF&search=nguyen` | `employeeWorkScheduleMonthResponse` |
-| `GET` | `/api/admin/attendances` | `?storeId=1&role=STAFF&workDate=2026-03-27&checkedOut=false&page=0&size=10` | `employeeAttendancePageResponse` |
-| `GET` | `/api/admin/attendances/summary` | `?storeId=1&workDate=2026-03-27` | `employeeAttendanceSummaryResponse` |
 | `GET` | `/api/admin/promotions` | Header only | `promotionListResponse` |
 | `GET` | `/api/admin/promotions/{id}` | Header only | `promotionResponse` |
 | `POST` | `/api/admin/promotions` | `promotionRequest` | `promotionResponse` |
@@ -471,6 +470,45 @@ Detailed guides:
 
 ```json
 {
+  "aiChatQueryRequest": {
+    "message": "Cua hang nao o Quan 1 co matcha latte va voucher giam gia?",
+    "history": [
+      {
+        "role": "user",
+        "content": "Cho minh xem tin tuc moi"
+      }
+    ]
+  },
+  "aiChatResponse": {
+    "answer": "Tea House Q1 dang co Matcha Latte va co the kiem tra them voucher MATCHA10 trong danh sach khuyen mai hien tai.",
+    "references": [
+      {
+        "referenceKey": "store:1",
+        "entityType": "STORE",
+        "tableName": "stores",
+        "id": 1,
+        "slug": "tea-house-q1",
+        "title": "Tea House Q1",
+        "subtitle": "District 1 - 12 Nguyen Trai, District 1",
+        "imagePath": "/uploads/stores/tea-house-q1.jpg",
+        "publicApiPath": "/api/public/stores/tea-house-q1",
+        "adminApiPath": "/api/admin/stores/1",
+        "userApiPath": null
+      }
+    ],
+    "currentUserStatus": {
+      "id": 12,
+      "fullName": "Nguyen Van A",
+      "email": "a@example.com",
+      "role": "USER",
+      "enabled": true,
+      "verified": true,
+      "profileCompleted": true,
+      "workingStoreId": null,
+      "workingStoreName": null
+    },
+    "model": "gpt-5.4-nano"
+  },
   "cartItemRequest": {
     "storeId": 1,
     "dishId": 88,
@@ -588,108 +626,6 @@ Detailed guides:
       "levelMinPaidAmount": 300000
     }
   ],
-  "employeeWorkScheduleMonthlyUpsertRequest": {
-    "storeId": 1,
-    "month": "2026-03",
-    "entries": [
-      {
-        "userId": 15,
-        "workDate": "2026-03-27",
-        "scheduledStartTime": "08:00:00",
-        "scheduledEndTime": "17:00:00",
-        "note": "Ca sang"
-      },
-      {
-        "userId": 16,
-        "workDate": "2026-03-27",
-        "scheduledStartTime": "09:00:00",
-        "scheduledEndTime": "18:00:00",
-        "note": "Ca giao hang"
-      }
-    ]
-  },
-  "employeeWorkScheduleResponse": {
-    "id": 301,
-    "userId": 15,
-    "fullName": "Staff A",
-    "email": "staff@example.com",
-    "role": "STAFF",
-    "storeId": 1,
-    "storeName": "Tea House Q1",
-    "storeAddress": "12 Nguyen Hue, District 1",
-    "workDate": "2026-03-27",
-    "scheduledStartTime": "08:00:00",
-    "scheduledEndTime": "17:00:00",
-    "scheduledMinutes": 540,
-    "note": "Ca sang",
-    "attendanceId": 41,
-    "checkInAt": "2026-03-27T01:00:00Z",
-    "checkOutAt": null,
-    "workedMinutes": null,
-    "checkedIn": true,
-    "checkedOut": false,
-    "currentlyWorking": true
-  },
-  "employeeWorkScheduleMonthResponse": {
-    "month": "2026-03",
-    "storeId": 1,
-    "storeName": "Tea House Q1",
-    "items": [
-      {
-        "id": 301,
-        "userId": 15,
-        "fullName": "Staff A",
-        "role": "STAFF",
-        "workDate": "2026-03-27",
-        "scheduledStartTime": "08:00:00",
-        "scheduledEndTime": "17:00:00",
-        "scheduledMinutes": 540,
-        "checkedIn": false
-      }
-    ]
-  },
-  "employeeAttendanceResponse": {
-    "id": 41,
-    "workScheduleId": 301,
-    "userId": 15,
-    "fullName": "Staff A",
-    "email": "staff@example.com",
-    "role": "STAFF",
-    "storeId": 1,
-    "storeName": "Tea House Q1",
-    "storeAddress": "12 Nguyen Hue, District 1",
-    "workDate": "2026-03-27",
-    "scheduledStartTime": "08:00:00",
-    "scheduledEndTime": "17:00:00",
-    "scheduleNote": "Ca sang",
-    "checkInAt": "2026-03-27T01:00:00Z",
-    "checkOutAt": null,
-    "workedMinutes": null,
-    "checkedIn": true,
-    "checkedOut": false,
-    "currentlyWorking": true
-  },
-  "employeeAttendancePageResponse": {
-    "items": [
-      {
-        "id": 41,
-        "workScheduleId": 301,
-        "userId": 15,
-        "fullName": "Staff A",
-        "role": "STAFF",
-        "storeId": 1,
-        "workDate": "2026-03-27",
-        "scheduledStartTime": "08:00:00",
-        "checkedOut": false
-      }
-    ],
-    "page": 0,
-    "size": 10,
-    "totalItems": 1,
-    "totalPages": 1,
-    "hasNext": false,
-    "hasPrevious": false
-  },
   "employeeTaskNotificationResponse": {
     "id": 91,
     "type": "ORDER_TASK",
@@ -889,19 +825,7 @@ Detailed guides:
     "hasNext": false,
     "hasPrevious": false
   },
-  "employeeAttendanceSummaryResponse": {
-    "workDate": "2026-03-27",
-    "storeId": 1,
-    "storeName": "Tea House Q1",
-    "totalAssignedEmployees": 5,
-    "totalAssignedStaff": 3,
-    "totalAssignedShippers": 2,
-    "presentCount": 4,
-    "presentStaffCount": 2,
-    "presentShipperCount": 2,
-    "checkedOutCount": 1,
-    "currentlyWorkingCount": 3
-  }
+  "employeeAttendanceSummaryResponse": "disabled"
 }
 ```
 
@@ -1183,14 +1107,69 @@ Detailed guides:
       "/uploads/stores/store-2.jpg"
     ]
   },
+  "adminAiFormDraftRequest": {
+    "prompt": "Tao mot cua hang phong cach Nhat tai Quan 1, tone go am, co workshop cuoi tuan",
+    "storeId": 1,
+    "currentForm": {}
+  },
+  "adminAiFormDraftResponse": {
+    "formType": "STORE",
+    "draft": {
+      "name": "Tea Matcha Sakura Q1",
+      "description": "Khong gian matcha phong cach Nhat voi tone go am va workshop cuoi tuan.",
+      "address": "25 Nguyen Hue, District 1, Ho Chi Minh City",
+      "area": "District 1",
+      "hoursText": "08:00 - 22:00",
+      "openTime": "08:00:00",
+      "closeTime": "22:00:00",
+      "personality": "Tinh te va am ap",
+      "designSignature": "Go sang mau va ban workshop",
+      "specialty": "Usucha va matcha latte",
+      "highlightSummary": "Chi nhanh tap trung workshop va menu matcha thu cong",
+      "highlightTags": ["Workshop", "Matcha", "Japanese style"],
+      "serviceTags": ["Dine-in", "Takeaway"],
+      "imagePaths": [],
+      "sections": [],
+      "active": true
+    },
+    "warnings": [],
+    "missingFields": [],
+    "scopeStoreId": 1,
+    "scopeStoreName": "Tea House Q1",
+    "model": "gpt-5.4-nano"
+  },
   "adminDashboardResponse": {
     "users": [],
     "stores": [],
     "events": [],
     "categories": [],
     "dishes": [],
+    "storeDishes": [],
+    "orders": [],
     "reviews": [],
-    "news": []
+    "feedbacks": [],
+    "promotions": [],
+    "news": [],
+    "topSellingDishes": [
+      {
+        "storeId": 1,
+        "storeName": "Tea House Q1",
+        "dishId": 88,
+        "dishName": "Matcha Latte",
+        "imagePaths": ["/uploads/dishes/matcha-latte.jpg"],
+        "quantitySold": 124,
+        "orderCount": 98,
+        "revenue": 11160000
+      }
+    ],
+    "revenue": {
+      "scopeStoreId": null,
+      "scopeStoreName": "All stores",
+      "todayRevenue": 3500000,
+      "weekRevenue": 18900000,
+      "monthRevenue": 74400000,
+      "yearRevenue": 311250000
+    }
   },
   "adminSummaryResponse": {
     "userCount": 24,
@@ -1198,8 +1177,19 @@ Detailed guides:
     "eventCount": 12,
     "categoryCount": 8,
     "dishCount": 42,
+    "storeDishCount": 60,
+    "promotionCount": 4,
+    "orderCount": 280,
     "reviewCount": 180,
-    "newsCount": 16
+    "newsCount": 16,
+    "revenue": {
+      "scopeStoreId": null,
+      "scopeStoreName": "All stores",
+      "todayRevenue": 3500000,
+      "weekRevenue": 18900000,
+      "monthRevenue": 74400000,
+      "yearRevenue": 311250000
+    }
   },
   "adminUserPageResponse": {
     "items": [

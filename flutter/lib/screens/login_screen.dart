@@ -106,10 +106,10 @@ class _LoginScreenState extends State<LoginScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           EmptyStateCard(
-            title: 'Dang nhap voi API that',
+            title: 'Trang thai ket noi',
             message: controller.config.useMockData
-                ? 'Dang o mock mode. Tat USE_MOCK_DATA de goi backend that.'
-                : 'Backend mac dinh dang tro toi ${controller.config.normalizedBaseUrl}.',
+                ? 'Ban dang o che do demo. Tat USE_MOCK_DATA de dang nhap vao he thong that.'
+                : 'App dang ket noi toi ${controller.config.normalizedBaseUrl}.',
           ),
           const SizedBox(height: 16),
           Card(

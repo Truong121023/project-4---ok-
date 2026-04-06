@@ -15,6 +15,18 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
+class ApiUnauthorizedSignal {
+  const ApiUnauthorizedSignal({
+    required this.message,
+    required this.path,
+    required this.hadToken,
+  });
+
+  final String message;
+  final String path;
+  final bool hadToken;
+}
+
 class ApiService {
   ApiService({
     required this.config,
@@ -23,6 +35,7 @@ class ApiService {
 
   final AppConfig config;
   final http.Client _client;
+  Future<void> Function(ApiUnauthorizedSignal signal)? onUnauthorized;
 
   Future<HomeBundle> getHome() async {
     final json = await _request('GET', '/api/public/home') as JsonMap;
@@ -51,6 +64,23 @@ class ApiService {
   Future<StoreDetail> getStoreDetail(String storeKey) async {
     final json = await _request('GET', '/api/public/stores/$storeKey') as JsonMap;
     return StoreDetail.fromJson(json);
+  }
+
+  Future<AiChatResponse> queryAiChat({
+    required String token,
+    required String message,
+    List<AiChatHistoryEntry> history = const [],
+  }) async {
+    final json = await _request(
+      'POST',
+      '/api/ai/chat/query',
+      token: token,
+      body: {
+        'message': message,
+        'history': history.map((entry) => entry.toJson()).toList(),
+      },
+    ) as JsonMap;
+    return AiChatResponse.fromJson(json);
   }
 
   Future<List<DishCard>> getDishes({
@@ -99,6 +129,30 @@ class ApiService {
   Future<NewsDetail> getNewsDetail(String newsKey) async {
     final json = await _request('GET', '/api/public/news/$newsKey') as JsonMap;
     return NewsDetail.fromJson(json);
+  }
+
+  Future<List<EventCard>> getEvents({
+    String search = '',
+    String sort = 'date_asc',
+    int page = 0,
+    int size = 20,
+  }) async {
+    final json = await _request(
+      'GET',
+      '/api/public/events',
+      query: {
+        'search': search,
+        'sort': sort,
+        'page': '$page',
+        'size': '$size',
+      },
+    ) as JsonMap;
+    return PageResponse<EventCard>.fromJson(json, EventCard.fromJson).items;
+  }
+
+  Future<EventDetail> getEventDetail(String eventKey) async {
+    final json = await _request('GET', '/api/public/events/$eventKey') as JsonMap;
+    return EventDetail.fromJson(json);
   }
 
   Future<UserSession> login({
@@ -211,14 +265,54 @@ class ApiService {
     return AppUser.fromJson(Map<String, dynamic>.from(json['user'] as Map? ?? const {}));
   }
 
-  Future<AdminDashboard> getAdminDashboard(String token) async {
-    final json = await _request('GET', '/api/admin/dashboard', token: token) as JsonMap;
+  Future<AdminDashboard> getAdminDashboard(
+    String token, {
+    int? storeId,
+  }) async {
+    final json = await _request(
+      'GET',
+      '/api/admin/dashboard',
+      token: token,
+      query: {
+        'storeId': storeId == null ? null : '$storeId',
+      },
+    ) as JsonMap;
     return AdminDashboard.fromJson(json);
   }
 
-  Future<AdminSummary> getAdminSummary(String token) async {
-    final json = await _request('GET', '/api/admin/summary', token: token) as JsonMap;
+  Future<AdminSummary> getAdminSummary(
+    String token, {
+    int? storeId,
+  }) async {
+    final json = await _request(
+      'GET',
+      '/api/admin/summary',
+      token: token,
+      query: {
+        'storeId': storeId == null ? null : '$storeId',
+      },
+    ) as JsonMap;
     return AdminSummary.fromJson(json);
+  }
+
+  Future<AdminAiFormDraft> generateAdminAiFormDraft({
+    required String token,
+    required String formType,
+    required String prompt,
+    int? storeId,
+    JsonMap currentForm = const {},
+  }) async {
+    final json = await _request(
+      'POST',
+      '/api/admin/ai/form-drafts/$formType',
+      token: token,
+      body: {
+        'prompt': prompt,
+        if (storeId != null) 'storeId': storeId,
+        'currentForm': currentForm,
+      },
+    ) as JsonMap;
+    return AdminAiFormDraft.fromJson(json);
   }
 
   Future<AdminListResult> getAdminCollection({
@@ -306,6 +400,18 @@ class ApiService {
       token: token,
     ) as JsonMap;
     return Map<String, dynamic>.from(json);
+  }
+
+  Future<MobileOrderQrResolveResponse> resolveMobileOrderQr({
+    required String token,
+    required String qrToken,
+  }) async {
+    final json = await _request(
+      'GET',
+      '/api/mobile/order-qr/$qrToken',
+      token: token,
+    ) as JsonMap;
+    return MobileOrderQrResolveResponse.fromJson(json);
   }
 
   Future<JsonMap> getEmployeeTodaySchedule(String token) async {
@@ -431,6 +537,222 @@ class ApiService {
     return MessageResponse.fromJson(json);
   }
 
+  Future<List<UserNotificationItem>> getAdminNotifications({
+    required String token,
+    bool? read,
+    int page = 0,
+    int size = 20,
+  }) async {
+    final json = await _request(
+      'GET',
+      '/api/admin/notifications',
+      token: token,
+      query: {
+        'read': read == null ? null : '$read',
+        'page': '$page',
+        'size': '$size',
+      },
+    ) as JsonMap;
+    return PageResponse<UserNotificationItem>.fromJson(json, UserNotificationItem.fromJson).items;
+  }
+
+  Future<int> getAdminNotificationUnreadCount(String token) async {
+    final json = await _request(
+      'GET',
+      '/api/admin/notifications/unread-count',
+      token: token,
+    ) as JsonMap;
+    return asInt(json['unreadCount']);
+  }
+
+  Future<UserNotificationItem> markAdminNotification({
+    required String token,
+    required int notificationId,
+    required bool read,
+  }) async {
+    final action = read ? 'read' : 'unread';
+    final json = await _request(
+      'PUT',
+      '/api/admin/notifications/$notificationId/$action',
+      token: token,
+    ) as JsonMap;
+    return UserNotificationItem.fromJson(json);
+  }
+
+  Future<MessageResponse> markAllAdminNotificationsRead(String token) async {
+    final json = await _request(
+      'PUT',
+      '/api/admin/notifications/read-all',
+      token: token,
+    ) as JsonMap;
+    return MessageResponse.fromJson(json);
+  }
+
+  Future<JsonMap> createAdminResource({
+    required String token,
+    required String path,
+    required JsonMap body,
+  }) async {
+    final json = await _request(
+      'POST',
+      path,
+      token: token,
+      body: body,
+    ) as JsonMap;
+    return Map<String, dynamic>.from(json);
+  }
+
+  Future<JsonMap> updateAdminResource({
+    required String token,
+    required String path,
+    required JsonMap body,
+  }) async {
+    final json = await _request(
+      'PUT',
+      path,
+      token: token,
+      body: body,
+    ) as JsonMap;
+    return Map<String, dynamic>.from(json);
+  }
+
+  Future<MessageResponse> deleteAdminResource({
+    required String token,
+    required String path,
+  }) async {
+    final json = await _request(
+      'DELETE',
+      path,
+      token: token,
+    ) as JsonMap;
+    return MessageResponse.fromJson(json);
+  }
+
+  Future<JsonMap> updateAdminUserVerification({
+    required String token,
+    required int userId,
+    required bool verified,
+  }) async {
+    final json = await _request(
+      'PUT',
+      '/api/admin/users/$userId/verification',
+      token: token,
+      body: {
+        'verified': verified,
+      },
+    ) as JsonMap;
+    return Map<String, dynamic>.from(json);
+  }
+
+  Future<JsonMap> updateAdminOrderStatus({
+    required String token,
+    required int orderId,
+    required JsonMap body,
+  }) async {
+    final json = await _request(
+      'PUT',
+      '/api/admin/orders/$orderId/status',
+      token: token,
+      body: body,
+    ) as JsonMap;
+    return Map<String, dynamic>.from(json);
+  }
+
+  Future<JsonMap?> getAdminFeedbackReply({
+    required String token,
+    required int feedbackId,
+  }) async {
+    try {
+      final json = await _request(
+        'GET',
+        '/api/admin/feedbacks/$feedbackId/reply',
+        token: token,
+      ) as JsonMap;
+      return Map<String, dynamic>.from(json);
+    } on ApiException catch (error) {
+      if (error.statusCode == 404) {
+        return null;
+      }
+      rethrow;
+    }
+  }
+
+  Future<JsonMap> upsertAdminFeedbackReply({
+    required String token,
+    required int feedbackId,
+    required String replyMessage,
+  }) async {
+    final json = await _request(
+      'PUT',
+      '/api/admin/feedbacks/$feedbackId/reply',
+      token: token,
+      body: {
+        'replyMessage': replyMessage,
+      },
+    ) as JsonMap;
+    return Map<String, dynamic>.from(json);
+  }
+
+  Future<MessageResponse> deleteAdminFeedbackReply({
+    required String token,
+    required int feedbackId,
+  }) async {
+    final json = await _request(
+      'DELETE',
+      '/api/admin/feedbacks/$feedbackId/reply',
+      token: token,
+    ) as JsonMap;
+    return MessageResponse.fromJson(json);
+  }
+
+  Future<List<String>> uploadAdminImages({
+    required String token,
+    required List<String> filePaths,
+    String? folder,
+  }) async {
+    final request = http.MultipartRequest(
+      'POST',
+      config.buildUri('/api/admin/uploads/images'),
+    );
+    request.headers.addAll({
+      'Accept': 'application/json',
+      'Authorization': 'Bearer $token',
+    });
+    if ((folder ?? '').trim().isNotEmpty) {
+      request.fields['folder'] = folder!.trim();
+    }
+    for (final path in filePaths) {
+      request.files.add(await http.MultipartFile.fromPath('files', path));
+    }
+    final response = await _sendMultipart(request);
+    return asStringList(response['paths']);
+  }
+
+  Future<JsonMap?> uploadEmployeeDeliveryProof({
+    required String token,
+    required int orderId,
+    required String filePath,
+  }) async {
+    final request = http.MultipartRequest(
+      'POST',
+      config.buildUri('/api/employee/orders/$orderId/delivery-proof'),
+    );
+    request.headers.addAll({
+      'Accept': 'application/json',
+      'Authorization': 'Bearer $token',
+    });
+    request.files.add(await http.MultipartFile.fromPath('file', filePath));
+    try {
+      final response = await _sendMultipart(request);
+      return response;
+    } on ApiException catch (error) {
+      if (error.statusCode == 404 || error.statusCode == 405 || error.statusCode == 501) {
+        return null;
+      }
+      rethrow;
+    }
+  }
+
   Future<void> logout(String token) async {
     await _request('POST', '/api/auth/logout', token: token);
   }
@@ -506,6 +828,312 @@ class ApiService {
       },
     ) as JsonMap;
     return PageResponse<OrderSummary>.fromJson(json, OrderSummary.fromJson).items;
+  }
+
+  Future<OrderDetail> getOrderDetail({
+    required String token,
+    required int orderId,
+  }) async {
+    final json = await _request(
+      'GET',
+      '/api/user/orders/$orderId',
+      token: token,
+    ) as JsonMap;
+    return OrderDetail.fromJson(json);
+  }
+
+  Future<OrderDetail> refreshOrderPayment({
+    required String token,
+    required int orderId,
+  }) async {
+    final json = await _request(
+      'POST',
+      '/api/user/orders/$orderId/refresh-payment',
+      token: token,
+    ) as JsonMap;
+    return OrderDetail.fromJson(json);
+  }
+
+  Future<JsonMap> getOrderInvoice({
+    required String token,
+    required int orderId,
+  }) async {
+    final json = await _request(
+      'GET',
+      '/api/user/orders/$orderId/invoice',
+      token: token,
+    ) as JsonMap;
+    return Map<String, dynamic>.from(json);
+  }
+
+  Future<List<FavoriteItem>> getFavorites({
+    required String token,
+    String? targetType,
+    bool? purchasedOnly,
+  }) async {
+    final json = await _request(
+      'GET',
+      '/api/user/favorites',
+      token: token,
+      query: {
+        'targetType': targetType,
+        'purchasedOnly': purchasedOnly == null ? null : '$purchasedOnly',
+      },
+    );
+    if (json is List) {
+      return json
+          .whereType<Map>()
+          .map((item) => FavoriteItem.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
+    }
+    return const [];
+  }
+
+  Future<FavoriteItem> addFavorite({
+    required String token,
+    required String targetType,
+    required int targetId,
+  }) async {
+    final json = await _request(
+      'POST',
+      '/api/user/favorites',
+      token: token,
+      body: {
+        'targetType': targetType,
+        'targetId': targetId,
+      },
+    ) as JsonMap;
+    return FavoriteItem.fromJson(json);
+  }
+
+  Future<MessageResponse> removeFavorite({
+    required String token,
+    required String targetType,
+    required int targetId,
+  }) async {
+    final json = await _request(
+      'DELETE',
+      '/api/user/favorites',
+      token: token,
+      body: {
+        'targetType': targetType,
+        'targetId': targetId,
+      },
+    ) as JsonMap;
+    return MessageResponse.fromJson(json);
+  }
+
+  Future<List<UserLevel>> getUserLevels({
+    required String token,
+    int? storeId,
+  }) async {
+    final json = await _request(
+      'GET',
+      '/api/user/levels/current',
+      token: token,
+      query: {
+        'storeId': storeId == null ? null : '$storeId',
+      },
+    );
+    if (json is List) {
+      return json
+          .whereType<Map>()
+          .map((item) => UserLevel.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
+    }
+    return const [];
+  }
+
+  Future<List<UserReview>> getUserReviews({
+    required String token,
+    String? targetType,
+    String sort = 'date_desc',
+    int page = 0,
+    int size = 20,
+  }) async {
+    final json = await _request(
+      'GET',
+      '/api/user/reviews',
+      token: token,
+      query: {
+        'targetType': targetType,
+        'sort': sort,
+        'page': '$page',
+        'size': '$size',
+      },
+    ) as JsonMap;
+    return PageResponse<UserReview>.fromJson(json, UserReview.fromJson).items;
+  }
+
+  Future<UserReview> createUserReview({
+    required String token,
+    required String targetType,
+    required int targetId,
+    required double rating,
+    required String title,
+    required String comment,
+  }) async {
+    final json = await _request(
+      'POST',
+      '/api/user/reviews',
+      token: token,
+      body: {
+        'targetType': targetType,
+        'targetId': targetId,
+        'rating': rating,
+        'title': title,
+        'comment': comment,
+      },
+    ) as JsonMap;
+    return UserReview.fromJson(json);
+  }
+
+  Future<UserReview> updateUserReview({
+    required String token,
+    required int reviewId,
+    required String targetType,
+    required int targetId,
+    required double rating,
+    required String title,
+    required String comment,
+  }) async {
+    final json = await _request(
+      'PUT',
+      '/api/user/reviews/$reviewId',
+      token: token,
+      body: {
+        'targetType': targetType,
+        'targetId': targetId,
+        'rating': rating,
+        'title': title,
+        'comment': comment,
+      },
+    ) as JsonMap;
+    return UserReview.fromJson(json);
+  }
+
+  Future<MessageResponse> deleteUserReview({
+    required String token,
+    required int reviewId,
+  }) async {
+    final json = await _request(
+      'DELETE',
+      '/api/user/reviews/$reviewId',
+      token: token,
+    ) as JsonMap;
+    return MessageResponse.fromJson(json);
+  }
+
+  Future<List<CustomerFeedback>> getUserFeedbacks({
+    required String token,
+    int page = 0,
+    int size = 20,
+  }) async {
+    final json = await _request(
+      'GET',
+      '/api/user/feedbacks',
+      token: token,
+      query: {
+        'page': '$page',
+        'size': '$size',
+      },
+    ) as JsonMap;
+    return PageResponse<CustomerFeedback>.fromJson(json, CustomerFeedback.fromJson).items;
+  }
+
+  Future<CustomerFeedback> createUserFeedback({
+    required String token,
+    required String category,
+    int? relatedStoreId,
+    int? relatedOrderId,
+    required String subject,
+    required String message,
+  }) async {
+    final json = await _request(
+      'POST',
+      '/api/user/feedbacks',
+      token: token,
+      body: {
+        'category': category,
+        if (relatedStoreId != null) 'relatedStoreId': relatedStoreId,
+        if (relatedOrderId != null) 'relatedOrderId': relatedOrderId,
+        'subject': subject,
+        'message': message,
+      },
+    ) as JsonMap;
+    return CustomerFeedback.fromJson(json);
+  }
+
+  Future<MessageResponse> deleteUserFeedback({
+    required String token,
+    required int feedbackId,
+  }) async {
+    final json = await _request(
+      'DELETE',
+      '/api/user/feedbacks/$feedbackId',
+      token: token,
+    ) as JsonMap;
+    return MessageResponse.fromJson(json);
+  }
+
+  Future<List<UserNotificationItem>> getUserNotifications({
+    required String token,
+    bool? read,
+    int page = 0,
+    int size = 20,
+  }) async {
+    final json = await _request(
+      'GET',
+      '/api/user/notifications',
+      token: token,
+      query: {
+        'read': read == null ? null : '$read',
+        'page': '$page',
+        'size': '$size',
+      },
+    ) as JsonMap;
+    return PageResponse<UserNotificationItem>.fromJson(json, UserNotificationItem.fromJson).items;
+  }
+
+  Future<int> getUserNotificationUnreadCount(String token) async {
+    final json = await _request(
+      'GET',
+      '/api/user/notifications/unread-count',
+      token: token,
+    ) as JsonMap;
+    return asInt(json['unreadCount']);
+  }
+
+  Future<UserNotificationItem> markUserNotification({
+    required String token,
+    required int notificationId,
+    required bool read,
+  }) async {
+    final action = read ? 'read' : 'unread';
+    final json = await _request(
+      'PUT',
+      '/api/user/notifications/$notificationId/$action',
+      token: token,
+    ) as JsonMap;
+    return UserNotificationItem.fromJson(json);
+  }
+
+  Future<MessageResponse> markAllUserNotificationsRead(String token) async {
+    final json = await _request(
+      'PUT',
+      '/api/user/notifications/read-all',
+      token: token,
+    ) as JsonMap;
+    return MessageResponse.fromJson(json);
+  }
+
+  Future<List<SupportStore>> getSupportStores(String token) async {
+    final json = await _request(
+      'GET',
+      '/api/support-chat/stores',
+      token: token,
+    ) as JsonMap;
+    return asObjectList(json['items'], SupportStore.fromJson);
   }
 
   Future<List<DeliveryAddress>> getDeliveryAddresses(String token) async {
@@ -642,13 +1270,58 @@ class ApiService {
     }
 
     if (response.statusCode >= 400) {
+      final message = _extractErrorMessage(decoded) ?? 'Request failed with status ${response.statusCode}.';
+      if (response.statusCode == 401 && onUnauthorized != null) {
+        await onUnauthorized!(
+          ApiUnauthorizedSignal(
+            message: message,
+            path: path,
+            hadToken: token != null && token.isNotEmpty,
+          ),
+        );
+      }
       throw ApiException(
-        _extractErrorMessage(decoded) ?? 'Request failed with status ${response.statusCode}.',
+        message,
         statusCode: response.statusCode,
       );
     }
 
     return decoded ?? const {};
+  }
+
+  Future<JsonMap> _sendMultipart(http.MultipartRequest request) async {
+    final streamed = await _client.send(request);
+    final response = await http.Response.fromStream(streamed);
+
+    dynamic decoded;
+    if (response.body.isNotEmpty) {
+      decoded = jsonDecode(response.body);
+    }
+
+    if (response.statusCode >= 400) {
+      final message = _extractErrorMessage(decoded) ?? 'Request failed with status ${response.statusCode}.';
+      if (response.statusCode == 401 && onUnauthorized != null) {
+        await onUnauthorized!(
+          ApiUnauthorizedSignal(
+            message: message,
+            path: request.url.path,
+            hadToken: request.headers.containsKey('Authorization'),
+          ),
+        );
+      }
+      throw ApiException(
+        message,
+        statusCode: response.statusCode,
+      );
+    }
+
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+    if (decoded is Map) {
+      return Map<String, dynamic>.from(decoded);
+    }
+    return const {};
   }
 
   String? _extractErrorMessage(dynamic decoded) {

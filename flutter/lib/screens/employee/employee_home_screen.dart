@@ -31,15 +31,11 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     final controller = AppScope.of(context);
     final values = await Future.wait<dynamic>([
       controller.loadEmployeeOrders(page: 0, size: 20),
-      controller.loadEmployeeTodaySchedule(),
-      controller.loadEmployeeTodayAttendance(),
       controller.loadEmployeeNotificationUnreadCount(),
     ]);
     return _EmployeeHomeBundle(
       orders: (values[0] as AdminListResult).items,
-      todaySchedule: values[1] as JsonMap?,
-      todayAttendance: values[2] as JsonMap?,
-      unreadCount: values[3] as int,
+      unreadCount: values[1] as int,
     );
   }
 
@@ -165,29 +161,9 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                     _MiniMetricCard(label: employeePrimaryQueueLabel(widget.kind), value: '${pending.length}'),
                     _MiniMetricCard(label: employeeActiveQueueLabel(widget.kind), value: '${active.length}'),
                     _MiniMetricCard(label: employeeCompletedQueueLabel(widget.kind), value: '${completed.length}'),
-                    _MiniMetricCard(
-                      label: 'Cham cong',
-                      value: data.todayAttendance == null
-                          ? 'Chua co'
-                          : asBool(data.todayAttendance!['checkedOut'])
-                              ? 'Da checkout'
-                              : asBool(data.todayAttendance!['checkedIn'])
-                                  ? 'Dang lam'
-                                  : 'Chua checkin',
-                    ),
+                    _MiniMetricCard(label: 'Thong bao moi', value: '${data.unreadCount}'),
                   ],
                 ),
-                const SizedBox(height: 24),
-                if (data.todaySchedule != null)
-                  EmployeeScheduleSummaryCard(
-                    title: 'Ca lam hom nay',
-                    schedule: data.todaySchedule!,
-                  )
-                else
-                  const EmptyStateCard(
-                    title: 'Hom nay chua co lich',
-                    message: 'Khi backend co work schedule, ca lam hom nay se hien o day.',
-                  ),
                 const SizedBox(height: 24),
                 SectionHeader(
                   title: employeePrimaryQueueLabel(widget.kind),
@@ -277,13 +253,9 @@ class _MiniMetricCard extends StatelessWidget {
 class _EmployeeHomeBundle {
   const _EmployeeHomeBundle({
     required this.orders,
-    required this.todaySchedule,
-    required this.todayAttendance,
     required this.unreadCount,
   });
 
   final List<JsonMap> orders;
-  final JsonMap? todaySchedule;
-  final JsonMap? todayAttendance;
   final int unreadCount;
 }

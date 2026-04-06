@@ -1,13 +1,21 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   apiRequest,
   clearStoredSession,
   getStoredSession,
   persistSession,
+  registerAuthFailureHandler,
 } from "../lib/api";
 import { requestPasswordResetOtp, resetPasswordWithOtp } from "../lib/siteApi";
+import { useToast } from "./ToastContext";
 
 const AuthContext = createContext(null);
+
+const SESSION_REPLACED_ALERT = {
+  title: "Tai khoan dang dang nhap o noi khac",
+  message:
+    "Phien dang nhap hien tai khong con hop le. Tai khoan cua ban co the vua duoc dang nhap tren thiet bi khac hoac phien dang nhap da bi thay the. Neu day khong phai ban, hay dung Quen mat khau de doi mat khau ngay.",
+};
 
 export function AuthProvider({ children }) {
   const [storedSession] = useState(() => getStoredSession());
@@ -20,18 +28,49 @@ export function AuthProvider({ children }) {
   const [expiresAt, setExpiresAt] = useState(storedExpiresAt);
   const [user, setUser] = useState(storedUser);
   const [initializing, setInitializing] = useState(Boolean(storedAccessToken));
+  const [sessionAlert, setSessionAlert] = useState(null);
+  const [loginRedirectNonce, setLoginRedirectNonce] = useState(0);
+  const hadAuthenticatedSessionRef = useRef(Boolean(storedAccessToken || storedUser));
+  const logoutInProgressRef = useRef(false);
+  const authFailureHandledRef = useRef(false);
+  const toast = useToast();
 
   const saveSession = useCallback(({ accessToken, tokenType: nextTokenType, expiresAt, user }) => {
     setToken(accessToken);
     setTokenType(nextTokenType ?? "Bearer");
     setExpiresAt(expiresAt ?? null);
     setUser(user ?? null);
+    setSessionAlert(null);
+    hadAuthenticatedSessionRef.current = Boolean(accessToken);
+    authFailureHandledRef.current = false;
+    logoutInProgressRef.current = false;
     persistSession({
       accessToken,
       tokenType: nextTokenType ?? "Bearer",
       expiresAt: expiresAt ?? null,
       user: user ?? null,
     });
+  }, []);
+
+  const clearSession = useCallback(({ resetHistory = false, dismissAlert = false } = {}) => {
+    clearStoredSession();
+    setToken("");
+    setTokenType("Bearer");
+    setExpiresAt(null);
+    setUser(null);
+
+    if (dismissAlert) {
+      setSessionAlert(null);
+    }
+
+    if (resetHistory) {
+      hadAuthenticatedSessionRef.current = false;
+      authFailureHandledRef.current = false;
+    }
+  }, []);
+
+  const dismissSessionAlert = useCallback(() => {
+    setSessionAlert(null);
   }, []);
 
   const syncSession = useCallback(
@@ -88,11 +127,7 @@ export function AuthProvider({ children }) {
           return;
         }
 
-        clearStoredSession();
-        setToken("");
-        setTokenType("Bearer");
-        setUser(null);
-        setExpiresAt(null);
+        clearSession();
       } finally {
         if (!cancelled) {
           setInitializing(false);
@@ -107,13 +142,58 @@ export function AuthProvider({ children }) {
     };
   }, [storedAccessToken, storedExpiresAt, storedTokenType, storedUser, syncSession]);
 
-  const clearSession = () => {
-    clearStoredSession();
-    setToken("");
-    setTokenType("Bearer");
-    setExpiresAt(null);
-    setUser(null);
-  };
+  useEffect(() => {
+    const unregister = registerAuthFailureHandler(async ({ message, token: failedToken }) => {
+      const normalizedMessage = String(message ?? "").trim();
+      const activeToken = String(token ?? "").trim();
+
+      if (!String(failedToken ?? "").trim()) {
+        return;
+      }
+
+      if (logoutInProgressRef.current || authFailureHandledRef.current) {
+        return;
+      }
+
+      if (
+        !hadAuthenticatedSessionRef.current ||
+        !activeToken ||
+        activeToken !== String(failedToken).trim()
+      ) {
+        return;
+      }
+
+      if (!normalizedMessage || normalizedMessage === "Authorization header must be Bearer token") {
+        return;
+      }
+
+      authFailureHandledRef.current = true;
+      clearSession();
+
+      if (normalizedMessage === "Token is invalid") {
+        setSessionAlert(SESSION_REPLACED_ALERT);
+        setLoginRedirectNonce((current) => current + 1);
+        return;
+      }
+
+      if (normalizedMessage === "Token has expired") {
+        toast.warning("Phien dang nhap da het han. Vui long dang nhap lai.", {
+          title: "Phien dang nhap",
+          dedupeKey: "session-expired",
+        });
+        setLoginRedirectNonce((current) => current + 1);
+        return;
+      }
+
+      toast.info("Vui long dang nhap lai de tiep tuc.", {
+        title: "Yeu cau dang nhap",
+        dedupeKey: "session-required",
+      });
+      setLoginRedirectNonce((current) => current + 1);
+    });
+
+    return unregister;
+  }, [clearSession, toast, token]);
 
   const register = (payload) =>
     apiRequest("/api/auth/register", {
@@ -150,7 +230,7 @@ export function AuthProvider({ children }) {
       expiresAt: response?.expiresAt ?? null,
       user: response?.user ?? null,
     }).catch((loginError) => {
-      clearSession();
+      clearSession({ dismissAlert: true });
       throw loginError;
     });
 
@@ -185,7 +265,7 @@ export function AuthProvider({ children }) {
       expiresAt: response?.expiresAt ?? null,
       user: response?.user ?? null,
     }).catch((loginError) => {
-      clearSession();
+      clearSession({ dismissAlert: true });
       throw loginError;
     });
 
@@ -217,7 +297,7 @@ export function AuthProvider({ children }) {
       expiresAt,
       user: response?.user ?? user ?? null,
     }).catch((completeProfileError) => {
-      clearSession();
+      clearSession({ dismissAlert: true });
       throw completeProfileError;
     });
 
@@ -250,6 +330,8 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
+    logoutInProgressRef.current = true;
+
     try {
       if (token) {
         await apiRequest("/api/auth/logout", {
@@ -259,7 +341,8 @@ export function AuthProvider({ children }) {
         });
       }
     } finally {
-      clearSession();
+      clearSession({ resetHistory: true, dismissAlert: true });
+      logoutInProgressRef.current = false;
     }
   };
 
@@ -271,6 +354,8 @@ export function AuthProvider({ children }) {
       user,
       initializing,
       isAuthenticated: Boolean(token && user),
+      sessionAlert,
+      loginRedirectNonce,
       hasRole: (...roles) =>
         Boolean(
           user &&
@@ -289,8 +374,19 @@ export function AuthProvider({ children }) {
       refreshMe,
       logout,
       clearSession,
+      dismissSessionAlert,
     }),
-    [expiresAt, initializing, token, tokenType, user],
+    [
+      clearSession,
+      dismissSessionAlert,
+      expiresAt,
+      initializing,
+      loginRedirectNonce,
+      sessionAlert,
+      token,
+      tokenType,
+      user,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

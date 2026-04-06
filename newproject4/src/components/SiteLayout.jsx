@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import AIChatWidget from "./AIChatWidget";
 import SupportChatWidget from "./SupportChatWidget";
 import { useAuth } from "../context/AuthContext";
 import { useSiteData } from "../context/SiteDataContext";
@@ -122,18 +123,23 @@ function getNotificationEventKey(notification) {
   ).trim();
 }
 
-function getNotificationTargetPath(notification) {
+function getNotificationTargetPath(notification, role = "") {
   if (notification?.actionUrl) {
     return notification.actionUrl;
   }
 
   const notificationType = getNormalizedNotificationType(notification);
   const orderId = getNotificationOrderId(notification);
+  const normalizedRole = String(role ?? "").trim().toUpperCase();
 
   if (
     notificationType === "ORDER_STATUS" ||
     notificationType.includes("ORDER")
   ) {
+    if (normalizedRole === "ADMIN" || normalizedRole === "MANAGER") {
+      return orderId ? `/admin/orders/${orderId}` : "/admin";
+    }
+
     return orderId ? `/orders/${orderId}` : "/orders";
   }
 
@@ -150,8 +156,8 @@ function getNotificationTargetPath(notification) {
   return "";
 }
 
-function getNotificationActionLabel(notification) {
-  return getNotificationTargetPath(notification) ? "View now" : "Mark read";
+function getNotificationActionLabel(notification, role = "") {
+  return getNotificationTargetPath(notification, role) ? "View now" : "Mark read";
 }
 
 const headerGhostButton =
@@ -199,7 +205,7 @@ export default function SiteLayout() {
   ];
   const canAccessAdminArea = auth.hasRole("ADMIN", "MANAGER");
   const canAccessEmployeeArea = auth.hasRole("STAFF", "SHIPPER");
-  const canUseNotifications = auth.hasRole("USER");
+  const canUseNotifications = auth.hasRole("USER", "ADMIN", "MANAGER");
   const accountSectionLinks = [
     ...(canAccessAdminArea
       ? [{ to: "/admin", label: auth.hasRole("ADMIN") ? "Admin dashboard" : "Manager panel" }]
@@ -300,7 +306,7 @@ export default function SiteLayout() {
     }
 
     setNotificationPanelOpen(false);
-    const targetPath = getNotificationTargetPath(notification);
+    const targetPath = getNotificationTargetPath(notification, auth.user?.role);
 
     if (targetPath) {
       navigate(targetPath);
@@ -388,7 +394,9 @@ export default function SiteLayout() {
                               Notifications
                             </p>
                             <p className="mt-2 text-sm leading-7 text-stone-600">
-                              Latest updates from brand events and your orders.
+                              {auth.hasRole("ADMIN", "MANAGER")
+                                ? "Latest store-scoped order and moderation updates for your admin workspace."
+                                : "Latest updates from brand events and your orders."}
                             </p>
                           </div>
 
@@ -460,7 +468,7 @@ export default function SiteLayout() {
                                     type="button"
                                     onClick={() => handleNotificationAction(notification)}
                                   >
-                                    {getNotificationActionLabel(notification)}
+                                    {getNotificationActionLabel(notification, auth.user?.role)}
                                   </button>
                                   <button
                                     className={ui.secondaryButton}
@@ -610,6 +618,7 @@ export default function SiteLayout() {
         </aside>
       </div>
 
+      <AIChatWidget />
       <SupportChatWidget />
 
       <footer className="relative z-10 mx-auto mt-8 flex w-full max-w-7xl flex-col gap-4 px-2 pb-4 text-sm text-stone-600 lg:flex-row lg:items-end lg:justify-between">

@@ -515,10 +515,275 @@ class MockData {
     }).toList();
   }
 
+  static List<EventCard> browseEvents({
+    String search = '',
+    String sort = 'date_asc',
+  }) {
+    final items = _events
+        .where((event) => _matches(search, '${event.name} ${event.storeName} ${event.location}'))
+        .toList();
+    switch (sort) {
+      case 'date_desc':
+        items.sort((a, b) => (b.startsAt ?? DateTime(1970)).compareTo(a.startsAt ?? DateTime(1970)));
+        break;
+      case 'rating_desc':
+        items.sort((a, b) => b.averageRating.compareTo(a.averageRating));
+        break;
+      case 'rating_asc':
+        items.sort((a, b) => a.averageRating.compareTo(b.averageRating));
+        break;
+      default:
+        items.sort((a, b) => (a.startsAt ?? DateTime(2100)).compareTo(b.startsAt ?? DateTime(2100)));
+        break;
+    }
+    return items;
+  }
+
+  static EventDetail eventDetail(String eventKey) {
+    final event = _events.firstWhere(
+      (item) => item.slug == eventKey || item.id.toString() == eventKey,
+      orElse: () => _events.first,
+    );
+    final store = _stores.firstWhere(
+      (item) => item.name == event.storeName,
+      orElse: () => _stores.first,
+    );
+    return EventDetail(
+      id: event.id,
+      slug: event.slug,
+      name: event.name,
+      storeName: event.storeName,
+      location: event.location,
+      scheduleText: event.scheduleText,
+      imagePaths: event.imagePaths,
+      highlightSummary: event.highlightSummary,
+      highlightTags: event.highlightTags,
+      startsAt: event.startsAt,
+      endsAt: event.endsAt,
+      averageRating: event.averageRating,
+      reviewCount: event.reviewCount,
+      remainingSlots: event.remainingSlots,
+      sections: event.sections,
+      storeId: store.id,
+      storeSlug: store.slug,
+      storeAddress: store.address,
+      storeArea: store.area,
+      description: event.highlightSummary,
+      favoriteCount: 42,
+      capacity: event.remainingSlots + 18,
+      bookedCount: 18,
+      disabled: false,
+      disabledReason: null,
+      distanceKm: store.distanceKm,
+      store: store,
+      reviews: _reviewsByTarget['STORE:${store.id}'] ?? const [],
+      featuredDishes: _dishes
+          .where((dish) => dish.storeId == store.id)
+          .take(3)
+          .map(
+            (dish) => FeaturedDishPreview(
+              id: dish.id,
+              name: dish.name,
+              price: dish.price,
+              imagePaths: dish.imagePaths,
+            ),
+          )
+          .toList(),
+    );
+  }
+
   static NewsDetail newsDetail(String newsKey) {
     return _newsDetails.firstWhere(
       (item) => item.slug == newsKey || item.id.toString() == newsKey,
       orElse: () => _newsDetails.first,
+    );
+  }
+
+  static List<FavoriteItem> get favorites => [
+        FavoriteItem(
+          id: 1,
+          targetType: 'STORE',
+          targetId: 1,
+          targetSlug: 'tea-house-q1',
+          targetLabel: 'Store: Tea House Q1',
+          targetImagePaths: const ['/uploads/stores/tea-house-q1.jpg'],
+          purchased: true,
+          createdAt: DateTime.now().subtract(const Duration(days: 3)),
+        ),
+        FavoriteItem(
+          id: 2,
+          targetType: 'DISH',
+          targetId: 88,
+          targetSlug: null,
+          targetLabel: 'Dish: Matcha Latte',
+          targetImagePaths: const ['/uploads/dishes/matcha-latte.jpg'],
+          purchased: true,
+          createdAt: DateTime.now().subtract(const Duration(days: 2)),
+        ),
+      ];
+
+  static List<UserReview> get userReviews => [
+        UserReview(
+          id: 21,
+          userId: 12,
+          userName: 'Tea Matcha Guest',
+          userEmail: 'guest@teamatcha.local',
+          targetType: 'STORE',
+          targetId: 1,
+          targetSlug: 'tea-house-q1',
+          targetLabel: 'Store: Tea House Q1',
+          targetImagePaths: const ['/uploads/stores/tea-house-q1.jpg'],
+          rating: 5,
+          title: 'Rat de quay lai',
+          comment: 'Order nhanh, menu de chon va nhan vien than thien.',
+          approved: true,
+          createdAt: DateTime.now().subtract(const Duration(days: 6)),
+          updatedAt: DateTime.now().subtract(const Duration(days: 6)),
+        ),
+      ];
+
+  static List<CustomerFeedback> get feedbacks => [
+        CustomerFeedback(
+          id: 12,
+          userId: 12,
+          userName: 'Tea Matcha Guest',
+          userEmail: 'guest@teamatcha.local',
+          category: 'DELIVERY',
+          relatedStoreId: 1,
+          relatedStoreSlug: 'tea-house-q1',
+          relatedStoreName: 'Tea House Q1',
+          relatedStoreAddress: '12 Nguyen Trai, District 1',
+          relatedOrderId: 701,
+          relatedOrderStatus: 'COMPLETED',
+          relatedOrderPaymentStatus: 'PAID',
+          relatedOrderPaymentReference: 'PAYOS-701',
+          subject: 'Giao hoi cham',
+          message: 'Don giao tre hon du kien 20 phut.',
+          replyMessage: 'Team da ghi nhan va se dieu phoi shipper gio cao diem tot hon.',
+          repliedAt: DateTime.now().subtract(const Duration(days: 1)),
+          repliedByUserId: 1,
+          repliedByUserName: 'Platform Admin',
+          repliedByUserRole: 'ADMIN',
+          createdAt: DateTime.now().subtract(const Duration(days: 2)),
+          updatedAt: DateTime.now().subtract(const Duration(days: 1)),
+        ),
+      ];
+
+  static List<UserNotificationItem> get notifications => [
+        UserNotificationItem(
+          id: 21,
+          type: 'ORDER_STATUS',
+          title: 'Cap nhat don #701',
+          message: 'Don hang cua ban dang duoc giao den.',
+          relatedOrderId: 701,
+          orderId: 701,
+          relatedEventId: null,
+          eventId: null,
+          relatedEventSlug: null,
+          eventSlug: null,
+          relatedNewsId: null,
+          newsId: null,
+          relatedNewsSlug: null,
+          newsSlug: null,
+          relatedStoreId: 1,
+          relatedStoreName: 'Tea House Q1',
+          actionUrl: '/orders/701',
+          read: false,
+          readAt: null,
+          createdAt: DateTime.now().subtract(const Duration(hours: 4)),
+          updatedAt: DateTime.now().subtract(const Duration(hours: 4)),
+        ),
+      ];
+
+  static List<UserLevel> get levels => const [
+        UserLevel(
+          storeId: 1,
+          storeSlug: 'tea-house-q1',
+          storeName: 'Tea House Q1',
+          currentYear: 2026,
+          currentQuarter: 2,
+          evaluatedYear: 2026,
+          evaluatedQuarter: 1,
+          qualifyingPaidAmount: 320000,
+          levelId: 5,
+          levelCode: 'SILVER',
+          levelName: 'Silver',
+          levelMinPaidAmount: 300000,
+        ),
+      ];
+
+  static List<SupportStore> get supportStores => const [
+        SupportStore(id: 1, name: 'Tea House Q1'),
+        SupportStore(id: 2, name: 'Tea Matcha Airport Hub'),
+      ];
+
+  static OrderDetail orderDetail(int orderId) {
+    final summary = orders.firstWhere(
+      (item) => item.id == orderId,
+      orElse: () => orders.first,
+    );
+    return OrderDetail(
+      id: summary.id,
+      userId: 12,
+      storeId: summary.id == 701 ? 1 : 2,
+      storeSlug: summary.id == 701 ? 'tea-house-q1' : 'airport-hub',
+      storeName: summary.storeName,
+      status: summary.status,
+      paymentStatus: summary.paymentStatus,
+      paymentProvider: 'PAYOS',
+      paymentReference: 'PAYOS-${summary.id}',
+      paymentCheckoutUrl: 'https://payos.vn/checkout/${summary.id}',
+      paymentQrCode: '',
+      paymentExpiresAt: DateTime.now().add(const Duration(hours: 2)),
+      paidAt: summary.paymentStatus == 'PAID' ? DateTime.now().subtract(const Duration(days: 1)) : null,
+      subtotalAmount: summary.totalAmount,
+      discountAmount: 0,
+      totalAmount: summary.totalAmount,
+      promotionCode: '',
+      promotionScope: '',
+      promotionEligibleAmount: 0,
+      promotionDishIds: const [],
+      deliveryType: 'IMMEDIATE',
+      scheduledDeliveryAt: null,
+      deliveryFullName: 'Tea Matcha Guest',
+      deliveryPhoneNumber: '0909000000',
+      deliveryAddress: '12 Nguyen Trai, District 1',
+      confirmedByUserId: 5,
+      confirmedByUserName: 'Store Manager',
+      confirmedByUserRole: 'MANAGER',
+      confirmedAt: DateTime.now().subtract(const Duration(hours: 5)),
+      preparingStaffId: summary.status == 'OUT_FOR_DELIVERY' || summary.status == 'COMPLETED' ? 15 : null,
+      preparingStaffName: summary.status == 'OUT_FOR_DELIVERY' || summary.status == 'COMPLETED' ? 'Barista A' : null,
+      deliveringShipperId: summary.status == 'OUT_FOR_DELIVERY' || summary.status == 'COMPLETED' ? 16 : null,
+      deliveringShipperName: summary.status == 'OUT_FOR_DELIVERY' || summary.status == 'COMPLETED' ? 'Shipper B' : null,
+      deliveryProofImagePath: summary.status == 'COMPLETED' ? '/uploads/delivery-proofs/mock-order-${summary.id}.jpg' : null,
+      deliveryProofCapturedAt: summary.status == 'COMPLETED' ? DateTime.now().subtract(const Duration(hours: 1)) : null,
+      deliveryProofUploadedAt: summary.status == 'COMPLETED' ? DateTime.now().subtract(const Duration(minutes: 55)) : null,
+      deliveryProofNote: summary.status == 'COMPLETED' ? 'Da giao cho le tan toa nha.' : null,
+      statusSummary: summary.statusSummary,
+      items: const [
+        OrderLineItem(
+          id: 5001,
+          storeId: 1,
+          storeSlug: 'tea-house-q1',
+          storeName: 'Tea House Q1',
+          dishId: 88,
+          dishName: 'Matcha Latte',
+          quantity: 2,
+          unitPrice: 81000,
+          totalPrice: 162000,
+          imagePaths: ['/uploads/dishes/matcha-latte.jpg'],
+          createdAt: null,
+          updatedAt: null,
+        ),
+      ],
+      createdAt: DateTime.now().subtract(const Duration(days: 1)),
+      updatedAt: DateTime.now().subtract(const Duration(hours: 2)),
+      invoiceAvailable: summary.paymentStatus == 'PAID',
+      invoiceNumber: summary.paymentStatus == 'PAID' ? 'TM-INV-00000${summary.id}' : null,
+      invoicePreviewUrl: summary.paymentStatus == 'PAID' ? 'https://example.com/invoices/${summary.id}/preview' : null,
+      invoiceDownloadUrl: summary.paymentStatus == 'PAID' ? 'https://example.com/invoices/${summary.id}/download' : null,
+      allowedActions: summary.paymentStatus == 'PAID' ? const ['VIEW_INVOICE'] : const ['REFRESH_PAYMENT'],
     );
   }
 
@@ -541,7 +806,7 @@ class MockData {
     );
   }
 
-  static List<OrderSummary> get orders => const [
+  static List<OrderSummary> get orders => [
         OrderSummary(
           id: 701,
           storeName: 'Tea House Q1',
@@ -550,6 +815,11 @@ class MockData {
           totalAmount: 162000,
           statusSummary: 'Don hang dang duoc giao toi ban',
           createdAt: null,
+          confirmedByUserName: 'Store Manager',
+          confirmedAt: DateTime.now().subtract(const Duration(hours: 5)),
+          preparingStaffName: 'Barista A',
+          deliveringShipperName: 'Shipper B',
+          deliveryProofImagePath: null,
         ),
         OrderSummary(
           id: 688,
@@ -559,6 +829,11 @@ class MockData {
           totalAmount: 89000,
           statusSummary: 'Da giao thanh cong',
           createdAt: null,
+          confirmedByUserName: 'Airport Manager',
+          confirmedAt: DateTime.now().subtract(const Duration(days: 1, hours: 2)),
+          preparingStaffName: 'Barista C',
+          deliveringShipperName: 'Shipper D',
+          deliveryProofImagePath: '/uploads/delivery-proofs/mock-order-688.jpg',
         ),
       ];
 

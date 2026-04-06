@@ -1,0 +1,180 @@
+import 'package:flutter/material.dart';
+
+import '../app/app.dart';
+import '../core/models/models.dart';
+
+class UserReviewEditorScreen extends StatefulWidget {
+  const UserReviewEditorScreen({
+    super.key,
+    required this.targetType,
+    required this.targetId,
+    required this.targetLabel,
+    this.targetImagePaths = const [],
+    this.existing,
+  });
+
+  final String targetType;
+  final int targetId;
+  final String targetLabel;
+  final List<String> targetImagePaths;
+  final UserReview? existing;
+
+  @override
+  State<UserReviewEditorScreen> createState() => _UserReviewEditorScreenState();
+}
+
+class _UserReviewEditorScreenState extends State<UserReviewEditorScreen> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _titleController;
+  late final TextEditingController _commentController;
+  double _rating = 5;
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.existing?.title ?? '');
+    _commentController = TextEditingController(text: widget.existing?.comment ?? '');
+    _rating = widget.existing?.rating ?? 5;
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate() || _submitting) {
+      return;
+    }
+    final controller = AppScope.of(context);
+    setState(() {
+      _submitting = true;
+    });
+    try {
+      await controller.saveUserReview(
+        existing: widget.existing,
+        targetType: widget.targetType,
+        targetId: widget.targetId,
+        rating: _rating,
+        title: _titleController.text.trim(),
+        comment: _commentController.text.trim(),
+      );
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(widget.existing == null ? 'Da gui review' : 'Da cap nhat review'),
+        ),
+      );
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.existing == null ? 'Viet review' : 'Sua review'),
+      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+          children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.targetLabel,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 8),
+                    Text('Loai: ${widget.targetType}'),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Danh gia cua ban: ${_rating.toStringAsFixed(1)}',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            Slider(
+              value: _rating,
+              min: 1,
+              max: 5,
+              divisions: 8,
+              label: _rating.toStringAsFixed(1),
+              onChanged: (value) {
+                setState(() {
+                  _rating = value;
+                });
+              },
+            ),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _titleController,
+              decoration: const InputDecoration(
+                labelText: 'Tieu de',
+                hintText: 'VD: De order, nhan vien than thien',
+              ),
+              validator: (value) {
+                if ((value ?? '').trim().isEmpty) {
+                  return 'Nhap tieu de review';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _commentController,
+              maxLines: 6,
+              decoration: const InputDecoration(
+                labelText: 'Noi dung',
+                hintText: 'Chia se tra nghiem cua ban de team cai thien tot hon',
+              ),
+              validator: (value) {
+                if ((value ?? '').trim().isEmpty) {
+                  return 'Nhap noi dung review';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: _submitting ? null : _submit,
+              icon: _submitting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.send_outlined),
+              label: Text(_submitting ? 'Dang gui...' : 'Luu review'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

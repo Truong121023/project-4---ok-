@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../app/app.dart';
@@ -21,34 +23,56 @@ class SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    return Row(
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              if (subtitle != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  subtitle!,
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ],
-          ),
+        Text(
+          title,
+          style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
         ),
-        if (actionLabel != null && onTap != null)
-          TextButton(
+        if (subtitle != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            subtitle!,
+            style: textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ],
+    );
+    final action = actionLabel != null && onTap != null
+        ? TextButton(
             onPressed: onTap,
             child: Text(actionLabel!),
-          ),
-      ],
+          )
+        : null;
+
+    if (action == null) {
+      return content;
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 420) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              content,
+              const SizedBox(height: 8),
+              action,
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: content),
+            const SizedBox(width: 12),
+            action,
+          ],
+        );
+      },
     );
   }
 }
@@ -77,7 +101,10 @@ class EmptyStateCard extends StatelessWidget {
           children: [
             Text(
               title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
             Text(message),
@@ -188,6 +215,7 @@ class MetricChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final maxWidth = math.min(MediaQuery.sizeOf(context).width * 0.55, 220.0);
     return DecoratedBox(
       decoration: BoxDecoration(
         color: const Color(0xFFE8F0E0),
@@ -195,9 +223,19 @@ class MetricChip extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Text(
-          label,
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: Text(
+            label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            softWrap: true,
+            textAlign: TextAlign.center,
+            style: Theme.of(context)
+                .textTheme
+                .labelLarge
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
         ),
       ),
     );
@@ -236,7 +274,10 @@ class StoreCardTile extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 store.name,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w800),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -251,7 +292,8 @@ class StoreCardTile extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  MetricChip(label: '${Formatters.rating(store.averageRating)} sao'),
+                  MetricChip(
+                      label: '${Formatters.rating(store.averageRating)} sao'),
                   MetricChip(label: Formatters.distance(store.distanceKm)),
                   MetricChip(label: store.open ? 'Dang mo' : 'Sap mo lai'),
                 ],
@@ -298,7 +340,10 @@ class DishCardTile extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 dish.name,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w800),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -311,7 +356,10 @@ class DishCardTile extends StatelessWidget {
               const SizedBox(height: 10),
               Text(
                 Formatters.currency(dish.price),
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 12),
               Wrap(
@@ -319,7 +367,8 @@ class DishCardTile extends StatelessWidget {
                 runSpacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  MetricChip(label: '${Formatters.rating(dish.averageRating)} sao'),
+                  MetricChip(
+                      label: '${Formatters.rating(dish.averageRating)} sao'),
                   if (onQuickAdd != null) ...[
                     FilledButton.tonal(
                       onPressed: onQuickAdd,
@@ -367,10 +416,151 @@ class NewsTile extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 news.title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w800),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 6),
-              Text(news.summary),
+              Text(
+                news.summary,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ActionMenuCard extends StatelessWidget {
+  const ActionMenuCard({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.badgeLabel,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final String? badgeLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8F0E0),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Icon(icon),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                    if (badgeLabel != null && badgeLabel!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      MetricChip(label: badgeLabel!),
+                    ],
+                    const SizedBox(height: 6),
+                    Text(
+                      subtitle,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(Icons.chevron_right),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ExploreShortcutCard extends StatelessWidget {
+  const ExploreShortcutCard({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF17332A).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Icon(icon, size: 26),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                title,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w800),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                subtitle,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
             ],
           ),
         ),

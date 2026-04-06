@@ -19,6 +19,7 @@ export function resolveApiUrl(path) {
 
 const AUTH_STORAGE_KEY = "tea-matcha.auth";
 const inflightGetRequests = new Map();
+let authFailureHandler = null;
 
 export class ApiError extends Error {
   constructor(message, status, data) {
@@ -58,7 +59,41 @@ export function clearStoredSession() {
   window.localStorage.removeItem(AUTH_STORAGE_KEY);
 }
 
-async function parseResponsePayload(response) {
+export function registerAuthFailureHandler(handler) {
+  authFailureHandler = typeof handler === "function" ? handler : null;
+
+  return () => {
+    if (authFailureHandler === handler) {
+      authFailureHandler = null;
+    }
+  };
+}
+
+async function notifyAuthFailure(response, payload, requestContext = {}) {
+  if (response.status !== 401 || typeof authFailureHandler !== "function") {
+    return;
+  }
+
+  if (!String(requestContext?.token ?? "").trim()) {
+    return;
+  }
+
+  try {
+    await authFailureHandler({
+      status: response.status,
+      message: String(payload?.message ?? "").trim(),
+      path: String(requestContext?.path ?? "").trim(),
+      method: String(requestContext?.method ?? response?.method ?? "GET").trim().toUpperCase(),
+      token: String(requestContext?.token ?? "").trim(),
+      tokenType: String(requestContext?.tokenType ?? "Bearer").trim() || "Bearer",
+      payload,
+    });
+  } catch {
+    // Ignore auth failure callback errors so the original request error still propagates.
+  }
+}
+
+export async function parseApiResponsePayload(response, requestContext = {}) {
   const rawText = await response.text();
   let payload = null;
 
@@ -71,6 +106,8 @@ async function parseResponsePayload(response) {
   }
 
   if (!response.ok) {
+    await notifyAuthFailure(response, payload, requestContext);
+
     throw new ApiError(
       payload?.message ?? `Request failed with status ${response.status}.`,
       response.status,
@@ -112,7 +149,12 @@ export async function apiRequest(
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
 
-    return parseResponsePayload(response);
+    return parseApiResponsePayload(response, {
+      path,
+      method: normalizedMethod,
+      token,
+      tokenType,
+    });
   })();
 
   if (requestKey) {
@@ -157,7 +199,12 @@ export async function uploadAdminImages(
     body: formData,
   });
 
-  return parseResponsePayload(response);
+  return parseApiResponsePayload(response, {
+    path: "/api/admin/uploads/images",
+    method: "POST",
+    token,
+    tokenType,
+  });
 }
 
 function formatValidationErrors(validationErrors) {

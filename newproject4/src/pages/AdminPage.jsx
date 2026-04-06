@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import InvoicePreviewModal from "../components/InvoicePreviewModal";
 import AdminFormField from "../components/admin/AdminFormField";
 import SmartImage from "../components/SmartImage";
@@ -13,6 +13,7 @@ import {
   toIdString,
 } from "../components/admin/adminSchema";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import { useToastMessage } from "../hooks/useToastMessage";
 import { apiRequest, getApiErrorMessage, uploadAdminImages } from "../lib/api";
 import { getPrimaryImageUrl, normalizeImagePathList } from "../lib/images";
@@ -27,10 +28,12 @@ import {
 } from "../lib/orderStatus";
 import {
   canViewOrderInvoice,
+  extractOrderQrToken,
   getOrderInvoicePreviewHref,
 } from "../lib/orderWorkflow";
 import OrderStatusTracker from "../components/OrderStatusTracker";
 import { ui } from "../ui";
+import { fetchMobileOrderQr } from "../lib/siteApi";
 
 const adminSectionKeys = [
   "users",
@@ -91,6 +94,257 @@ const adminOrderActionConfig = {
     successMessage: "Invoice generated successfully.",
   },
 };
+const adminAiFormTypes = {
+  stores: "STORE",
+  categories: "CATEGORY",
+  dishes: "DISH",
+  events: "EVENT",
+  news: "NEWS",
+  storeDishes: "STORE_DISH",
+};
+const adminAiFieldMap = {
+  stores: {
+    name: "name",
+    slug: "slug",
+    description: "description",
+    address: "address",
+    contactEmail: "contactEmail",
+    phoneNumber: "phoneNumber",
+    latitude: "latitude",
+    longitude: "longitude",
+    area: "area",
+    positionLabel: "positionLabel",
+    hoursText: "hoursText",
+    hours: "hoursText",
+    openTime: "openTime",
+    closeTime: "closeTime",
+    personality: "personality",
+    designSignature: "designSignature",
+    franchiseMood: "franchiseMood",
+    specialty: "specialty",
+    highlightSummary: "highlightSummary",
+    highlightTags: "highlightTagsText",
+    serviceTags: "serviceTagsText",
+    imagePath: "imagePaths",
+    imagePaths: "imagePaths",
+    sections: "sections",
+    active: "active",
+  },
+  categories: {
+    storeId: "storeId",
+    name: "name",
+    description: "description",
+    imagePath: "imagePaths",
+    imagePaths: "imagePaths",
+    sortOrder: "sortOrder",
+    active: "active",
+  },
+  dishes: {
+    categoryId: "categoryId",
+    name: "name",
+    description: "description",
+    note: "note",
+    price: "price",
+    status: "status",
+    available: "available",
+    franchiseRequired: "franchiseRequired",
+    franchiseNote: "franchiseNote",
+    highlightSummary: "highlightSummary",
+    highlightTags: "highlightTagsText",
+    imagePath: "imagePaths",
+    imagePaths: "imagePaths",
+    sections: "sections",
+    active: "active",
+  },
+  events: {
+    storeId: "storeId",
+    name: "name",
+    slug: "slug",
+    description: "description",
+    location: "location",
+    scheduleText: "scheduleText",
+    schedule: "scheduleText",
+    highlightSummary: "highlightSummary",
+    highlightTags: "highlightTagsText",
+    capacity: "capacity",
+    bookedCount: "bookedCount",
+    featuredDishIds: "featuredDishIdsText",
+    imagePath: "imagePaths",
+    imagePaths: "imagePaths",
+    sections: "sections",
+    startsAt: "startsAt",
+    endsAt: "endsAt",
+    active: "active",
+  },
+  news: {
+    title: "title",
+    slug: "slug",
+    summary: "summary",
+    content: "content",
+    relatedStoreId: "relatedStoreId",
+    tags: "tagsText",
+    imagePath: "imagePaths",
+    imagePaths: "imagePaths",
+    sections: "sections",
+    featured: "featured",
+    published: "published",
+    publishedAt: "publishedAt",
+  },
+  storeDishes: {
+    storeId: "storeId",
+    dishId: "dishId",
+    quantity: "quantity",
+    available: "available",
+    priceOverride: "priceOverride",
+  },
+};
+
+function createEmptyAdminAiState() {
+  return {
+    prompt: "",
+    loading: false,
+    warnings: [],
+    missingFieldNames: [],
+    scopeStoreId: "",
+    scopeStoreName: "",
+    model: "",
+  };
+}
+
+function hasOwnField(target, key) {
+  return Boolean(target) && Object.prototype.hasOwnProperty.call(target, key);
+}
+
+function normalizeTextList(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item ?? "").trim())
+      .filter((item, index, array) => item && array.indexOf(item) === index);
+  }
+
+  const normalized = String(value ?? "").trim();
+  return normalized ? [normalized] : [];
+}
+
+function mapAdminAiField(sectionKey, rawFieldName) {
+  const normalizedField = String(rawFieldName ?? "").trim();
+
+  if (!normalizedField) {
+    return "";
+  }
+
+  if (normalizedField.startsWith("sections")) {
+    return "sections";
+  }
+
+  if (normalizedField.startsWith("imagePath")) {
+    return "imagePaths";
+  }
+
+  const fieldMap = adminAiFieldMap[sectionKey] ?? {};
+  return fieldMap[normalizedField] ?? normalizedField;
+}
+
+function normalizeAdminAiMissingFields(sectionKey, missingFields) {
+  return normalizeTextList(missingFields)
+    .map((fieldName) => mapAdminAiField(sectionKey, fieldName))
+    .filter((fieldName, index, array) => fieldName && array.indexOf(fieldName) === index);
+}
+
+function mergeAdminAiDraft(sectionKey, currentDraft, draftPayload) {
+  if (!draftPayload || typeof draftPayload !== "object" || Array.isArray(draftPayload)) {
+    return currentDraft;
+  }
+
+  const hydratedDraft = hydrateSectionDraft(sectionKey, draftPayload);
+  const fieldMap = adminAiFieldMap[sectionKey] ?? {};
+  const patchKeys = new Set();
+
+  Object.keys(draftPayload).forEach((rawKey) => {
+    const mappedKey = fieldMap[rawKey] ?? mapAdminAiField(sectionKey, rawKey);
+
+    if (mappedKey) {
+      patchKeys.add(mappedKey);
+    }
+  });
+
+  if (!patchKeys.size) {
+    return currentDraft;
+  }
+
+  const nextDraft = {
+    ...currentDraft,
+  };
+
+  patchKeys.forEach((fieldKey) => {
+    if (hasOwnField(hydratedDraft, fieldKey)) {
+      nextDraft[fieldKey] = hydratedDraft[fieldKey];
+    }
+  });
+
+  return nextDraft;
+}
+
+function pruneAdminAiPayload(value) {
+  if (Array.isArray(value)) {
+    const nextItems = value
+      .map((item) => pruneAdminAiPayload(item))
+      .filter((item) => item !== undefined);
+
+    return nextItems.length ? nextItems : undefined;
+  }
+
+  if (value && typeof value === "object") {
+    const nextObject = Object.entries(value).reduce((result, [key, item]) => {
+      const nextValue = pruneAdminAiPayload(item);
+
+      if (nextValue !== undefined) {
+        result[key] = nextValue;
+      }
+
+      return result;
+    }, {});
+
+    return Object.keys(nextObject).length ? nextObject : undefined;
+  }
+
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (typeof value === "string" && !value.trim()) {
+    return undefined;
+  }
+
+  return value;
+}
+
+function buildOrderStatusFallbackPayload(order, actionKey) {
+  const normalizedAction = String(actionKey ?? "").trim().toUpperCase();
+
+  switch (normalizedAction) {
+    case "CONFIRM_ORDER":
+      return {
+        status: "CONFIRMED",
+        paymentStatus: order?.paymentStatus ?? undefined,
+      };
+    case "CANCEL_ORDER":
+      return {
+        status: "CANCELLED",
+        paymentStatus:
+          String(order?.paymentStatus ?? "").trim().toUpperCase() === "PAID"
+            ? order?.paymentStatus
+            : "CANCELLED",
+      };
+    case "MARK_PAID":
+      return {
+        status: order?.status ?? undefined,
+        paymentStatus: "PAID",
+      };
+    default:
+      return null;
+  }
+}
 
 function emptyCollections() {
   return {
@@ -218,6 +472,37 @@ function normalizeDashboardResponse(payload) {
     return Number.isFinite(normalizedNumber) ? normalizedNumber : 0;
   };
 
+  const normalizeRevenue = (value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      return null;
+    }
+
+    const toAmount = (input) => {
+      const normalizedNumber = Number(input ?? 0);
+      return Number.isFinite(normalizedNumber) ? normalizedNumber : 0;
+    };
+
+    return {
+      scopeStoreId: toIdString(value.scopeStoreId),
+      scopeStoreName: String(value.scopeStoreName ?? "").trim(),
+      todayRevenue: toAmount(value.todayRevenue),
+      weekRevenue: toAmount(value.weekRevenue),
+      monthRevenue: toAmount(value.monthRevenue),
+      yearRevenue: toAmount(value.yearRevenue),
+    };
+  };
+
+  const normalizeTopSellingDish = (value) => ({
+    storeId: toIdString(value?.storeId),
+    storeName: String(value?.storeName ?? "").trim(),
+    dishId: toIdString(value?.dishId),
+    dishName: String(value?.dishName ?? "").trim(),
+    imagePaths: normalizeImagePathList(value?.imagePaths),
+    quantitySold: countEntries(value?.quantitySold),
+    orderCount: countEntries(value?.orderCount),
+    revenue: countEntries(value?.revenue),
+  });
+
   return {
     users: countEntries(payload.users),
     stores: countEntries(payload.stores),
@@ -230,6 +515,9 @@ function normalizeDashboardResponse(payload) {
     userLevels: countEntries(payload.userLevels),
     orders: countEntries(payload.orders),
     reviews: countEntries(payload.reviews),
+    feedbacks: countEntries(payload.feedbacks),
+    revenue: normalizeRevenue(payload.revenue ?? payload.revenueSummary),
+    topSellingDishes: normalizeListResponse(payload.topSellingDishes).map(normalizeTopSellingDish),
   };
 }
 
@@ -241,6 +529,21 @@ function normalizeSummaryResponse(payload) {
   const toCount = (value) => {
     const normalizedNumber = Number(value ?? 0);
     return Number.isFinite(normalizedNumber) ? normalizedNumber : 0;
+  };
+
+  const normalizeRevenue = (value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      return null;
+    }
+
+    return {
+      scopeStoreId: toIdString(value.scopeStoreId),
+      scopeStoreName: String(value.scopeStoreName ?? "").trim(),
+      todayRevenue: toCount(value.todayRevenue),
+      weekRevenue: toCount(value.weekRevenue),
+      monthRevenue: toCount(value.monthRevenue),
+      yearRevenue: toCount(value.yearRevenue),
+    };
   };
 
   return {
@@ -260,6 +563,11 @@ function normalizeSummaryResponse(payload) {
         : toCount(payload.userLevelDefinitionCount ?? payload.userLevelCount),
     orders: payload.orderCount === undefined ? undefined : toCount(payload.orderCount),
     reviews: toCount(payload.reviewCount),
+    feedbacks:
+      payload.feedbackCount === undefined && payload.feedbacksCount === undefined
+        ? undefined
+        : toCount(payload.feedbackCount ?? payload.feedbacksCount),
+    revenue: normalizeRevenue(payload.revenue ?? payload.revenueSummary),
   };
 }
 
@@ -477,9 +785,23 @@ function buildSectionListPath(sectionKey, query = {}, selectedStoreId = "all") {
   });
 }
 
+function buildAnalyticsPath(path, selectedStoreId = "all", allowStoreScope = false) {
+  if (!allowStoreScope || !selectedStoreId || selectedStoreId === "all") {
+    return path;
+  }
+
+  const params = new URLSearchParams();
+  params.set("storeId", String(selectedStoreId));
+
+  return `${path}?${params.toString()}`;
+}
+
 export default function AdminPage() {
   const auth = useAuth();
+  const toast = useToast();
+  const location = useLocation();
   const navigate = useNavigate();
+  const { orderId: routeOrderId = "" } = useParams();
   const isAdmin = auth.hasRole("ADMIN");
   const isManagerMode = auth.hasRole("MANAGER") && !isAdmin;
   const managerStoreId = isManagerMode ? toIdString(auth.user?.workingStoreId) : "";
@@ -505,10 +827,13 @@ export default function AdminPage() {
   const [orderScanHistory, setOrderScanHistory] = useState([]);
   const [orderScanLoading, setOrderScanLoading] = useState(false);
   const [orderScanError, setOrderScanError] = useState("");
+  const [qrLookupInput, setQrLookupInput] = useState("");
+  const [qrLookupLoading, setQrLookupLoading] = useState(false);
   const [orderActionLoading, setOrderActionLoading] = useState("");
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [infoModalKey, setInfoModalKey] = useState("");
   const [feedbackReplyDraft, setFeedbackReplyDraft] = useState("");
+  const [aiAssistState, setAiAssistState] = useState(createEmptyAdminAiState);
   const [drafts, setDrafts] = useState({
     users: createEmptyDraft("users", emptyCollections()),
     stores: createEmptyDraft("stores", emptyCollections()),
@@ -543,6 +868,18 @@ export default function AdminPage() {
     sectionIndex: null,
     loading: false,
     message: "",
+    error: "",
+  });
+  const [passwordModal, setPasswordModal] = useState({
+    open: false,
+    userId: "",
+    fullName: "",
+    email: "",
+    role: "",
+    workingStoreName: "",
+    password: "",
+    confirmPassword: "",
+    loading: false,
     error: "",
   });
 
@@ -770,6 +1107,41 @@ export default function AdminPage() {
   const activeConfig = sectionConfigs[activeSection];
   const activeDraft = drafts[activeSection];
   const activeEditingId = editingIds[activeSection];
+  const activeAiFormType = adminAiFormTypes[activeSection] ?? "";
+  const isAiAssistSupported = Boolean(activeAiFormType);
+  const visibleFormFields =
+    activeConfig?.fields?.filter(
+      (field) => !(activeSection === "users" && activeEditingId && field.name === "password"),
+    ) ?? [];
+  const fieldLabelMap = useMemo(
+    () =>
+      Object.fromEntries(
+        (activeConfig?.fields ?? []).map((field) => [field.name, field.label]),
+      ),
+    [activeConfig?.fields],
+  );
+  const missingFieldSet = useMemo(
+    () => new Set(aiAssistState.missingFieldNames),
+    [aiAssistState.missingFieldNames],
+  );
+  const missingFieldLabels = useMemo(
+    () =>
+      aiAssistState.missingFieldNames.map(
+        (fieldName) =>
+          fieldLabelMap[fieldName] ??
+          String(fieldName)
+            .replace(/([A-Z])/g, " $1")
+            .replace(/\s+/g, " ")
+            .trim(),
+      ),
+    [aiAssistState.missingFieldNames, fieldLabelMap],
+  );
+  const activeUserRecord =
+    activeSection === "users" && activeEditingId
+      ? displayCollections.users.find((item) => String(item.id) === String(activeEditingId)) ??
+        safeCollections.users.find((item) => String(item.id) === String(activeEditingId)) ??
+        null
+      : null;
   const activeCollectionMeta = collections[activeSection] ?? createEmptyListCollection();
   const activeListQuery = listQueries[activeSection];
   const activeSearchDraft = searchDrafts[activeSection]?.search ?? "";
@@ -826,6 +1198,19 @@ export default function AdminPage() {
     ).length;
   }, [safeCollections.users, selectedStoreId]);
 
+  const revenueSummary = summary?.revenue ?? dashboard?.revenue ?? null;
+  const topSellingDishes = Array.isArray(dashboard?.topSellingDishes)
+    ? dashboard.topSellingDishes
+    : [];
+  const revenueStatCards = revenueSummary
+    ? [
+        statCard("Revenue today", formatCurrency(revenueSummary.todayRevenue)),
+        statCard("Revenue week", formatCurrency(revenueSummary.weekRevenue)),
+        statCard("Revenue month", formatCurrency(revenueSummary.monthRevenue)),
+        statCard("Revenue year", formatCurrency(revenueSummary.yearRevenue)),
+      ]
+    : [];
+
   const globalStats = [
     statCard("User", summary?.users ?? safeCollections.users.length),
     statCard("Store", summary?.stores ?? safeCollections.stores.length),
@@ -838,7 +1223,8 @@ export default function AdminPage() {
     statCard("User levels", summary?.userLevels ?? safeCollections.userLevels.length),
     statCard("Orders", summary?.orders ?? safeCollections.orders.length),
     statCard("Review", summary?.reviews ?? safeCollections.reviews.length),
-    statCard("Feedback", safeCollections.feedbacks.length),
+    statCard("Feedback", summary?.feedbacks ?? dashboard?.feedbacks ?? safeCollections.feedbacks.length),
+    ...revenueStatCards,
   ];
 
   const storeScopeStats = [
@@ -852,8 +1238,42 @@ export default function AdminPage() {
     statCard("User levels", scopedCollections.userLevels.length),
     statCard("Orders", scopedCollections.orders.length),
     statCard("Related reviews", scopedCollections.reviews.length),
-    statCard("Related feedback", scopedCollections.feedbacks.length),
+    statCard(
+      "Related feedback",
+      summary?.feedbacks ?? dashboard?.feedbacks ?? scopedCollections.feedbacks.length,
+    ),
+    ...revenueStatCards,
   ];
+  const currentUserId = toIdString(auth.user?.id);
+
+  const canChangeUserPassword = useCallback(
+    (user) => {
+      if (!user?.id) {
+        return false;
+      }
+
+      if (isAdmin) {
+        return true;
+      }
+
+      if (!isManagerMode) {
+        return false;
+      }
+
+      const userId = toIdString(user.id);
+      const userRole = String(user.role ?? "").trim().toUpperCase();
+
+      if (userId && userId === currentUserId) {
+        return true;
+      }
+
+      return (
+        ["STAFF", "SHIPPER"].includes(userRole) &&
+        toIdString(user.workingStoreId) === managerStoreId
+      );
+    },
+    [currentUserId, isAdmin, isManagerMode, managerStoreId],
+  );
 
   const authorizedRequest = useCallback(
     (path, options = {}) =>
@@ -885,10 +1305,256 @@ export default function AdminPage() {
     [auth, navigate],
   );
 
+  const buildAiCurrentFormPayload = useCallback((sectionKey, draft) => {
+    if (!adminAiFormTypes[sectionKey]) {
+      return undefined;
+    }
+
+    const payload = serializeSectionDraft(sectionKey, draft);
+
+    switch (sectionKey) {
+      case "events":
+      case "categories":
+        if (!String(draft.storeId ?? "").trim()) {
+          delete payload.storeId;
+        }
+        break;
+      case "dishes":
+        if (!String(draft.categoryId ?? "").trim()) {
+          delete payload.categoryId;
+        }
+        if (!String(draft.price ?? "").trim()) {
+          delete payload.price;
+        }
+        break;
+      case "storeDishes":
+        if (!String(draft.storeId ?? "").trim()) {
+          delete payload.storeId;
+        }
+        if (!String(draft.dishId ?? "").trim()) {
+          delete payload.dishId;
+        }
+        if (!String(draft.quantity ?? "").trim()) {
+          delete payload.quantity;
+        }
+        break;
+      case "news":
+        if (!String(draft.relatedStoreId ?? "").trim()) {
+          delete payload.relatedStoreId;
+        }
+        break;
+      default:
+        break;
+    }
+
+    return pruneAdminAiPayload(payload);
+  }, []);
+
+  const resolveAiContextStoreId = useCallback(
+    (sectionKey, draft) => {
+      if (isManagerMode && managerStoreId) {
+        const scopedStoreId = Number(managerStoreId);
+        return Number.isFinite(scopedStoreId) ? scopedStoreId : null;
+      }
+
+      const scopedSelectionId =
+        selectedStoreId && selectedStoreId !== "all" ? Number(selectedStoreId) : null;
+
+      switch (sectionKey) {
+        case "stores":
+          if (activeEditingId) {
+            const editingStoreId = Number(activeEditingId);
+            return Number.isFinite(editingStoreId) ? editingStoreId : scopedSelectionId;
+          }
+          return Number.isFinite(scopedSelectionId) ? scopedSelectionId : null;
+        case "events":
+        case "categories":
+        case "storeDishes": {
+          const directStoreId = Number(draft.storeId);
+          return Number.isFinite(directStoreId) && draft.storeId !== ""
+            ? directStoreId
+            : Number.isFinite(scopedSelectionId)
+              ? scopedSelectionId
+              : null;
+        }
+        case "dishes": {
+          const categoryId = toIdString(draft.categoryId);
+          const matchedCategory = safeCollections.categories.find(
+            (category) => toIdString(category.id) === categoryId,
+          );
+          const categoryStoreId = Number(matchedCategory?.storeId);
+          return Number.isFinite(categoryStoreId)
+            ? categoryStoreId
+            : Number.isFinite(scopedSelectionId)
+              ? scopedSelectionId
+              : null;
+        }
+        case "news": {
+          const relatedStoreId = Number(draft.relatedStoreId);
+          return Number.isFinite(relatedStoreId) && draft.relatedStoreId !== ""
+            ? relatedStoreId
+            : Number.isFinite(scopedSelectionId)
+              ? scopedSelectionId
+              : null;
+        }
+        default:
+          return Number.isFinite(scopedSelectionId) ? scopedSelectionId : null;
+      }
+    },
+    [activeEditingId, isManagerMode, managerStoreId, safeCollections.categories, selectedStoreId],
+  );
+
+  const handleAiPromptChange = useCallback((value) => {
+    setAiAssistState((current) => ({
+      ...current,
+      prompt: value,
+    }));
+  }, []);
+
+  const clearAiAssistFeedback = useCallback(({ preservePrompt = true } = {}) => {
+    setAiAssistState((current) => ({
+      ...createEmptyAdminAiState(),
+      prompt: preservePrompt ? current.prompt : "",
+    }));
+  }, []);
+
+  const handleGenerateAiDraft = useCallback(async () => {
+    if (!activeAiFormType) {
+      return;
+    }
+
+    const prompt = String(aiAssistState.prompt ?? "").trim();
+
+    if (!prompt) {
+      toast.warning("Write a short instruction before asking AI to fill this form.", {
+        title: "AI draft",
+      });
+      return;
+    }
+
+    setAiAssistState((current) => ({
+      ...current,
+      loading: true,
+    }));
+    setError("");
+    setNotice("");
+
+    try {
+      const requestBody = {
+        prompt,
+      };
+      const scopedStoreId = resolveAiContextStoreId(activeSection, activeDraft);
+      const currentFormPayload = buildAiCurrentFormPayload(activeSection, activeDraft);
+
+      if (Number.isFinite(scopedStoreId) && scopedStoreId > 0) {
+        requestBody.storeId = scopedStoreId;
+      }
+
+      if (currentFormPayload && Object.keys(currentFormPayload).length > 0) {
+        requestBody.currentForm = currentFormPayload;
+      }
+
+      const response = await authorizedRequest(
+        `/api/admin/ai/form-drafts/${activeAiFormType}`,
+        {
+          method: "POST",
+          body: requestBody,
+        },
+      );
+
+      const normalizedDraft =
+        response?.draft && typeof response.draft === "object" && !Array.isArray(response.draft)
+          ? response.draft
+          : {};
+      const nextDraft = mergeAdminAiDraft(activeSection, activeDraft, normalizedDraft);
+      const warnings = normalizeTextList(response?.warnings);
+      const missingFieldNames = normalizeAdminAiMissingFields(
+        activeSection,
+        response?.missingFields,
+      );
+      const scopeStoreId = toIdString(response?.scopeStoreId);
+      const scopeStoreName = String(response?.scopeStoreName ?? "").trim();
+      const model = String(response?.model ?? "").trim();
+
+      setDrafts((current) => ({
+        ...current,
+        [activeSection]: nextDraft,
+      }));
+      setAiAssistState((current) => ({
+        ...current,
+        loading: false,
+        warnings,
+        missingFieldNames,
+        scopeStoreId,
+        scopeStoreName,
+        model,
+      }));
+
+      if (warnings.length) {
+        toast.warning(warnings[0], {
+          title: "AI adjusted draft",
+          dedupeKey: `admin-ai-warning:${activeSection}:${warnings.join("|")}`,
+        });
+      } else {
+        toast.success("AI suggestions have been merged into the form.", {
+          title: "AI draft ready",
+        });
+      }
+
+      if (missingFieldNames.length) {
+        toast.info(`${missingFieldNames.length} field(s) still need manual input.`, {
+          title: "Review required",
+          dedupeKey: `admin-ai-missing:${activeSection}:${missingFieldNames.join("|")}`,
+        });
+      }
+    } catch (requestError) {
+      setAiAssistState((current) => ({
+        ...current,
+        loading: false,
+      }));
+      handleApiFailure(requestError, "Unable to generate an AI form draft.");
+    }
+  }, [
+    activeAiFormType,
+    activeDraft,
+    activeSection,
+    aiAssistState.prompt,
+    authorizedRequest,
+    buildAiCurrentFormPayload,
+    handleApiFailure,
+    resolveAiContextStoreId,
+    toast,
+  ]);
+
+  useEffect(() => {
+    if (!passwordModal.open) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape" && !passwordModal.loading) {
+        setPasswordModal((current) => ({
+          ...current,
+          open: false,
+          error: "",
+          password: "",
+          confirmPassword: "",
+        }));
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [passwordModal.loading, passwordModal.open]);
+
   const refreshAll = async ({
     refreshLookups = true,
     refreshLists = true,
     nextQueries = listQueries,
+    storeScopeId = selectedStoreId,
   } = {}) => {
     setLoading(true);
     setError("");
@@ -898,6 +1564,8 @@ export default function AdminPage() {
         const requests = [];
 
         if (refreshLookups) {
+          requests.push(authorizedRequest("/api/admin/summary"));
+          requests.push(authorizedRequest("/api/admin/dashboard"));
           accessibleSectionKeys.forEach((sectionKey) => {
             requests.push(
               authorizedRequest(
@@ -908,7 +1576,7 @@ export default function AdminPage() {
                     size: 100,
                     search: "",
                   },
-                  selectedStoreId,
+                  storeScopeId,
                 ),
               ),
             );
@@ -919,7 +1587,7 @@ export default function AdminPage() {
           accessibleSectionKeys.forEach((sectionKey) => {
             requests.push(
               authorizedRequest(
-                buildSectionListPath(sectionKey, nextQueries[sectionKey], selectedStoreId),
+                buildSectionListPath(sectionKey, nextQueries[sectionKey], storeScopeId),
               ),
             );
           });
@@ -930,12 +1598,15 @@ export default function AdminPage() {
         let nextReferenceCollections = emptyCollections();
 
         if (refreshLookups) {
+          const summaryData = responses[pointer++];
+          const dashboardData = responses[pointer++];
+
           accessibleSectionKeys.forEach((sectionKey) => {
             nextReferenceCollections[sectionKey] = normalizeListResponse(responses[pointer++]);
           });
 
-          setSummary(null);
-          setDashboard(null);
+          setSummary(normalizeSummaryResponse(summaryData));
+          setDashboard(normalizeDashboardResponse(dashboardData));
           setReferenceCollections(nextReferenceCollections);
           setSearchDrafts((current) => {
             const nextDrafts = { ...current };
@@ -968,7 +1639,7 @@ export default function AdminPage() {
 
         const nextScopedCollections = filterCollectionsByStore(
           nextReferenceCollections,
-          selectedStoreId,
+          storeScopeId,
         );
 
         setDrafts((current) =>
@@ -993,8 +1664,12 @@ export default function AdminPage() {
       const requests = [];
 
       if (refreshLookups) {
-        requests.push(authorizedRequest("/api/admin/summary"));
-        requests.push(authorizedRequest("/api/admin/dashboard"));
+        requests.push(
+          authorizedRequest(buildAnalyticsPath("/api/admin/summary", storeScopeId, isAdmin)),
+        );
+        requests.push(
+          authorizedRequest(buildAnalyticsPath("/api/admin/dashboard", storeScopeId, isAdmin)),
+        );
         adminSectionKeys.forEach((sectionKey) => {
           requests.push(
             authorizedRequest(
@@ -1002,7 +1677,7 @@ export default function AdminPage() {
                 page: 0,
                 size: 100,
                 search: "",
-              }, selectedStoreId),
+              }, storeScopeId),
             ),
           );
         });
@@ -1011,7 +1686,7 @@ export default function AdminPage() {
       if (refreshLists) {
         adminSectionKeys.forEach((sectionKey) => {
           requests.push(
-            authorizedRequest(buildSectionListPath(sectionKey, nextQueries[sectionKey], selectedStoreId)),
+            authorizedRequest(buildSectionListPath(sectionKey, nextQueries[sectionKey], storeScopeId)),
           );
         });
       }
@@ -1058,7 +1733,7 @@ export default function AdminPage() {
         setCollections(nextListCollections);
       }
 
-      const nextScopedCollections = filterCollectionsByStore(nextReferenceCollections, selectedStoreId);
+      const nextScopedCollections = filterCollectionsByStore(nextReferenceCollections, storeScopeId);
       setDrafts((current) => ({
         users: editingIds.users
           ? current.users
@@ -1152,9 +1827,25 @@ export default function AdminPage() {
       setError("");
 
       try {
-        const response = await authorizedRequest(actionConfig.path(selectedOrderRecord.id), {
-          method: "POST",
-        });
+        let response;
+
+        try {
+          response = await authorizedRequest(actionConfig.path(selectedOrderRecord.id), {
+            method: "POST",
+          });
+        } catch (requestError) {
+          const fallbackPayload = buildOrderStatusFallbackPayload(selectedOrderRecord, actionKey);
+
+          if (!fallbackPayload || ![404, 405].includes(Number(requestError?.status))) {
+            throw requestError;
+          }
+
+          response = await authorizedRequest(`/api/admin/orders/${selectedOrderRecord.id}/status`, {
+            method: "PUT",
+            body: fallbackPayload,
+          });
+        }
+
         const nextOrder =
           response && typeof response === "object" && !Array.isArray(response) && response.id
             ? response
@@ -1211,6 +1902,10 @@ export default function AdminPage() {
       setReviewDetail(null);
     }
   }, [activeSection, reviewDetail]);
+
+  useEffect(() => {
+    setAiAssistState(createEmptyAdminAiState());
+  }, [activeEditingId, activeSection, selectedStoreId]);
 
   useEffect(() => {
     if (!isFeedbackSection || !reviewDetail) {
@@ -1328,6 +2023,7 @@ export default function AdminPage() {
           }
         : current,
     );
+    clearAiAssistFeedback({ preservePrompt: false });
   };
 
   const applyStoreScope = (nextStoreId) => {
@@ -1373,6 +2069,12 @@ export default function AdminPage() {
       loading: false,
       message: "",
       error: "",
+    });
+    void refreshAll({
+      refreshLookups: true,
+      refreshLists: true,
+      nextQueries: listQueries,
+      storeScopeId: nextStoreId,
     });
   };
 
@@ -1479,6 +2181,17 @@ export default function AdminPage() {
         [activeSection]: nextDraft,
       };
     });
+
+    setAiAssistState((current) =>
+      current.missingFieldNames.includes(fieldName)
+        ? {
+            ...current,
+            missingFieldNames: current.missingFieldNames.filter(
+              (currentFieldName) => currentFieldName !== fieldName,
+            ),
+          }
+        : current,
+    );
   };
 
   const handleImageUpload = async (fieldName, files, uploadFolder, options = {}) => {
@@ -1575,6 +2288,16 @@ export default function AdminPage() {
             : `Uploaded ${uploadedPaths.length} image(s) successfully.`),
         error: "",
       });
+      setAiAssistState((current) =>
+        current.missingFieldNames.includes(fieldName)
+          ? {
+              ...current,
+              missingFieldNames: current.missingFieldNames.filter(
+                (currentFieldName) => currentFieldName !== fieldName,
+              ),
+            }
+          : current,
+      );
     } catch (uploadError) {
       setUploadState({
         sectionKey,
@@ -1680,6 +2403,7 @@ export default function AdminPage() {
     setSaving(true);
     setError("");
     setNotice("");
+    clearAiAssistFeedback({ preservePrompt: false });
 
     const fallbackEntity =
       (sectionKey === "users" || sectionKey === "stores" || sectionKey === "promotions"
@@ -1747,6 +2471,240 @@ export default function AdminPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const sectionKey = String(searchParams.get("section") ?? "").trim();
+    const recordId = toIdString(searchParams.get("record"));
+
+    if (!sectionKey) {
+      return;
+    }
+
+    if (!accessibleSectionKeys.includes(sectionKey)) {
+      return;
+    }
+
+    if (activeSection !== sectionKey) {
+      setActiveSection(sectionKey);
+    }
+
+    if (recordId) {
+      if (
+        activeSection === sectionKey &&
+        toIdString(activeEditingId) === recordId &&
+        (String(selectedOrderRecord?.id ?? "") === recordId || sectionKey !== "orders")
+      ) {
+        return;
+      }
+
+      void handleEdit(sectionKey, recordId);
+      return;
+    }
+
+    if (activeSection === sectionKey && !activeEditingId) {
+      return;
+    }
+
+    resetSection(sectionKey);
+    setNotice("AI opened this admin section for you.");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
+
+  const handleOrderQrLookup = async (event) => {
+    event.preventDefault();
+
+    const qrToken = extractOrderQrToken(qrLookupInput);
+
+    if (!qrToken) {
+      setNotice("");
+      setError("Nhap QR token hoac URL QR cong khai hop le truoc khi mo don hang.");
+      return;
+    }
+
+    setQrLookupLoading(true);
+    setError("");
+    setNotice("");
+
+    try {
+      const response = await fetchMobileOrderQr(auth, qrToken);
+      const targetOrderId = toIdString(response?.order?.id);
+
+      if (!targetOrderId) {
+        throw new Error(response?.message || "Backend chua tra ve don hang cho QR nay.");
+      }
+
+      setQrLookupInput("");
+      setActiveSection("orders");
+      navigate(`/admin/orders/${targetOrderId}`);
+      setNotice(response?.message || `Da mo don hang #${targetOrderId} tu QR.`);
+    } catch (requestError) {
+      handleApiFailure(requestError, "Khong the mo don hang tu QR nay.");
+    } finally {
+      setQrLookupLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const normalizedRouteOrderId = toIdString(routeOrderId);
+
+    if (!normalizedRouteOrderId) {
+      return;
+    }
+
+    if (activeSection !== "orders") {
+      setActiveSection("orders");
+    }
+
+    if (toIdString(activeEditingId) === normalizedRouteOrderId && selectedOrderRecord?.id) {
+      return;
+    }
+
+    void handleEdit("orders", normalizedRouteOrderId);
+  }, [activeEditingId, activeSection, routeOrderId, selectedOrderRecord?.id]);
+
+  const openPasswordModal = (user) => {
+    if (!canChangeUserPassword(user)) {
+      setNotice("");
+      setError("Ban khong co quyen doi mat khau cho tai khoan nay.");
+      return;
+    }
+
+    setPasswordModal({
+      open: true,
+      userId: toIdString(user.id),
+      fullName: user.fullName ?? "",
+      email: user.email ?? "",
+      role: user.role ?? "",
+      workingStoreName: user.workingStoreName ?? "",
+      password: "",
+      confirmPassword: "",
+      loading: false,
+      error: "",
+    });
+  };
+
+  const closePasswordModal = (force = false) => {
+    if (passwordModal.loading && !force) {
+      return;
+    }
+
+    setPasswordModal({
+      open: false,
+      userId: "",
+      fullName: "",
+      email: "",
+      role: "",
+      workingStoreName: "",
+      password: "",
+      confirmPassword: "",
+      loading: false,
+      error: "",
+    });
+  };
+
+  const handlePasswordModalChange = (fieldName, value) => {
+    setPasswordModal((current) => ({
+      ...current,
+      [fieldName]: value,
+      error: "",
+    }));
+  };
+
+  const handlePasswordSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!passwordModal.userId) {
+      setNotice("");
+      setError("Chon tai khoan can doi mat khau truoc.");
+      return;
+    }
+
+    const nextPassword = String(passwordModal.password ?? "").trim();
+    const confirmPassword = String(passwordModal.confirmPassword ?? "").trim();
+
+    if (!nextPassword) {
+      setPasswordModal((current) => ({
+        ...current,
+        error: "Nhap mat khau moi truoc khi luu.",
+      }));
+      setNotice("");
+      setError("Nhap mat khau moi truoc khi luu.");
+      return;
+    }
+
+    if (nextPassword.length < 8) {
+      setPasswordModal((current) => ({
+        ...current,
+        error: "Mat khau moi can co it nhat 8 ky tu.",
+      }));
+      setNotice("");
+      setError("Mat khau moi can co it nhat 8 ky tu.");
+      return;
+    }
+
+    if (nextPassword !== confirmPassword) {
+      setPasswordModal((current) => ({
+        ...current,
+        error: "Mat khau xac nhan chua khop.",
+      }));
+      setNotice("");
+      setError("Mat khau xac nhan chua khop.");
+      return;
+    }
+
+    setPasswordModal((current) => ({
+      ...current,
+      loading: true,
+      error: "",
+    }));
+    setNotice("");
+    setError("");
+
+    try {
+      const detailResponse = await authorizedRequest(sectionConfigs.users.detailPath(passwordModal.userId));
+      const userDetail = normalizeDetailResponse(detailResponse);
+
+      if (!userDetail) {
+        throw new Error("Khong the tai du lieu tai khoan de doi mat khau.");
+      }
+
+      if (!canChangeUserPassword(userDetail)) {
+        throw new Error("Ban khong co quyen doi mat khau cho tai khoan nay.");
+      }
+
+      const payload = serializeSectionDraft("users", {
+        ...hydrateSectionDraft("users", userDetail),
+        password: nextPassword,
+      });
+
+      const response = await authorizedRequest(sectionConfigs.users.updatePath(passwordModal.userId), {
+        method: "PUT",
+        body: payload,
+      });
+
+      setNotice(response?.message ?? "Da cap nhat mat khau tai khoan.");
+      closePasswordModal(true);
+      await refreshAll({
+        refreshLookups: true,
+        refreshLists: true,
+        nextQueries: listQueries,
+      });
+    } catch (requestError) {
+      setPasswordModal((current) => ({
+        ...current,
+        loading: false,
+        error: getApiErrorMessage(requestError, "Khong the doi mat khau tai khoan."),
+      }));
+      handleApiFailure(requestError, "Khong the doi mat khau tai khoan.");
+      return;
+    }
+
+    setPasswordModal((current) => ({
+      ...current,
+      loading: false,
+    }));
   };
 
   const handleDelete = async (sectionKey, itemId) => {
@@ -2003,6 +2961,15 @@ export default function AdminPage() {
             >
               Edit
             </button>
+            {canChangeUserPassword(item) ? (
+              <button
+                className={ui.secondaryButton}
+                type="button"
+                onClick={() => openPasswordModal(item)}
+              >
+                Doi mat khau
+              </button>
+            ) : null}
             {canDeleteSectionRecord(sectionKey) ? (
               <button
                 className="rounded-full border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700"
@@ -2151,6 +3118,12 @@ export default function AdminPage() {
         item.usageLimit !== undefined && item.usageLimit !== null
           ? `Usage limit: ${item.usageLimit}`
           : "",
+        item.minStoreBillAmount !== undefined && item.minStoreBillAmount !== null
+          ? `Minimum store bill: ${formatCurrency(item.minStoreBillAmount)}`
+          : "",
+        item.minCrossStoreBillAmount !== undefined && item.minCrossStoreBillAmount !== null
+          ? `Minimum cross-store bill: ${formatCurrency(item.minCrossStoreBillAmount)}`
+          : "",
         Array.isArray(item.applicableDishIds) && item.applicableDishIds.length
           ? `Applicable dish IDs: ${item.applicableDishIds.join(", ")}`
           : Array.isArray(item.promotionDishIds) && item.promotionDishIds.length
@@ -2158,6 +3131,12 @@ export default function AdminPage() {
           : item.scope === "DISH"
             ? "Applicable dish IDs: none yet"
             : "",
+        Array.isArray(item.eligibleStoreIds) && item.eligibleStoreIds.length
+          ? `Eligible store IDs: ${item.eligibleStoreIds.join(", ")}`
+          : "",
+        Array.isArray(item.eligibleUserLevelIds) && item.eligibleUserLevelIds.length
+          ? `Eligible user level IDs: ${item.eligibleUserLevelIds.join(", ")}`
+          : "",
         item.startsAt ? `Starts at: ${formatDateTime(item.startsAt)}` : "",
         item.endsAt ? `Ends at: ${formatDateTime(item.endsAt)}` : "",
       ];
@@ -2205,6 +3184,11 @@ export default function AdminPage() {
         item.deliveryType ? `Delivery type: ${item.deliveryType}` : "",
         item.scheduledDeliveryAt ? `Scheduled for: ${formatDateTime(item.scheduledDeliveryAt)}` : "",
         item.statusSummary ? `Progress: ${item.statusSummary}` : "",
+        item.confirmedByUserName
+          ? `Confirmed by: ${item.confirmedByUserName}${item.confirmedAt ? ` | ${formatDateTime(item.confirmedAt)}` : ""}`
+          : item.confirmedAt
+            ? `Confirmed at: ${formatDateTime(item.confirmedAt)}`
+            : "",
         item.preparingStaffName ? `Preparing staff: ${item.preparingStaffName}` : "",
         item.deliveringShipperName ? `Delivery shipper: ${item.deliveringShipperName}` : "",
         item.deliveryFullName ? `Recipient: ${item.deliveryFullName}` : "",
@@ -2385,6 +3369,33 @@ export default function AdminPage() {
             </div>
           ) : null}
 
+          <form
+            className="mt-5 grid gap-3 rounded-[1.5rem] border border-matcha-900/10 bg-white/70 p-4"
+            onSubmit={handleOrderQrLookup}
+          >
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">
+                Open order by QR
+              </p>
+              <p className="mt-2 text-sm leading-7 text-stone-600">
+                Dan QR token hoac full URL invoice QR. Backend se tra ve order detail theo dung role
+                hien tai, frontend chi doc `allowedActions` va mo workspace phu hop.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 md:flex-row">
+              <input
+                className={`${ui.input} flex-1`}
+                placeholder="qr_tok_abc hoac https://domain/api/public/order-qr/qr_tok_abc"
+                value={qrLookupInput}
+                onChange={(event) => setQrLookupInput(event.target.value)}
+              />
+              <button className={ui.secondaryButton} disabled={qrLookupLoading} type="submit">
+                {qrLookupLoading ? "Dang mo..." : "Mo bang QR"}
+              </button>
+            </div>
+          </form>
+
           {!selectedOrderRecord ? (
             <div className="mt-6 rounded-[1.75rem] border border-dashed border-matcha-900/15 bg-white/45 p-8 text-sm leading-7 text-stone-600">
               Choose an order on the left to inspect its server-driven actions, invoice links, QR
@@ -2501,6 +3512,19 @@ export default function AdminPage() {
                           <strong className="mt-2 block text-base text-tea-900">
                             {selectedOrderRecord.preparingStaffName}
                           </strong>
+                        </div>
+                      ) : null}
+                      {selectedOrderRecord.confirmedByUserName ? (
+                        <div className="rounded-[1rem] border border-matcha-900/10 bg-white/82 p-3">
+                          <p className="text-xs uppercase tracking-[0.14em] text-stone-500">Confirmed by</p>
+                          <strong className="mt-2 block text-base text-tea-900">
+                            {selectedOrderRecord.confirmedByUserName}
+                          </strong>
+                          {selectedOrderRecord.confirmedAt ? (
+                            <p className="mt-2 text-sm text-stone-600">
+                              {formatDateTime(selectedOrderRecord.confirmedAt)}
+                            </p>
+                          ) : null}
                         </div>
                       ) : null}
                       {selectedOrderRecord.deliveringShipperName ? (
@@ -2669,6 +3693,119 @@ export default function AdminPage() {
     );
   };
 
+  const renderPasswordModal = () => {
+    if (!passwordModal.open) {
+      return null;
+    }
+
+    const isSelfPassword = toIdString(passwordModal.userId) === currentUserId;
+
+    return (
+      <div
+        className="fixed inset-0 z-[116] flex items-center justify-center bg-[rgba(36,29,20,0.44)] px-4 py-6 backdrop-blur-sm"
+        role="dialog"
+        aria-modal="true"
+        onClick={() => closePasswordModal()}
+      >
+        <form
+          className="w-full max-w-2xl rounded-[2rem] border border-matcha-900/10 bg-[#f8f4ec] p-6 shadow-[0_28px_80px_rgba(39,30,19,0.28)] sm:p-7"
+          onClick={(event) => event.stopPropagation()}
+          onSubmit={handlePasswordSubmit}
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className={ui.eyebrow}>Doi mat khau</p>
+              <h2 className="text-3xl font-bold tracking-tight text-tea-900">
+                {isSelfPassword ? "Cap nhat mat khau tai khoan hien tai" : "Cap nhat mat khau tai khoan"}
+              </h2>
+              <p className="mt-3 text-sm leading-7 text-stone-600">
+                {passwordModal.fullName || "Tai khoan chua dat ten"}{" "}
+                {passwordModal.email ? `| ${passwordModal.email}` : ""}
+              </p>
+            </div>
+
+            <button
+              className={ui.secondaryButton}
+              type="button"
+              onClick={() => closePasswordModal()}
+              disabled={passwordModal.loading}
+            >
+              Dong
+            </button>
+          </div>
+
+          <div className="mt-6 grid gap-4 rounded-[1.5rem] border border-matcha-900/10 bg-white/70 p-5 text-sm leading-7 text-stone-700 sm:grid-cols-2">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Role</p>
+              <p className="mt-1 font-semibold text-tea-900">{passwordModal.role || "Unknown"}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Store scope</p>
+              <p className="mt-1 font-semibold text-tea-900">
+                {passwordModal.workingStoreName || "Khong gan voi cua hang cu the"}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-4">
+            <label className="grid gap-2">
+              <span className="text-sm font-semibold text-tea-900">Mat khau moi</span>
+              <input
+                className={ui.input}
+                type="password"
+                autoComplete="new-password"
+                placeholder="Nhap mat khau moi"
+                value={passwordModal.password}
+                onChange={(event) => handlePasswordModalChange("password", event.target.value)}
+                disabled={passwordModal.loading}
+              />
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-sm font-semibold text-tea-900">Xac nhan mat khau moi</span>
+              <input
+                className={ui.input}
+                type="password"
+                autoComplete="new-password"
+                placeholder="Nhap lai mat khau moi"
+                value={passwordModal.confirmPassword}
+                onChange={(event) =>
+                  handlePasswordModalChange("confirmPassword", event.target.value)
+                }
+                disabled={passwordModal.loading}
+              />
+            </label>
+          </div>
+
+          <div className="mt-5 rounded-[1.5rem] border border-matcha-900/10 bg-matcha-500/10 px-4 py-4 text-sm leading-7 text-stone-700">
+            Dung luong nay de doi mat khau nhanh cho tai khoan dang quan ly. Backend se giu nguyen
+            cac truong thong tin con lai cua user va chi cap nhat password moi.
+          </div>
+
+          {passwordModal.error ? (
+            <div className="mt-5 rounded-[1.5rem] border border-red-200 bg-red-50 px-4 py-4 text-sm leading-7 text-red-700">
+              {passwordModal.error}
+            </div>
+          ) : null}
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <button className={ui.primaryButton} type="submit" disabled={passwordModal.loading}>
+              {passwordModal.loading ? "Dang cap nhat..." : "Luu mat khau moi"}
+            </button>
+            <button
+              className={ui.secondaryButton}
+              type="button"
+              onClick={() => closePasswordModal()}
+              disabled={passwordModal.loading}
+            >
+              Huy
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  };
+
   const renderInfoModal = () => {
     if (!infoModalKey) {
       return null;
@@ -2710,16 +3847,85 @@ export default function AdminPage() {
           </div>
 
           {isDashboardModal ? (
-            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {(isAdmin ? globalStats : storeScopeStats).map((stat) => (
-                <article
-                  key={`modal-${stat.label}`}
-                  className="rounded-[1.5rem] border border-matcha-900/10 bg-white/72 p-4"
-                >
-                  <p className="text-xs uppercase tracking-[0.18em] text-stone-500">{stat.label}</p>
-                  <strong className="mt-2 block text-2xl text-tea-900">{stat.value}</strong>
-                </article>
-              ))}
+            <div className="mt-6 grid gap-6">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {(isAdmin ? globalStats : storeScopeStats).map((stat) => (
+                  <article
+                    key={`modal-${stat.label}`}
+                    className="rounded-[1.5rem] border border-matcha-900/10 bg-white/72 p-4"
+                  >
+                    <p className="text-xs uppercase tracking-[0.18em] text-stone-500">{stat.label}</p>
+                    <strong className="mt-2 block text-2xl text-tea-900">{stat.value}</strong>
+                  </article>
+                ))}
+              </div>
+
+              <div className="rounded-[1.75rem] border border-matcha-900/10 bg-white/72 p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className={ui.eyebrow}>Top selling dishes</p>
+                    <h3 className="mt-2 text-xl font-semibold text-tea-900">
+                      {revenueSummary?.scopeStoreName
+                        ? `Best sellers in ${revenueSummary.scopeStoreName}`
+                        : "Best sellers from the current analytics scope"}
+                    </h3>
+                    <p className="mt-2 text-sm leading-7 text-stone-600">
+                      Backend returns this ranking from `topSellingDishes`, sorted by quantity sold first and revenue second.
+                    </p>
+                  </div>
+                </div>
+
+                {topSellingDishes.length ? (
+                  <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                    {topSellingDishes.map((dish, index) => {
+                      const dishImage = getPrimaryImageUrl(dish.imagePaths?.[0] ?? "");
+
+                      return (
+                        <article
+                          key={`top-selling-${dish.storeId}-${dish.dishId}-${index}`}
+                          className="grid gap-4 rounded-[1.5rem] border border-matcha-900/10 bg-[#fbfaf6] p-4 sm:grid-cols-[6rem_1fr]"
+                        >
+                          <div className="overflow-hidden rounded-[1.25rem] border border-matcha-900/10 bg-stone-100">
+                            {dishImage ? (
+                              <SmartImage
+                                className="h-24 w-full object-cover"
+                                src={dishImage}
+                                alt={dish.dishName || "Top selling dish"}
+                                loading="lazy"
+                                fallbackClassName="grid h-24 w-full place-items-center bg-stone-100 text-xs text-stone-500"
+                              />
+                            ) : (
+                              <div className="grid h-24 w-full place-items-center bg-stone-100 text-xs text-stone-500">
+                                No image
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="grid gap-2">
+                            <div>
+                              <p className="text-sm font-semibold text-tea-900">
+                                {dish.dishName || "Dish"}
+                              </p>
+                              <p className="text-sm text-stone-600">
+                                {dish.storeName || "All stores"}
+                              </p>
+                            </div>
+                            <div className="grid gap-1 text-sm text-stone-600">
+                              <span>Quantity sold: {dish.quantitySold}</span>
+                              <span>Order count: {dish.orderCount}</span>
+                              <span>Revenue: {formatCurrency(dish.revenue)}</span>
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="mt-5 rounded-[1.4rem] border border-dashed border-matcha-900/15 bg-[#fbfaf6] p-4 text-sm leading-7 text-stone-600">
+                    Chua co du lieu top-selling dishes cho scope hien tai.
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
@@ -3319,13 +4525,24 @@ export default function AdminPage() {
                   </div>
 
                   {activeEditingId ? (
-                    <button
-                      className="rounded-full border border-matcha-900/10 px-4 py-2 text-sm font-semibold text-tea-900"
-                      type="button"
-                      onClick={() => resetSection(activeSection)}
-                    >
-                      Cancel
-                    </button>
+                    <div className="flex flex-wrap justify-end gap-3">
+                      {activeSection === "users" && activeUserRecord && canChangeUserPassword(activeUserRecord) ? (
+                        <button
+                          className={ui.secondaryButton}
+                          type="button"
+                          onClick={() => openPasswordModal(activeUserRecord)}
+                        >
+                          Doi mat khau
+                        </button>
+                      ) : null}
+                      <button
+                        className="rounded-full border border-matcha-900/10 px-4 py-2 text-sm font-semibold text-tea-900"
+                        type="button"
+                        onClick={() => resetSection(activeSection)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   ) : null}
                 </div>
 
@@ -3362,6 +4579,13 @@ export default function AdminPage() {
                   </div>
                 ) : null}
 
+                {activeSection === "users" && activeEditingId ? (
+                  <div className="mt-5 rounded-[1.5rem] border border-matcha-900/10 bg-white/70 px-4 py-4 text-sm leading-7 text-stone-700">
+                    Mat khau cua tai khoan hien co duoc doi bang nut <strong>Doi mat khau</strong> de
+                    tranh sua nham cac truong thong tin khac.
+                  </div>
+                ) : null}
+
                 {isManagerMode && activeSection === "stores" && !activeEditingId ? (
                   <div className="mt-5 rounded-[1.5rem] border border-matcha-900/10 bg-matcha-500/10 px-4 py-4 text-sm leading-7 text-stone-700">
                     MANAGER cannot create or delete branches. Choose the current store from the list
@@ -3393,8 +4617,110 @@ export default function AdminPage() {
                   </div>
                 ) : null}
 
+                {isAiAssistSupported ? (
+                  <div className="mt-5 rounded-[1.6rem] border border-matcha-900/10 bg-white/72 p-4 shadow-[0_18px_42px_rgba(79,70,45,0.08)]">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-tea-700">
+                          AI draft assist
+                        </p>
+                        <p className="mt-2 text-sm leading-7 text-stone-600">
+                          Ask AI to fill the current admin form. The backend returns a validated
+                          draft only; nothing is auto-saved.
+                        </p>
+                      </div>
+
+                      {(aiAssistState.warnings.length ||
+                        aiAssistState.missingFieldNames.length ||
+                        aiAssistState.scopeStoreName) ? (
+                        <button
+                          className={ui.secondaryButton}
+                          type="button"
+                          onClick={() => clearAiAssistFeedback({ preservePrompt: true })}
+                        >
+                          Clear AI notes
+                        </button>
+                      ) : null}
+                    </div>
+
+                    <label className="mt-4 grid gap-2">
+                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                        Prompt
+                      </span>
+                      <textarea
+                        className={`${ui.input} min-h-28 resize-y`}
+                        rows={5}
+                        placeholder="Describe the kind of draft you want AI to prepare for this form."
+                        value={aiAssistState.prompt}
+                        disabled={aiAssistState.loading}
+                        onChange={(event) => handleAiPromptChange(event.target.value)}
+                      />
+                    </label>
+
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <button
+                        className={ui.primaryButton}
+                        type="button"
+                        disabled={aiAssistState.loading}
+                        onClick={() => void handleGenerateAiDraft()}
+                      >
+                        {aiAssistState.loading ? "Generating draft..." : "Fill with AI"}
+                      </button>
+                    </div>
+
+                    {aiAssistState.scopeStoreName ? (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {aiAssistState.scopeStoreName ? (
+                          <span className={ui.pill}>
+                            Scope: {aiAssistState.scopeStoreName}
+                            {aiAssistState.scopeStoreId
+                              ? ` (#${aiAssistState.scopeStoreId})`
+                              : ""}
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {aiAssistState.warnings.length ? (
+                      <div className="mt-4 rounded-[1.35rem] border border-amber-200 bg-amber-50/85 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-800">
+                          Backend warnings
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {aiAssistState.warnings.map((warning, index) => (
+                            <span
+                              key={`${warning}-${index}`}
+                              className="rounded-full bg-white/80 px-3 py-2 text-sm leading-6 text-amber-950 shadow-[0_8px_18px_rgba(194,142,55,0.12)]"
+                            >
+                              {warning}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {missingFieldLabels.length ? (
+                      <div className="mt-4 rounded-[1.35rem] border border-matcha-900/10 bg-matcha-500/10 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-tea-700">
+                          Still needs manual input
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {missingFieldLabels.map((fieldLabel, index) => (
+                            <span
+                              key={`${fieldLabel}-${index}`}
+                              className="rounded-full bg-white/82 px-3 py-2 text-sm font-medium text-stone-700 shadow-[0_8px_18px_rgba(79,70,45,0.08)]"
+                            >
+                              {fieldLabel}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
                 <div className="mt-6 grid gap-4">
-                  {activeConfig.fields.map((field) => (
+                  {visibleFormFields.map((field) => (
                     <AdminFormField
                       key={field.name}
                       field={field}
@@ -3409,6 +4735,12 @@ export default function AdminPage() {
                         uploadState.sectionKey === activeSection && uploadState.fieldName === field.name
                           ? uploadState
                           : null
+                      }
+                      highlight={missingFieldSet.has(field.name)}
+                      highlightMessage={
+                        missingFieldSet.has(field.name)
+                          ? "Backend marked this field as still needing manual input."
+                          : ""
                       }
                     />
                   ))}
@@ -3449,6 +4781,7 @@ export default function AdminPage() {
         </div>
       </section>
 
+      {renderPasswordModal()}
       {renderInfoModal()}
     </main>
   );

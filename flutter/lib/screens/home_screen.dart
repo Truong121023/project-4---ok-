@@ -5,10 +5,12 @@ import '../core/models/models.dart';
 import '../core/utils/formatters.dart';
 import '../widgets/app_widgets.dart';
 import 'dish_detail_screen.dart';
+import 'events_screen.dart';
 import 'login_screen.dart';
 import 'news_detail_screen.dart';
 import 'news_list_screen.dart';
 import 'store_detail_screen.dart';
+import 'user_order_qr_scan_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -41,11 +43,24 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Tea Matcha'),
         actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const UserOrderQrScanScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.qr_code_scanner),
+            tooltip: 'Quet QR don hang',
+          ),
           TextButton(
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
-                  builder: (_) => controller.isLoggedIn ? const NewsListScreen() : const LoginScreen(),
+                  builder: (_) => controller.isLoggedIn
+                      ? const NewsListScreen()
+                      : const LoginScreen(),
                 ),
               );
             },
@@ -79,6 +94,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   brand: home.brand,
                   loggedIn: controller.isLoggedIn,
                   useMockData: controller.config.useMockData,
+                  onScanOrderQr: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const UserOrderQrScanScreen(),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 24),
                 SectionHeader(
@@ -87,7 +109,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 14),
                 SizedBox(
-                  height: 300,
+                  height: 324,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: home.featuredStores.length,
@@ -101,7 +123,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute<void>(
-                                builder: (_) => StoreDetailScreen(storeKey: store.slug),
+                                builder: (_) =>
+                                    StoreDetailScreen(storeKey: store.slug),
                               ),
                             );
                           },
@@ -117,7 +140,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 14),
                 SizedBox(
-                  height: 318,
+                  height: 348,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: home.featuredDishes.length,
@@ -131,7 +154,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute<void>(
-                                builder: (_) => DishDetailScreen(dishId: dish.id),
+                                builder: (_) =>
+                                    DishDetailScreen(dishId: dish.id),
                               ),
                             );
                           },
@@ -162,7 +186,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               return;
                             }
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('${dish.name} da duoc them vao gio hang')),
+                              SnackBar(
+                                  content: Text(
+                                      '${dish.name} da duoc them vao gio hang')),
                             );
                           },
                         ),
@@ -174,33 +200,64 @@ class _HomeScreenState extends State<HomeScreen> {
                 SectionHeader(
                   title: 'Su kien sap toi',
                   subtitle: 'Tap trung nhung event ngan gon, de tham gia.',
+                  actionLabel: 'Xem het',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const EventsScreen(),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 14),
                 ...home.upcomingEvents.map(
                   (event) => Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              event.name,
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  EventDetailScreen(eventKey: event.slug),
                             ),
-                            const SizedBox(height: 8),
-                            Text('${event.storeName} - ${Formatters.shortDate(event.startsAt)}'),
-                            const SizedBox(height: 10),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                MetricChip(label: '${event.remainingSlots} cho'),
-                                MetricChip(label: '${Formatters.rating(event.averageRating)} sao'),
-                              ],
-                            ),
-                          ],
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                event.name,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w800),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                  '${event.storeName} - ${Formatters.shortDate(event.startsAt)}'),
+                              const SizedBox(height: 8),
+                              Text(
+                                event.highlightSummary,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 10),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  MetricChip(
+                                      label: '${event.remainingSlots} cho'),
+                                  MetricChip(
+                                      label:
+                                          '${Formatters.rating(event.averageRating)} sao'),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -228,7 +285,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
-                            builder: (_) => NewsDetailScreen(newsKey: news.slug),
+                            builder: (_) =>
+                                NewsDetailScreen(newsKey: news.slug),
                           ),
                         );
                       },
@@ -249,14 +307,18 @@ class _HeroBanner extends StatelessWidget {
     required this.brand,
     required this.loggedIn,
     required this.useMockData,
+    required this.onScanOrderQr,
   });
 
   final String brand;
   final bool loggedIn;
   final bool useMockData;
+  final VoidCallback onScanOrderQr;
 
   @override
   Widget build(BuildContext context) {
+    final modeLabel = useMockData ? 'Trai nghiem demo' : 'San sang dat mon';
+    final accessLabel = loggedIn ? 'Da dang nhap' : 'Kham pha nhanh';
     return Card(
       child: Container(
         padding: const EdgeInsets.all(20),
@@ -276,13 +338,13 @@ class _HeroBanner extends StatelessWidget {
               runSpacing: 8,
               children: [
                 _HeroChip(label: brand),
-                _HeroChip(label: useMockData ? 'Mock mode' : 'API mode'),
-                _HeroChip(label: loggedIn ? 'Da dang nhap' : 'Guest browsing'),
+                _HeroChip(label: modeLabel),
+                _HeroChip(label: accessLabel),
               ],
             ),
             const SizedBox(height: 16),
             Text(
-              'Mobile storefront duoc dung theo FRONTEND_USER_API.md',
+              'Dat mon, theo doi don va quet QR trong vai buoc.',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
@@ -290,8 +352,17 @@ class _HeroBanner extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'UI toi uu cho vuot nhanh: tim store, chon mon, xem news va them vao gio hang trong it buoc.',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white.withValues(alpha: 0.92)),
+              'Tu home nay ban co the tim cua hang, chon mon ban chay, xem su kien va mo nhanh thong tin don hang khi can.',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyLarge
+                  ?.copyWith(color: Colors.white.withValues(alpha: 0.92)),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: onScanOrderQr,
+              icon: const Icon(Icons.qr_code_scanner),
+              label: Text(loggedIn ? 'Quet QR don hang' : 'Mo may quet QR'),
             ),
           ],
         ),

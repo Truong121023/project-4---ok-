@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../app/app.dart';
 import '../../core/models/models.dart';
 import '../../widgets/app_widgets.dart';
+import 'admin_editor_support.dart';
+import 'admin_resource_editor_screen.dart';
 import 'admin_resource_detail_screen.dart';
 import 'admin_support.dart';
 import 'admin_widgets.dart';
@@ -20,7 +22,8 @@ class AdminResourceListScreen extends StatefulWidget {
   final String initialSearch;
 
   @override
-  State<AdminResourceListScreen> createState() => _AdminResourceListScreenState();
+  State<AdminResourceListScreen> createState() =>
+      _AdminResourceListScreenState();
 }
 
 class _AdminResourceListScreenState extends State<AdminResourceListScreen> {
@@ -85,22 +88,45 @@ class _AdminResourceListScreenState extends State<AdminResourceListScreen> {
     await _refresh(resetPage: true);
   }
 
-  void _openDetail(JsonMap item) {
+  Future<void> _createResource() async {
+    final editable = adminEditableModule(widget.module);
+    if (editable == null ||
+        !canCreateAdminModule(
+          role: AppScope.of(context).currentRole,
+          module: widget.module,
+        )) {
+      return;
+    }
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => AdminResourceEditorScreen(module: widget.module),
+      ),
+    );
+    if (changed == true) {
+      await _refresh(resetPage: true);
+    }
+  }
+
+  Future<void> _openDetail(JsonMap item) async {
     final id = asInt(item['id'], -1);
     if (id <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Record nay khong co id hop le de mo chi tiet.')),
+        const SnackBar(
+            content: Text('Record nay khong co id hop le de mo chi tiet.')),
       );
       return;
     }
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
         builder: (_) => AdminResourceDetailScreen(
           module: widget.module,
           resourceId: id,
         ),
       ),
     );
+    if (changed == true) {
+      await _refresh(page: _page);
+    }
   }
 
   String _pagingLabel(AdminListResult result) {
@@ -113,7 +139,16 @@ class _AdminResourceListScreenState extends State<AdminResourceListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final activeFilters = _query.entries.where((entry) => (entry.value ?? '').trim().isNotEmpty).toList();
+    final activeFilters = _query.entries
+        .where((entry) => (entry.value ?? '').trim().isNotEmpty)
+        .toList();
+    final editable = adminEditableModule(widget.module);
+    final currentRole = AppScope.of(context).currentRole;
+    final canCreate = editable != null &&
+        canCreateAdminModule(
+          role: currentRole,
+          module: widget.module,
+        );
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.module.title)),
@@ -143,39 +178,28 @@ class _AdminResourceListScreenState extends State<AdminResourceListScreen> {
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        TextField(
+                          controller: _searchController,
+                          enabled: widget.module.supportsSearch,
+                          onSubmitted: (_) => _refresh(resetPage: true),
+                          decoration: InputDecoration(
+                            labelText: widget.module.searchHint,
+                            prefixIcon: const Icon(Icons.search),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
                           children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _searchController,
-                                enabled: widget.module.supportsSearch,
-                                onSubmitted: (_) => _refresh(resetPage: true),
-                                decoration: InputDecoration(
-                                  labelText: widget.module.searchHint,
-                                  prefixIcon: const Icon(Icons.search),
-                                ),
-                              ),
-                            ),
-                            if (widget.module.filters.isNotEmpty) ...[
-                              const SizedBox(width: 12),
+                            if (widget.module.filters.isNotEmpty)
                               FilledButton.tonalIcon(
                                 onPressed: _editFilters,
                                 icon: const Icon(Icons.tune),
                                 label: const Text('Loc'),
                               ),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                widget.module.subtitle,
-                                style: Theme.of(context).textTheme.bodyMedium,
-                              ),
-                            ),
                             if (widget.module.supportsSearch)
                               TextButton(
                                 onPressed: () => _refresh(resetPage: true),
@@ -183,13 +207,20 @@ class _AdminResourceListScreenState extends State<AdminResourceListScreen> {
                               ),
                           ],
                         ),
+                        const SizedBox(height: 12),
+                        Text(
+                          widget.module.subtitle,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
                         if (activeFilters.isNotEmpty) ...[
                           const SizedBox(height: 12),
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
                             children: activeFilters
-                                .map((entry) => MetricChip(label: '${adminFieldLabel(entry.key)}: ${entry.value}'))
+                                .map((entry) => MetricChip(
+                                    label:
+                                        '${adminFieldLabel(entry.key)}: ${entry.value}'))
                                 .toList(),
                           ),
                         ],
@@ -201,7 +232,8 @@ class _AdminResourceListScreenState extends State<AdminResourceListScreen> {
                 if (result.items.isEmpty)
                   const EmptyStateCard(
                     title: 'Khong co du lieu',
-                    message: 'Thu doi search/bo loc hoac kiem tra quyen cua tai khoan hien tai.',
+                    message:
+                        'Thu doi search/bo loc hoac kiem tra quyen cua tai khoan hien tai.',
                   )
                 else ...[
                   ...result.items.map(
@@ -210,7 +242,9 @@ class _AdminResourceListScreenState extends State<AdminResourceListScreen> {
                       child: AdminRecordCard(
                         module: widget.module,
                         record: item,
-                        onTap: () => _openDetail(item),
+                        onTap: () {
+                          _openDetail(item);
+                        },
                       ),
                     ),
                   ),
@@ -218,20 +252,29 @@ class _AdminResourceListScreenState extends State<AdminResourceListScreen> {
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Text(_pagingLabel(result)),
-                          ),
+                          Text(_pagingLabel(result)),
                           if (result.paged) ...[
-                            OutlinedButton(
-                              onPressed: result.hasPrevious ? () => _refresh(page: _page - 1) : null,
-                              child: const Text('Prev'),
-                            ),
-                            const SizedBox(width: 8),
-                            OutlinedButton(
-                              onPressed: result.hasNext ? () => _refresh(page: _page + 1) : null,
-                              child: const Text('Next'),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                OutlinedButton(
+                                  onPressed: result.hasPrevious
+                                      ? () => _refresh(page: _page - 1)
+                                      : null,
+                                  child: const Text('Prev'),
+                                ),
+                                OutlinedButton(
+                                  onPressed: result.hasNext
+                                      ? () => _refresh(page: _page + 1)
+                                      : null,
+                                  child: const Text('Next'),
+                                ),
+                              ],
                             ),
                           ],
                         ],
@@ -244,6 +287,13 @@ class _AdminResourceListScreenState extends State<AdminResourceListScreen> {
           );
         },
       ),
+      floatingActionButton: canCreate
+          ? FloatingActionButton.extended(
+              onPressed: _createResource,
+              icon: const Icon(Icons.add),
+              label: const Text('Tao moi'),
+            )
+          : null,
     );
   }
 }
@@ -294,7 +344,10 @@ class _AdminFiltersSheetState extends State<_AdminFiltersSheet> {
         children: [
           Text(
             'Bo loc ${widget.module.title}',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 16),
           ...widget.module.filters.map(
@@ -317,7 +370,8 @@ class _AdminFiltersSheetState extends State<_AdminFiltersSheet> {
                   onPressed: () {
                     Navigator.of(context).pop(
                       <String, String?>{
-                        for (final field in widget.module.filters) field.key: '',
+                        for (final field in widget.module.filters)
+                          field.key: '',
                       },
                     );
                   },

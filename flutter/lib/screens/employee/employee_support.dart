@@ -23,8 +23,8 @@ String employeePanelTitle(EmployeeRoleKind kind) {
 
 String employeePanelSubtitle(EmployeeRoleKind kind) {
   return switch (kind) {
-    EmployeeRoleKind.staff => 'Nhan don da thanh toan, lam mon va ban giao cho shipper.',
-    EmployeeRoleKind.shipper => 'Nhan don san sang giao, theo doi giao hang va chot hoan tat.',
+    EmployeeRoleKind.staff => 'Quet QR de nhan don, lam mon roi ban giao cho shipper.',
+    EmployeeRoleKind.shipper => 'Quet QR de nhan don, giao thanh cong va luu anh chung minh.',
   };
 }
 
@@ -37,23 +37,27 @@ IconData employeeRoleIcon(EmployeeRoleKind kind) {
 
 String employeePrimaryQueueLabel(EmployeeRoleKind kind) {
   return switch (kind) {
-    EmployeeRoleKind.staff => 'Cho bep nhan',
-    EmployeeRoleKind.shipper => 'Cho shipper nhan',
+    EmployeeRoleKind.staff => 'Dang lam mon',
+    EmployeeRoleKind.shipper => 'Dang giao don',
   };
 }
 
 String employeeActiveQueueLabel(EmployeeRoleKind kind) {
   return switch (kind) {
-    EmployeeRoleKind.staff => 'Dang lam',
-    EmployeeRoleKind.shipper => 'Dang giao',
+    EmployeeRoleKind.staff => 'Da quet QR',
+    EmployeeRoleKind.shipper => 'Da quet QR',
   };
 }
 
 String employeeCompletedQueueLabel(EmployeeRoleKind kind) {
   return switch (kind) {
-    EmployeeRoleKind.staff => 'San sang ban giao',
-    EmployeeRoleKind.shipper => 'Da hoan tat',
+    EmployeeRoleKind.staff => 'Da ban giao',
+    EmployeeRoleKind.shipper => 'Da hoan thanh',
   };
+}
+
+List<String> employeeAllowedActions(JsonMap order) {
+  return asStringList(order['allowedActions']).map((action) => action.toUpperCase()).toList();
 }
 
 List<JsonMap> employeePendingOrders(EmployeeRoleKind kind, List<JsonMap> orders) {
@@ -96,6 +100,25 @@ List<JsonMap> employeeCompletedOrders(EmployeeRoleKind kind, List<JsonMap> order
 
 String? employeeActionPath(EmployeeRoleKind kind, JsonMap order, int currentUserId) {
   final status = asString(order['status']).toUpperCase();
+  final allowedActions = employeeAllowedActions(order);
+  if (kind == EmployeeRoleKind.staff) {
+    if (allowedActions.contains('COMPLETE_PREPARING')) {
+      return 'complete-preparing';
+    }
+    if (allowedActions.contains('MARK_READY')) {
+      return 'mark-ready';
+    }
+    if (allowedActions.contains('ACCEPT_PREPARING')) {
+      return 'accept-preparing';
+    }
+  } else {
+    if (allowedActions.contains('MARK_COMPLETED')) {
+      return 'complete-delivery';
+    }
+    if (allowedActions.contains('ACCEPT_DELIVERY')) {
+      return 'accept-delivery';
+    }
+  }
   return switch (kind) {
     EmployeeRoleKind.staff => switch (status) {
         'CONFIRMED' => 'accept-preparing',
@@ -118,10 +141,11 @@ String? employeeActionPath(EmployeeRoleKind kind, JsonMap order, int currentUser
 String? employeeActionLabel(EmployeeRoleKind kind, JsonMap order, int currentUserId) {
   final action = employeeActionPath(kind, order, currentUserId);
   return switch (action) {
-    'accept-preparing' => 'Nhan don',
-    'mark-ready' => 'Xong mon',
-    'accept-delivery' => 'Nhan giao',
-    'complete-delivery' => 'Hoan tat',
+    'accept-preparing' => 'Nhan don tu QR',
+    'mark-ready' => 'Da ban giao',
+    'complete-preparing' => 'Da ban giao',
+    'accept-delivery' => 'Nhan giao tu QR',
+    'complete-delivery' => 'Da giao don',
     _ => null,
   };
 }
@@ -133,7 +157,7 @@ String employeeOrderSubtitle(JsonMap order) {
   }
   final paymentStatus = asString(order['paymentStatus']).trim();
   final deliveryAddress = asString(order['deliveryAddress']).trim();
-  return [paymentStatus, deliveryAddress].where((value) => value.isNotEmpty).join(' • ');
+  return [paymentStatus, deliveryAddress].where((value) => value.isNotEmpty).join(' - ');
 }
 
 List<JsonMap> employeeMonthlyItems(JsonMap monthlySchedule) {

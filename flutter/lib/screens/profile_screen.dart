@@ -1,13 +1,35 @@
 import 'package:flutter/material.dart';
 
 import '../app/app.dart';
-import '../core/utils/formatters.dart';
 import '../widgets/app_widgets.dart';
 import 'address_book_screen.dart';
+import 'favorites_screen.dart';
+import 'feedbacks_screen.dart';
 import 'login_screen.dart';
+import 'loyalty_levels_screen.dart';
+import 'notifications_screen.dart';
+import 'reviews_screen.dart';
+import 'support_chat_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final controller = AppScope.of(context);
+    if (controller.isLoggedIn) {
+      controller.loadUserNotificationUnreadCount();
+      if (controller.favoriteItems.isEmpty) {
+        controller.loadFavorites();
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,30 +39,29 @@ class ProfileScreen extends StatelessWidget {
       builder: (context, _) {
         final session = controller.session;
         return Scaffold(
-          appBar: AppBar(title: const Text('Profile')),
+          appBar: AppBar(title: const Text('Tai khoan')),
           body: RefreshIndicator(
             onRefresh: () async {
-              try {
-                await controller.refreshOrders();
-                await controller.loadDeliveryAddresses();
-              } catch (_) {
-                // Keep the current UI state and allow manual retry from the next pull.
+              if (session == null) {
+                return;
               }
+              await controller.refreshOrders();
+              await controller.loadDeliveryAddresses();
+              await controller.loadFavorites();
+              await controller.loadUserNotificationUnreadCount();
             },
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
               children: [
                 if (session == null)
                   EmptyStateCard(
-                    title: 'Dang duyet voi guest mode',
+                    title: 'Guest mode',
                     message:
-                        'Dang nhap de dong bo session, xem don hang, quan ly dia chi va checkout that voi backend.',
+                        'Dang nhap de luu favorites, theo doi don hang, nhan notifications va mo support chat.',
                     actionLabel: 'Dang nhap',
                     onAction: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const LoginScreen(),
-                        ),
+                        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
                       );
                     },
                   )
@@ -62,29 +83,19 @@ class ProfileScreen extends StatelessWidget {
                             spacing: 8,
                             runSpacing: 8,
                             children: [
-                              MetricChip(label: session.user.role),
                               MetricChip(label: session.user.verified ? 'Verified' : 'Cho verify'),
-                              MetricChip(label: controller.config.useMockData ? 'Mock session' : 'Live session'),
+                              MetricChip(label: '${controller.orders.length} don'),
+                              MetricChip(label: '${controller.cart.totalItems} sp trong cart'),
                             ],
                           ),
                           const SizedBox(height: 16),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
+                          Row(
                             children: [
-                              ElevatedButton(
-                                onPressed: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute<void>(
-                                      builder: (_) => const AddressBookScreen(),
-                                    ),
-                                  );
-                                },
-                                child: const Text('Dia chi giao hang'),
-                              ),
-                              OutlinedButton(
-                                onPressed: () => controller.logout(),
-                                child: const Text('Dang xuat'),
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: controller.logout,
+                                  child: const Text('Dang xuat'),
+                                ),
                               ),
                             ],
                           ),
@@ -94,34 +105,91 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
                   const SectionHeader(
-                    title: 'Don hang cua ban',
-                    subtitle: 'Du lieu map tu /api/user/orders trong live mode.',
+                    title: 'Cong cu tai khoan',
+                    subtitle: 'Tap trung cac muc user can dung sau khi mua hang.',
                   ),
                   const SizedBox(height: 12),
-                  if (controller.orders.isEmpty)
-                    const EmptyStateCard(
-                      title: 'Chua co don hang',
-                      message: 'Sau khi checkout that, danh sach don hang se xuat hien o day.',
-                    )
-                  else
-                    ...controller.orders.map(
-                      (order) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Card(
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.all(16),
-                            title: Text(
-                              '#${order.id} - ${order.storeName}',
-                              style: const TextStyle(fontWeight: FontWeight.w800),
-                            ),
-                            subtitle: Text(
-                              '${order.statusSummary}\n${Formatters.currency(order.totalAmount)} - ${order.paymentStatus}',
-                            ),
-                            isThreeLine: true,
-                          ),
-                        ),
-                      ),
-                    ),
+                  ActionMenuCard(
+                    icon: Icons.location_on_outlined,
+                    title: 'Dia chi giao hang',
+                    subtitle: 'Them, sua va doi dia chi mac dinh de checkout nhanh hon.',
+                    badgeLabel: controller.deliveryAddresses.isEmpty ? null : '${controller.deliveryAddresses.length}',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(builder: (_) => const AddressBookScreen()),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  ActionMenuCard(
+                    icon: Icons.favorite_border,
+                    title: 'Yeu thich',
+                    subtitle: 'Quan ly store, dish va event da save de quay lai nhanh.',
+                    badgeLabel: controller.favoriteItems.isEmpty ? null : '${controller.favoriteItems.length}',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(builder: (_) => const FavoritesScreen()),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  ActionMenuCard(
+                    icon: Icons.rate_review_outlined,
+                    title: 'Review cua toi',
+                    subtitle: 'Xem, sua va xoa cac review ban da gui.',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(builder: (_) => const ReviewsScreen()),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  ActionMenuCard(
+                    icon: Icons.feedback_outlined,
+                    title: 'Feedback',
+                    subtitle: 'Gui phan hoi ve store, delivery, app va theo doi phan hoi tu team.',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(builder: (_) => const FeedbacksScreen()),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  ActionMenuCard(
+                    icon: Icons.notifications_none,
+                    title: 'Notifications',
+                    subtitle: 'Nhan cap nhat don hang, event va news theo tai khoan cua ban.',
+                    badgeLabel: controller.userNotificationUnreadCount == 0
+                        ? null
+                        : '${controller.userNotificationUnreadCount}',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  ActionMenuCard(
+                    icon: Icons.workspace_premium_outlined,
+                    title: 'Loyalty levels',
+                    subtitle: 'Xem muc level hien tai theo tung store va nguong chi tieu.',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(builder: (_) => const LoyaltyLevelsScreen()),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  ActionMenuCard(
+                    icon: Icons.support_agent_outlined,
+                    title: 'Support chat',
+                    subtitle: 'Mo phien ho tro theo store khi can team ho tro don hang hoac app.',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(builder: (_) => const SupportChatScreen()),
+                      );
+                    },
+                  ),
                 ],
               ],
             ),

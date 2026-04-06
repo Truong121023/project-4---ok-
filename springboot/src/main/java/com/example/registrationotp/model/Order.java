@@ -90,6 +90,13 @@ public class Order {
 	@JoinColumn(name = "delivering_shipper_id")
 	private User deliveringShipper;
 
+	@ManyToOne(fetch = FetchType.EAGER)
+	@JoinColumn(name = "confirmed_by_user_id")
+	private User confirmedByUser;
+
+	@Column(name = "confirmed_at")
+	private Instant confirmedAt;
+
 	@Column(name = "payment_provider", length = 30)
 	private String paymentProvider;
 
@@ -132,6 +139,18 @@ public class Order {
 
 	@Column(name = "invoice_qr_token", length = 255, unique = true)
 	private String invoiceQrToken;
+
+	@Column(name = "delivery_proof_image_path", length = 500)
+	private String deliveryProofImagePath;
+
+	@Column(name = "delivery_proof_captured_at")
+	private Instant deliveryProofCapturedAt;
+
+	@Column(name = "delivery_proof_uploaded_at")
+	private Instant deliveryProofUploadedAt;
+
+	@Column(name = "delivery_proof_note", length = 500)
+	private String deliveryProofNote;
 
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
@@ -295,6 +314,22 @@ public class Order {
 		this.deliveringShipper = deliveringShipper;
 	}
 
+	public User getConfirmedByUser() {
+		return confirmedByUser;
+	}
+
+	public void setConfirmedByUser(User confirmedByUser) {
+		this.confirmedByUser = confirmedByUser;
+	}
+
+	public Instant getConfirmedAt() {
+		return confirmedAt;
+	}
+
+	public void setConfirmedAt(Instant confirmedAt) {
+		this.confirmedAt = confirmedAt;
+	}
+
 	public String getPaymentProvider() {
 		return paymentProvider;
 	}
@@ -405,6 +440,38 @@ public class Order {
 
 	public void setInvoiceQrToken(String invoiceQrToken) {
 		this.invoiceQrToken = invoiceQrToken;
+	}
+
+	public String getDeliveryProofImagePath() {
+		return deliveryProofImagePath;
+	}
+
+	public void setDeliveryProofImagePath(String deliveryProofImagePath) {
+		this.deliveryProofImagePath = deliveryProofImagePath;
+	}
+
+	public Instant getDeliveryProofCapturedAt() {
+		return deliveryProofCapturedAt;
+	}
+
+	public void setDeliveryProofCapturedAt(Instant deliveryProofCapturedAt) {
+		this.deliveryProofCapturedAt = deliveryProofCapturedAt;
+	}
+
+	public Instant getDeliveryProofUploadedAt() {
+		return deliveryProofUploadedAt;
+	}
+
+	public void setDeliveryProofUploadedAt(Instant deliveryProofUploadedAt) {
+		this.deliveryProofUploadedAt = deliveryProofUploadedAt;
+	}
+
+	public String getDeliveryProofNote() {
+		return deliveryProofNote;
+	}
+
+	public void setDeliveryProofNote(String deliveryProofNote) {
+		this.deliveryProofNote = deliveryProofNote;
 	}
 
 	public Instant getCreatedAt() {

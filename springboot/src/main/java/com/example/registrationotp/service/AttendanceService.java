@@ -97,10 +97,7 @@ public class AttendanceService {
 		LocalDate today = LocalDate.now(zoneId);
 		EmployeeWorkSchedule schedule = employeeWorkScheduleRepository.findByUserIdAndWorkDate(employee.getId(), today)
 				.orElseThrow(() -> new NotFoundException("Work schedule not found for today"));
-		return EmployeeWorkScheduleResponse.from(
-				schedule,
-				employeeAttendanceRepository.findByUserIdAndWorkDate(employee.getId(), today).orElse(null)
-		);
+		return EmployeeWorkScheduleResponse.from(schedule, null);
 	}
 
 	@Transactional
@@ -171,19 +168,13 @@ public class AttendanceService {
 				toDate
 		);
 		schedules.sort(DEFAULT_WORK_SCHEDULE_COMPARATOR);
-		Map<String, EmployeeAttendance> attendanceByKey = mapAttendancesByKey(
-				employeeAttendanceRepository.findAllByUserIdAndWorkDateBetween(employee.getId(), fromDate, toDate)
-		);
 		Store workingStore = employee.getWorkingStore();
 		return new EmployeeWorkScheduleMonthResponse(
 				resolvedMonth.toString(),
 				workingStore != null ? workingStore.getId() : null,
 				workingStore != null ? workingStore.getName() : null,
 				schedules.stream()
-						.map(schedule -> EmployeeWorkScheduleResponse.from(
-								schedule,
-								attendanceByKey.get(scheduleKey(schedule.getUser().getId(), schedule.getWorkDate()))
-						))
+						.map(schedule -> EmployeeWorkScheduleResponse.from(schedule, null))
 						.toList()
 		);
 	}
@@ -589,17 +580,9 @@ public class AttendanceService {
 			YearMonth month,
 			List<EmployeeWorkSchedule> schedules
 	) {
-		LocalDate fromDate = month.atDay(1);
-		LocalDate toDate = month.atEndOfMonth();
-		Map<String, EmployeeAttendance> attendanceByKey = mapAttendancesByKey(
-				employeeAttendanceRepository.findAllByStoreIdAndWorkDateBetween(store.getId(), fromDate, toDate)
-		);
 		List<EmployeeWorkScheduleResponse> items = schedules.stream()
 				.sorted(DEFAULT_WORK_SCHEDULE_COMPARATOR)
-				.map(schedule -> EmployeeWorkScheduleResponse.from(
-						schedule,
-						attendanceByKey.get(scheduleKey(schedule.getUser().getId(), schedule.getWorkDate()))
-				))
+				.map(schedule -> EmployeeWorkScheduleResponse.from(schedule, null))
 				.toList();
 		return new EmployeeWorkScheduleMonthResponse(
 				month.toString(),

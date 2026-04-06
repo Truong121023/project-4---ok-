@@ -166,12 +166,6 @@ Main endpoints:
 - `POST /api/employee/orders/{id}/complete-preparing`
 - `POST /api/employee/orders/{id}/accept-delivery`
 - `POST /api/employee/orders/{id}/complete-delivery`
-- `GET /api/employee/work-schedules/today`
-- `GET /api/employee/work-schedules/monthly`
-- `GET /api/employee/attendance/today`
-- `POST /api/employee/attendance/check-in`
-- `POST /api/employee/attendance/check-out`
-- `GET /api/employee/attendance/history`
 - `GET/PUT /api/employee/notifications...`
 
 Main backend behavior:
@@ -180,8 +174,8 @@ Main backend behavior:
 - `STAFF` completes kitchen/preparing flow by moving order to `READY_FOR_SHIPPER`
 - `SHIPPER` can accept orders in `READY_FOR_SHIPPER`
 - `SHIPPER` completes delivery by moving order to `COMPLETED`
-- attendance requires existing schedule for that day
 - employee notifications are stored in the same notification table as user notifications, but filtered by employee use case
+- work schedule and attendance APIs are disabled
 
 ### 5.4 Admin And Manager Domain
 
@@ -202,8 +196,6 @@ Main endpoints:
 - `/api/admin/store-dishes`
 - `/api/admin/news`
 - `/api/admin/orders`
-- `/api/admin/work-schedules/monthly`
-- `/api/admin/attendances`
 - `/api/admin/promotions`
 - `/api/admin/user-levels`
 - `/api/admin/feedbacks`
@@ -214,7 +206,7 @@ Main backend behavior:
 - admin dashboard returns big preview payload for management screens
 - admin summary returns lightweight counts
 - uploads return image paths that frontend can save directly
-- admin manages users, stores, events, categories, dishes, store inventories, news, promotions, orders, schedules, attendance, feedback replies, and reviews
+- admin manages users, stores, events, categories, dishes, store inventories, news, promotions, orders, feedback replies, and reviews
 - manager access is store-scoped by `workingStoreId`
 
 ### 5.5 Payment Domain
@@ -340,8 +332,8 @@ Important database note:
 
 ### 8.5 Workforce Tables
 
-- `employee_work_schedules`: monthly planning per employee per day
-- `employee_attendances`: check-in/check-out history linked to schedule when available
+- `employee_work_schedules`: legacy workforce scheduling table, no active API contract
+- `employee_attendances`: legacy attendance table, no active API contract
 
 ## 9. Collection Tables And Auxiliary Tables
 
@@ -487,4 +479,3 @@ The backend is responsible for:
 - `FRONTEND_ADMIN_API.md`
 - `FRONTEND_ROLE_API_NOTE.md`
 - `BACKEND_RELATION_AUDIT.md`
-

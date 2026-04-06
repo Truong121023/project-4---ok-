@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../app/app.dart';
 import '../../widgets/app_widgets.dart';
-import '../admin/admin_query_screen.dart';
 import '../admin/admin_resource_detail_screen.dart';
 import '../admin/admin_resource_list_screen.dart';
 import '../admin/admin_support.dart';
@@ -10,16 +9,6 @@ import '../admin/admin_widgets.dart';
 
 class ManagerOperationsScreen extends StatelessWidget {
   const ManagerOperationsScreen({super.key});
-
-  String _currentMonth() {
-    final now = DateTime.now();
-    return '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}';
-  }
-
-  String _todayDate() {
-    final now = DateTime.now();
-    return '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-  }
 
   void _openStoreDetail(BuildContext context, int storeId) {
     Navigator.of(context).push(
@@ -47,20 +36,16 @@ class ManagerOperationsScreen extends StatelessWidget {
     );
   }
 
-  void _openQuery(
-    BuildContext context,
-    AdminModuleDefinition module, {
-    Map<String, String?> query = const {},
-  }) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => AdminQueryScreen(
-          module: module,
-          initialQuery: query,
-          autoSubmit: true,
-        ),
-      ),
-    );
+  Map<String, String?> _storeScopedQuery(String moduleId, int storeId) {
+    if (storeId <= 0) {
+      return const {};
+    }
+    return switch (moduleId) {
+      'users' => {'workingStoreId': '$storeId'},
+      'news' => {'relatedStoreId': '$storeId'},
+      'feedbacks' => {'relatedStoreId': '$storeId'},
+      _ => {'storeId': '$storeId'},
+    };
   }
 
   @override
@@ -85,17 +70,34 @@ class ManagerOperationsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Card(
-            child: ListTile(
-              contentPadding: const EdgeInsets.all(16),
-              leading: const Icon(Icons.storefront_outlined),
-              title: const Text('Store profile', style: TextStyle(fontWeight: FontWeight.w800)),
-              subtitle: const Padding(
-                padding: EdgeInsets.only(top: 8),
-                child: Text('Manager chi sua store cua minh, khong tao/xoa chi nhanh moi.'),
-              ),
-              trailing: FilledButton.tonal(
-                onPressed: storeId > 0 ? () => _openStoreDetail(context, storeId) : null,
-                child: const Text('Mo'),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.storefront_outlined),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Store profile',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                      'Manager chi sua store cua minh, khong tao/xoa chi nhanh moi.'),
+                  const SizedBox(height: 12),
+                  FilledButton.tonal(
+                    onPressed: storeId > 0
+                        ? () => _openStoreDetail(context, storeId)
+                        : null,
+                    child: const Text('Mo'),
+                  ),
+                ],
               ),
             ),
           ),
@@ -111,51 +113,27 @@ class ManagerOperationsScreen extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 12),
               child: AdminModuleCard(
                 module: module,
-                onTap: () => _openList(context, module),
+                onTap: () => _openList(
+                  context,
+                  module,
+                  query: _storeScopedQuery(module.id, storeId),
+                ),
               ),
             ),
           ),
           const SizedBox(height: 24),
           const SectionHeader(
-            title: 'People & shifts',
-            subtitle: 'Nhan vien, lich thang va attendance cua store hien tai.',
+            title: 'People',
+            subtitle:
+                'Quan ly STAFF va SHIPPER trong dung cua hang duoc phan cong.',
           ),
           const SizedBox(height: 12),
           AdminModuleCard(
             module: moduleById('users'),
-            onTap: () => _openList(context, moduleById('users')),
-          ),
-          const SizedBox(height: 12),
-          AdminModuleCard(
-            module: moduleById('work-schedules'),
-            onTap: () => _openQuery(
-              context,
-              moduleById('work-schedules'),
-              query: {
-                'storeId': '$storeId',
-                'month': _currentMonth(),
-              },
-            ),
-          ),
-          const SizedBox(height: 12),
-          AdminModuleCard(
-            module: moduleById('attendances'),
             onTap: () => _openList(
               context,
-              moduleById('attendances'),
-              query: {'storeId': '$storeId'},
-            ),
-          ),
-          const SizedBox(height: 12),
-          AdminModuleCard(
-            module: moduleById('attendance-summary'),
-            onTap: () => _openQuery(
-              context,
-              moduleById('attendance-summary'),
-              query: {
-                'storeId': '$storeId',
-                'workDate': _todayDate(),
-              },
+              moduleById('users'),
+              query: _storeScopedQuery('users', storeId),
             ),
           ),
           const SizedBox(height: 24),
@@ -175,12 +153,20 @@ class ManagerOperationsScreen extends StatelessWidget {
           const SizedBox(height: 12),
           AdminModuleCard(
             module: moduleById('reviews'),
-            onTap: () => _openList(context, moduleById('reviews')),
+            onTap: () => _openList(
+              context,
+              moduleById('reviews'),
+              query: _storeScopedQuery('reviews', storeId),
+            ),
           ),
           const SizedBox(height: 12),
           AdminModuleCard(
             module: moduleById('feedbacks'),
-            onTap: () => _openList(context, moduleById('feedbacks')),
+            onTap: () => _openList(
+              context,
+              moduleById('feedbacks'),
+              query: _storeScopedQuery('feedbacks', storeId),
+            ),
           ),
         ],
       ),

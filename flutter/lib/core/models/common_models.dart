@@ -48,6 +48,19 @@ String asString(dynamic value, [String fallback = '']) {
   return value.toString();
 }
 
+int? asNullableInt(dynamic value) {
+  if (value == null) {
+    return null;
+  }
+  final parsed = asInt(value, -1);
+  return parsed == -1 ? null : parsed;
+}
+
+String? asNullableString(dynamic value) {
+  final text = asString(value).trim();
+  return text.isEmpty ? null : text;
+}
+
 DateTime? asDateTime(dynamic value) {
   if (value is DateTime) {
     return value;

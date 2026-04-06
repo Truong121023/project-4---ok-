@@ -21,7 +21,7 @@ class AdminModulesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final groups = const ['Operations', 'Catalog', 'Content', 'Staffing'];
+    final groups = const ['Operations', 'Catalog', 'Content'];
 
     return Scaffold(
       appBar: AppBar(title: const Text('Admin modules')),
@@ -51,7 +51,7 @@ class AdminModulesScreen extends StatelessWidget {
                         'Operations' => 'Nguoi dung, don hang, chi nhanh va feedback moderation.',
                         'Catalog' => 'Mon, category, promotions va level logic.',
                         'Content' => 'Event, news va review moderation.',
-                        _ => 'Lich lam va cham cong.',
+                        _ => '',
                       },
                     ),
                     const SizedBox(height: 12),

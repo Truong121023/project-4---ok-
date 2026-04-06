@@ -5,7 +5,7 @@ import OrderQrCard from "../components/OrderQrCard";
 import OrderStatusTracker from "../components/OrderStatusTracker";
 import { useAuth } from "../context/AuthContext";
 import { useToastMessage } from "../hooks/useToastMessage";
-import { getApiErrorMessage } from "../lib/api";
+import { getApiErrorMessage, resolveApiUrl } from "../lib/api";
 import {
   formatDeliveryTypeLabel,
   getOrderActionLabel,
@@ -21,22 +21,17 @@ import {
 import {
   acceptEmployeeDelivery,
   acceptEmployeePreparing,
-  checkInEmployeeAttendance,
-  checkOutEmployeeAttendance,
   completeEmployeeDelivery,
-  fetchEmployeeAttendanceHistory,
-  fetchEmployeeAttendanceToday,
   fetchEmployeeNotifications,
   fetchEmployeeNotificationUnreadCount,
   fetchEmployeeOrderDetail,
   fetchEmployeeOrders,
-  fetchEmployeeWorkScheduleMonthly,
-  fetchEmployeeWorkScheduleToday,
+  fetchMobileOrderQr,
   markAllEmployeeNotificationsRead,
   markEmployeeNotificationRead,
   markEmployeeNotificationUnread,
   markEmployeeOrderReady,
-  scanEmployeeOrder,
+  uploadEmployeeDeliveryProof,
 } from "../lib/siteApi";
 import { ui } from "../ui";
 
@@ -56,68 +51,31 @@ function formatDateTime(value) {
   }).format(date);
 }
 
+function formatDateTimeLocalInput(value) {
+  const date = new Date(value ?? "");
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const offsetMinutes = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offsetMinutes * 60000);
+  return localDate.toISOString().slice(0, 16);
+}
+
+function toIsoDateTime(value) {
+  const rawValue = String(value ?? "").trim();
+
+  if (!rawValue) {
+    return "";
+  }
+
+  const date = new Date(rawValue);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+}
+
 function formatPrice(value) {
   return `${Number(value ?? 0).toLocaleString("vi-VN")}d`;
-}
-
-function formatMinutes(value) {
-  const totalMinutes = Number(value ?? 0);
-
-  if (!Number.isFinite(totalMinutes) || totalMinutes <= 0) {
-    return "0m";
-  }
-
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-
-  if (!hours) {
-    return `${minutes}m`;
-  }
-
-  if (!minutes) {
-    return `${hours}h`;
-  }
-
-  return `${hours}h ${minutes}m`;
-}
-
-function formatShiftRange(entry) {
-  const start = String(entry?.scheduledStartTime ?? "").trim();
-  const end = String(entry?.scheduledEndTime ?? "").trim();
-
-  if (!start && !end) {
-    return "Chua co lich";
-  }
-
-  return [start, end].filter(Boolean).join(" - ");
-}
-
-function createMonthKey(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  return `${year}-${month}`;
-}
-
-function getMonthRange(monthKey) {
-  const [yearText, monthText] = String(monthKey ?? "").split("-");
-  const year = Number(yearText);
-  const monthIndex = Number(monthText) - 1;
-
-  if (!Number.isFinite(year) || !Number.isFinite(monthIndex)) {
-    const today = new Date();
-    return {
-      fromDate: today.toISOString().slice(0, 10),
-      toDate: today.toISOString().slice(0, 10),
-    };
-  }
-
-  const fromDate = new Date(year, monthIndex, 1);
-  const toDate = new Date(year, monthIndex + 1, 0);
-
-  return {
-    fromDate: fromDate.toISOString().slice(0, 10),
-    toDate: toDate.toISOString().slice(0, 10),
-  };
 }
 
 function normalizeRole(role) {
@@ -245,14 +203,30 @@ function buildEmployeeNotificationTarget(notification) {
   );
 }
 
+function applyDeliveryProofToOrder(order, proof) {
+  if (!order) {
+    return order;
+  }
+
+  return {
+    ...order,
+    deliveryProofImagePath:
+      String(proof?.imagePath ?? "").trim() || order.deliveryProofImagePath,
+    deliveryProofCapturedAt:
+      String(proof?.capturedAt ?? "").trim() || order.deliveryProofCapturedAt,
+    deliveryProofUploadedAt:
+      String(proof?.uploadedAt ?? "").trim() || order.deliveryProofUploadedAt,
+    deliveryProofNote:
+      String(proof?.note ?? "").trim() || order.deliveryProofNote,
+  };
+}
+
 export default function EmployeePage() {
   const auth = useAuth();
   const navigate = useNavigate();
   const { orderId } = useParams();
   const employeeRole = normalizeRole(auth.user?.role);
   const currentUserId = String(auth.user?.id ?? "");
-  const currentMonth = useMemo(() => createMonthKey(new Date()), []);
-  const historyRange = useMemo(() => getMonthRange(currentMonth), [currentMonth]);
   const [taskMode, setTaskMode] = useState("available");
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -270,9 +244,6 @@ export default function EmployeePage() {
   const [taskNotice, setTaskNotice] = useState("");
   const [actionLoadingId, setActionLoadingId] = useState("");
   const [scanQrToken, setScanQrToken] = useState("");
-  const [scanAction, setScanAction] = useState(
-    employeeRole === "SHIPPER" ? "ACCEPT_DELIVERY" : "ACCEPT_PREPARING",
-  );
   const [scanLoading, setScanLoading] = useState(false);
   const [orderDetail, setOrderDetail] = useState(null);
   const [invoicePreviewOrder, setInvoicePreviewOrder] = useState(null);
@@ -283,27 +254,17 @@ export default function EmployeePage() {
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsError, setNotificationsError] = useState("");
   const [notificationNotice, setNotificationNotice] = useState("");
-  const [scheduleToday, setScheduleToday] = useState(null);
-  const [monthlySchedule, setMonthlySchedule] = useState({
-    month: currentMonth,
-    storeId: "",
-    storeName: "",
-    items: [],
-  });
-  const [attendanceToday, setAttendanceToday] = useState(null);
-  const [attendanceHistory, setAttendanceHistory] = useState([]);
-  const [attendanceLoading, setAttendanceLoading] = useState(true);
-  const [attendanceError, setAttendanceError] = useState("");
-  const [attendanceNotice, setAttendanceNotice] = useState("");
-  const [attendanceAction, setAttendanceAction] = useState("");
+  const [deliveryProofFile, setDeliveryProofFile] = useState(null);
+  const [deliveryProofNote, setDeliveryProofNote] = useState("");
+  const [deliveryProofCapturedAt, setDeliveryProofCapturedAt] = useState("");
+  const [deliveryProofUploading, setDeliveryProofUploading] = useState(false);
+  const [deliveryProofInputKey, setDeliveryProofInputKey] = useState(0);
 
   useToastMessage(ordersError, { type: "error", title: "Task" });
   useToastMessage(detailError, { type: "error", title: "Chi tiet task" });
   useToastMessage(taskNotice, { type: "info", title: "Task" });
   useToastMessage(notificationsError, { type: "error", title: "Thong bao" });
   useToastMessage(notificationNotice, { type: "info", title: "Thong bao" });
-  useToastMessage(attendanceError, { type: "error", title: "Cham cong" });
-  useToastMessage(attendanceNotice, { type: "success", title: "Cham cong" });
 
   const loadOrders = useCallback(
     async ({ silent = false } = {}) => {
@@ -378,40 +339,6 @@ export default function EmployeePage() {
     [auth],
   );
 
-  const loadAttendance = useCallback(
-    async ({ silent = false } = {}) => {
-      if (!silent) {
-        setAttendanceLoading(true);
-      }
-      setAttendanceError("");
-
-      try {
-        const [todaySchedule, monthSchedule, todayAttendance, historyResponse] = await Promise.all([
-          fetchEmployeeWorkScheduleToday(auth),
-          fetchEmployeeWorkScheduleMonthly(auth, { month: currentMonth }),
-          fetchEmployeeAttendanceToday(auth),
-          fetchEmployeeAttendanceHistory(auth, {
-            ...historyRange,
-            page: 0,
-            size: 8,
-          }),
-        ]);
-
-        setScheduleToday(todaySchedule);
-        setMonthlySchedule(monthSchedule);
-        setAttendanceToday(todayAttendance);
-        setAttendanceHistory(historyResponse.items ?? []);
-      } catch (requestError) {
-        setAttendanceError(getApiErrorMessage(requestError, "Khong the tai lich lam va cham cong."));
-      } finally {
-        if (!silent) {
-          setAttendanceLoading(false);
-        }
-      }
-    },
-    [auth, currentMonth, historyRange],
-  );
-
   useEffect(() => {
     void loadOrders();
   }, [loadOrders]);
@@ -421,12 +348,15 @@ export default function EmployeePage() {
   }, [loadOrderDetail]);
 
   useEffect(() => {
-    void loadNotifications();
-  }, [loadNotifications]);
+    setDeliveryProofFile(null);
+    setDeliveryProofNote("");
+    setDeliveryProofCapturedAt("");
+    setDeliveryProofInputKey((value) => value + 1);
+  }, [orderId]);
 
   useEffect(() => {
-    void loadAttendance();
-  }, [loadAttendance]);
+    void loadNotifications();
+  }, [loadNotifications]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -438,10 +368,6 @@ export default function EmployeePage() {
       window.clearInterval(intervalId);
     };
   }, [loadNotifications, loadOrders]);
-
-  useEffect(() => {
-    setScanAction(employeeRole === "SHIPPER" ? "ACCEPT_DELIVERY" : "ACCEPT_PREPARING");
-  }, [employeeRole]);
 
   const stats = useMemo(() => {
     const availableCount = ordersFeed.items.filter((order) =>
@@ -470,18 +396,6 @@ export default function EmployeePage() {
     };
   }, [currentUserId, employeeRole, ordersFeed.items]);
 
-  const upcomingShifts = useMemo(
-    () =>
-      [...(monthlySchedule.items ?? [])]
-        .sort((left, right) => {
-          const leftKey = `${left.workDate}|${left.scheduledStartTime}`;
-          const rightKey = `${right.workDate}|${right.scheduledStartTime}`;
-          return leftKey.localeCompare(rightKey);
-        })
-        .slice(0, 6),
-    [monthlySchedule.items],
-  );
-
   const handleTaskSearch = (event) => {
     event.preventDefault();
     setSearchQuery(searchInput.trim());
@@ -499,6 +413,21 @@ export default function EmployeePage() {
     const taskAction = getEmployeeOrderAction(order, employeeRole, currentUserId);
 
     if (!taskAction) {
+      return;
+    }
+
+    if (
+      employeeRole === "SHIPPER" &&
+      taskAction.key === "MARK_COMPLETED" &&
+      !String(order?.deliveryProofImagePath ?? "").trim()
+    ) {
+      setOrdersError("Tai anh bang chung giao hang truoc khi danh dau hoan tat don.");
+      setTaskNotice("");
+
+      if (order?.id && String(orderId ?? "") !== String(order.id)) {
+        navigate(`/employee/orders/${order.id}`);
+      }
+
       return;
     }
 
@@ -594,30 +523,27 @@ export default function EmployeePage() {
     setDetailError("");
 
     try {
-      const response = await scanEmployeeOrder(auth, {
-        qrToken,
-        action: scanAction,
-      });
+      const response = await fetchMobileOrderQr(auth, qrToken);
+      const scannedOrder = response.order;
 
-      if (response.order) {
-        setOrderDetail(response.order);
+      if (!scannedOrder?.id) {
+        setOrdersError(response.message || "Backend chua tra ve don hang hop le tu QR nay.");
+        return;
       }
 
-      if (response.success) {
-        setTaskNotice(response.message || "Da xu ly QR thanh cong.");
-        setScanQrToken("");
-
-        if (response.order?.id) {
-          navigate(`/employee/orders/${response.order.id}`);
-        }
-      } else {
-        setOrdersError(response.message || "Khong the xu ly QR luc nay.");
-      }
+      setOrderDetail(scannedOrder);
+      setScanQrToken("");
+      setTaskNotice(
+        response.message ||
+          (employeeRole === "SHIPPER"
+            ? "Da mo task giao hang tu QR."
+            : "Da mo task chuan bi tu QR."),
+      );
+      navigate(`/employee/orders/${scannedOrder.id}`);
 
       await Promise.all([
         loadOrders({ silent: true }),
         loadNotifications({ silent: true }),
-        response.order?.id ? loadOrderDetail() : Promise.resolve(),
       ]);
     } catch (requestError) {
       setOrdersError(getApiErrorMessage(requestError, "Khong the quet QR luc nay."));
@@ -626,30 +552,56 @@ export default function EmployeePage() {
     }
   };
 
-  const handleAttendanceAction = async (type) => {
-    setAttendanceNotice("");
-    setAttendanceError("");
-    setAttendanceAction(type);
+  const handleDeliveryProofUpload = async (event) => {
+    event.preventDefault();
+
+    if (!orderDetail?.id || employeeRole !== "SHIPPER") {
+      return;
+    }
+
+    if (!deliveryProofFile) {
+      setDetailError("Chon anh bang chung giao hang truoc khi tai len.");
+      return;
+    }
+
+    setDeliveryProofUploading(true);
+    setTaskNotice("");
+    setOrdersError("");
+    setDetailError("");
 
     try {
-      const response =
-        type === "check-in"
-          ? await checkInEmployeeAttendance(auth)
-          : await checkOutEmployeeAttendance(auth);
+      const response = await uploadEmployeeDeliveryProof(auth, orderDetail.id, {
+        file: deliveryProofFile,
+        capturedAt: toIsoDateTime(deliveryProofCapturedAt),
+        note: deliveryProofNote.trim(),
+      });
 
-      setAttendanceToday(response);
-      setAttendanceNotice(
-        type === "check-in" ? "Da check-in thanh cong." : "Da check-out thanh cong.",
+      setTaskNotice(response.message || "Da tai anh bang chung giao hang.");
+      setOrderDetail((current) => applyDeliveryProofToOrder(current, response));
+      setDeliveryProofFile(null);
+      setDeliveryProofNote(String(response.note ?? "").trim());
+      setDeliveryProofCapturedAt(
+        response.capturedAt ? formatDateTimeLocalInput(response.capturedAt) : "",
       );
-      await loadAttendance({ silent: true });
+      setDeliveryProofInputKey((value) => value + 1);
+
+      await Promise.all([
+        loadOrders({ silent: true }),
+        loadOrderDetail(),
+      ]);
     } catch (requestError) {
-      setAttendanceError(getApiErrorMessage(requestError, "Khong the cap nhat cham cong."));
+      setDetailError(getApiErrorMessage(requestError, "Khong the tai bang chung giao hang."));
     } finally {
-      setAttendanceAction("");
+      setDeliveryProofUploading(false);
     }
   };
 
   const detailAction = getEmployeeOrderAction(orderDetail, employeeRole, currentUserId);
+  const canUploadDeliveryProof =
+    employeeRole === "SHIPPER" &&
+    Boolean(orderDetail?.id) &&
+    ["OUT_FOR_DELIVERY", "COMPLETED"].includes(normalizeRole(orderDetail?.status));
+  const deliveryProofPreviewUrl = resolveApiUrl(orderDetail?.deliveryProofImagePath);
 
   return (
     <main className={ui.page}>
@@ -661,7 +613,7 @@ export default function EmployeePage() {
               {employeeRole === "SHIPPER" ? "Shipper task board" : "Staff task board"}
             </h1>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-700">
-              Theo doi don hang duoc giao, task notifications, va lich lam trong cung mot man hinh.
+              Theo doi don hang duoc giao va task notifications trong cung mot man hinh.
             </p>
           </div>
 
@@ -844,8 +796,8 @@ export default function EmployeePage() {
                 <div>
                   <p className="text-sm font-semibold text-tea-900">Nhan task bang QR</p>
                   <p className="mt-2 text-sm leading-7 text-stone-600">
-                    Ban co the quet QR token hoac dan full URL QR cong khai tren hoa don. He thong
-                    se tu tach token truoc khi gui len backend.
+                    Dan QR token hoac full URL tu hoa don. Backend se tu quyet luong xu ly theo
+                    role hien tai, frontend chi mo task va doc `allowedActions`.
                   </p>
                 </div>
 
@@ -855,32 +807,15 @@ export default function EmployeePage() {
                   </span>
                   <input
                     className={ui.input}
-                    placeholder="qr_tok_abc hoac http://localhost:8080/api/public/order-qr/qr_tok_abc"
+                    placeholder="qr_tok_abc hoac /api/public/order-qr/qr_tok_abc"
                     value={scanQrToken}
                     onChange={(event) => setScanQrToken(event.target.value)}
                   />
                 </label>
 
-                <label className="grid gap-2">
-                  <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                    QR action
-                  </span>
-                  <select
-                    className={ui.input}
-                    value={scanAction}
-                    onChange={(event) => setScanAction(event.target.value)}
-                  >
-                    {employeeRole === "SHIPPER" ? (
-                      <option value="ACCEPT_DELIVERY">ACCEPT_DELIVERY</option>
-                    ) : (
-                      <option value="ACCEPT_PREPARING">ACCEPT_PREPARING</option>
-                    )}
-                  </select>
-                </label>
-
                 <div className="flex flex-wrap gap-3">
                   <button className={ui.primaryButton} disabled={scanLoading} type="submit">
-                    {scanLoading ? "Dang xu ly QR..." : "Quet / xu ly QR"}
+                    {scanLoading ? "Dang xu ly QR..." : "Mo task bang QR"}
                   </button>
                 </div>
               </form>
@@ -921,8 +856,17 @@ export default function EmployeePage() {
                             <span>Giao den: {order.deliveryAddress || "N/A"}</span>
                             <span>Loai giao: {formatDeliveryTypeLabel(order.deliveryType)}</span>
                             {order.invoiceNumber ? <span>Hoa don: {order.invoiceNumber}</span> : null}
+                            {order.confirmedByUserName ? (
+                              <span>
+                                Xac nhan boi: {order.confirmedByUserName}
+                                {order.confirmedAt ? ` | ${formatDateTime(order.confirmedAt)}` : ""}
+                              </span>
+                            ) : null}
                             {order.preparingStaffName ? <span>Staff: {order.preparingStaffName}</span> : null}
                             {order.deliveringShipperName ? <span>Shipper: {order.deliveringShipperName}</span> : null}
+                            {order.deliveryProofUploadedAt ? (
+                              <span>Bang chung giao hang: {formatDateTime(order.deliveryProofUploadedAt)}</span>
+                            ) : null}
                             <span>{order.statusSummary || orderStatus.description}</span>
                           </div>
 
@@ -967,88 +911,6 @@ export default function EmployeePage() {
         </div>
 
         <div className="grid content-start gap-6">
-          <article className={ui.panel}>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className={ui.eyebrow}>Attendance</p>
-                <h2 className="text-2xl font-semibold text-tea-900">Ca lam hom nay</h2>
-              </div>
-
-              {scheduleToday?.storeName || auth.user?.workingStoreName ? (
-                <span className={ui.pill}>
-                  {scheduleToday?.storeName || auth.user?.workingStoreName}
-                </span>
-              ) : null}
-            </div>
-
-            {attendanceNotice ? (
-              <div className="mt-4 rounded-2xl bg-matcha-500/12 px-4 py-3 text-sm text-matcha-700">
-                {attendanceNotice}
-              </div>
-            ) : null}
-
-            {attendanceError ? (
-              <div className="mt-4 rounded-2xl bg-red-100/80 px-4 py-3 text-sm text-red-700">
-                {attendanceError}
-              </div>
-            ) : null}
-
-            {attendanceLoading ? (
-              <div className="mt-4 rounded-[1.2rem] border border-dashed border-matcha-900/15 bg-white/60 p-4 text-sm text-stone-600">
-                Dang tai lich lam va cham cong...
-              </div>
-            ) : (
-              <div className="mt-4 grid gap-4">
-                <div className="rounded-[1.2rem] border border-matcha-900/10 bg-white/72 p-4 text-sm leading-7 text-stone-600">
-                  <p className="font-semibold text-tea-900">Lich hom nay</p>
-                  <p className="mt-2">
-                    {scheduleToday
-                      ? `${scheduleToday.workDate || "Hom nay"} | ${formatShiftRange(scheduleToday)}`
-                      : "Hom nay chua co ca lam duoc phan cong."}
-                  </p>
-                  {scheduleToday?.note ? <p className="mt-2">Ghi chu: {scheduleToday.note}</p> : null}
-                </div>
-
-                <div className="rounded-[1.2rem] border border-matcha-900/10 bg-white/72 p-4 text-sm leading-7 text-stone-600">
-                  <p className="font-semibold text-tea-900">Trang thai cham cong</p>
-                  <div className="mt-2 grid gap-1">
-                    <span>Checked in: {attendanceToday?.checkedIn ? "Da check-in" : "Chua check-in"}</span>
-                    <span>Checked out: {attendanceToday?.checkedOut ? "Da check-out" : "Chua check-out"}</span>
-                    {attendanceToday?.checkInAt ? <span>Luc vao ca: {formatDateTime(attendanceToday.checkInAt)}</span> : null}
-                    {attendanceToday?.checkOutAt ? <span>Luc ket ca: {formatDateTime(attendanceToday.checkOutAt)}</span> : null}
-                    {attendanceToday?.workedMinutes !== null && attendanceToday?.workedMinutes !== undefined ? (
-                      <span>Tong thoi gian: {formatMinutes(attendanceToday.workedMinutes)}</span>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-3">
-                  {scheduleToday && !attendanceToday?.checkedIn ? (
-                    <button
-                      className={ui.primaryButton}
-                      type="button"
-                      disabled={attendanceAction === "check-in"}
-                      onClick={() => handleAttendanceAction("check-in")}
-                    >
-                      {attendanceAction === "check-in" ? "Dang check-in..." : "Check-in"}
-                    </button>
-                  ) : null}
-
-                  {attendanceToday?.checkedIn && !attendanceToday?.checkedOut ? (
-                    <button
-                      className={ui.primaryButton}
-                      type="button"
-                      disabled={attendanceAction === "check-out"}
-                      onClick={() => handleAttendanceAction("check-out")}
-                    >
-                      {attendanceAction === "check-out" ? "Dang check-out..." : "Check-out"}
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-            )}
-          </article>
-
           <article className={ui.panel}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -1100,6 +962,12 @@ export default function EmployeePage() {
                     <span>Store: {orderDetail.storeName || auth.user?.workingStoreName || "N/A"}</span>
                     <span>Payment: {getPaymentStatusMeta(orderDetail.paymentStatus).label}</span>
                     <span>Created: {formatDateTime(orderDetail.createdAt)}</span>
+                    {orderDetail.confirmedByUserName ? (
+                      <span>
+                        Xac nhan boi: {orderDetail.confirmedByUserName}
+                        {orderDetail.confirmedAt ? ` | ${formatDateTime(orderDetail.confirmedAt)}` : ""}
+                      </span>
+                    ) : null}
                     {orderDetail.scheduledDeliveryAt ? (
                       <span>Hen giao: {formatDateTime(orderDetail.scheduledDeliveryAt)}</span>
                     ) : null}
@@ -1118,6 +986,9 @@ export default function EmployeePage() {
                     ) : null}
                     {orderDetail.deliveringShipperName ? (
                       <span>Shipper giao: {orderDetail.deliveringShipperName}</span>
+                    ) : null}
+                    {orderDetail.deliveryProofUploadedAt ? (
+                      <span>Bang chung tai len: {formatDateTime(orderDetail.deliveryProofUploadedAt)}</span>
                     ) : null}
                     <span>{orderDetail.statusSummary || getOrderStatusMeta(orderDetail.status).description}</span>
                   </div>
@@ -1155,8 +1026,124 @@ export default function EmployeePage() {
                 <OrderQrCard
                   order={orderDetail}
                   title="Order QR"
-                  subtitle="Staff quet ma nay de nhan khau chuan bi. Shipper quet sau khi don da san sang giao."
+                  subtitle="Staff quet ma nay de nhan khau chuan bi. Shipper quet hoac tai bang chung giao hang truoc khi danh dau hoan tat."
                 />
+
+                {canUploadDeliveryProof ? (
+                  <div className="rounded-[1.2rem] border border-matcha-900/10 bg-white/72 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-stone-500">
+                          Delivery proof
+                        </p>
+                        <p className="mt-2 text-sm leading-7 text-stone-600">
+                          Tai anh bang chung giao hang truoc khi bam hoan tat don. Anh nay se duoc
+                          backend luu vao order detail.
+                        </p>
+                      </div>
+
+                      {orderDetail.deliveryProofUploadedAt ? (
+                        <span className={ui.pill}>
+                          Uploaded {formatDateTime(orderDetail.deliveryProofUploadedAt)}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+                      <div className="rounded-[1rem] border border-matcha-900/10 bg-white/78 p-4">
+                        {deliveryProofPreviewUrl ? (
+                          <img
+                            className="h-64 w-full rounded-[1rem] object-cover"
+                            src={deliveryProofPreviewUrl}
+                            alt="Delivery proof"
+                          />
+                        ) : (
+                          <div className="grid h-64 place-items-center rounded-[1rem] border border-dashed border-matcha-900/15 bg-[#f8f5ef] px-4 text-center text-sm leading-7 text-stone-500">
+                            Chua co anh bang chung giao hang cho don nay.
+                          </div>
+                        )}
+
+                        {orderDetail.deliveryProofNote ? (
+                          <p className="mt-3 text-sm leading-7 text-stone-600">
+                            Ghi chu: {orderDetail.deliveryProofNote}
+                          </p>
+                        ) : null}
+
+                        <div className="mt-3 grid gap-1 text-sm leading-7 text-stone-600">
+                          {orderDetail.deliveryProofCapturedAt ? (
+                            <span>Anh chup luc: {formatDateTime(orderDetail.deliveryProofCapturedAt)}</span>
+                          ) : null}
+                          {orderDetail.deliveryProofUploadedAt ? (
+                            <span>Tai len luc: {formatDateTime(orderDetail.deliveryProofUploadedAt)}</span>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <form className="grid gap-3" onSubmit={handleDeliveryProofUpload}>
+                        <label className="grid gap-2">
+                          <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                            Anh bang chung
+                          </span>
+                          <input
+                            key={deliveryProofInputKey}
+                            accept="image/*"
+                            className={ui.input}
+                            type="file"
+                            onChange={(event) => {
+                              const nextFile = event.target.files?.[0] ?? null;
+                              setDeliveryProofFile(nextFile);
+
+                              if (nextFile && !deliveryProofCapturedAt) {
+                                setDeliveryProofCapturedAt(
+                                  formatDateTimeLocalInput(new Date().toISOString()),
+                                );
+                              }
+                            }}
+                          />
+                        </label>
+
+                        <label className="grid gap-2">
+                          <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                            Thoi diem chup
+                          </span>
+                          <input
+                            className={ui.input}
+                            type="datetime-local"
+                            value={deliveryProofCapturedAt}
+                            onChange={(event) => setDeliveryProofCapturedAt(event.target.value)}
+                          />
+                        </label>
+
+                        <label className="grid gap-2">
+                          <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                            Ghi chu
+                          </span>
+                          <textarea
+                            className={`${ui.input} min-h-[120px] resize-y`}
+                            placeholder="Vi du: giao tai sanh block B, khach da nhan."
+                            value={deliveryProofNote}
+                            onChange={(event) => setDeliveryProofNote(event.target.value)}
+                          />
+                        </label>
+
+                        <div className="flex flex-wrap gap-3">
+                          <button
+                            className={ui.primaryButton}
+                            disabled={deliveryProofUploading}
+                            type="submit"
+                          >
+                            {deliveryProofUploading ? "Dang tai bang chung..." : "Tai bang chung"}
+                          </button>
+                          {detailAction?.key === "MARK_COMPLETED" && !orderDetail.deliveryProofImagePath ? (
+                            <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-800">
+                              Can tai bang chung truoc khi hoan tat.
+                            </span>
+                          ) : null}
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className="rounded-[1.2rem] border border-matcha-900/10 bg-white/72 p-4">
                   <p className="text-sm font-semibold uppercase tracking-[0.16em] text-stone-500">
@@ -1205,99 +1192,6 @@ export default function EmployeePage() {
             ) : (
               <div className="mt-4 rounded-[1.2rem] border border-dashed border-matcha-900/15 bg-white/60 p-4 text-sm leading-7 text-stone-600">
                 Chon mot task trong bang ben trai hoac mo tu notification de xem chi tiet tai day.
-              </div>
-            )}
-          </article>
-
-          <article className={ui.panel}>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className={ui.eyebrow}>Schedule</p>
-                <h2 className="text-2xl font-semibold text-tea-900">Lich thang va lich su cham cong</h2>
-                <p className="mt-3 text-sm leading-7 text-stone-600">
-                  Tong hop cac ca sap toi va cac lan check-in/check-out trong thang hien tai.
-                </p>
-              </div>
-
-              <span className={ui.pill}>{monthlySchedule.month || currentMonth}</span>
-            </div>
-
-            {attendanceLoading ? (
-              <div className="mt-4 rounded-[1.2rem] border border-dashed border-matcha-900/15 bg-white/60 p-4 text-sm text-stone-600">
-                Dang tai du lieu lich thang...
-              </div>
-            ) : (
-              <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                <div className="rounded-[1.2rem] border border-matcha-900/10 bg-white/72 p-4">
-                  <p className="text-sm font-semibold uppercase tracking-[0.16em] text-stone-500">
-                    Ca sap toi
-                  </p>
-
-                  {upcomingShifts.length ? (
-                    <div className="mt-4 grid gap-3">
-                      {upcomingShifts.map((shift) => (
-                        <article
-                          key={`${shift.id || shift.userId}-${shift.workDate}-${shift.scheduledStartTime}`}
-                          className="rounded-[1rem] border border-matcha-900/10 bg-white/70 p-4 text-sm leading-6 text-stone-600"
-                        >
-                          <strong className="block text-tea-900">{shift.workDate || "N/A"}</strong>
-                          <span className="mt-2 block">{formatShiftRange(shift)}</span>
-                          <span className="mt-1 block">
-                            {shift.currentlyWorking
-                              ? "Dang trong ca"
-                              : shift.checkedOut
-                                ? "Da ket ca"
-                                : shift.checkedIn
-                                  ? "Da check-in"
-                                  : "Chua check-in"}
-                          </span>
-                          {shift.note ? <span className="mt-1 block">Ghi chu: {shift.note}</span> : null}
-                        </article>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="mt-4 rounded-[1rem] border border-dashed border-matcha-900/15 bg-white/60 p-4 text-sm text-stone-600">
-                      Chua co ca lam nao trong thang nay.
-                    </div>
-                  )}
-                </div>
-
-                <div className="rounded-[1.2rem] border border-matcha-900/10 bg-white/72 p-4">
-                  <p className="text-sm font-semibold uppercase tracking-[0.16em] text-stone-500">
-                    Lich su cham cong
-                  </p>
-
-                  {attendanceHistory.length ? (
-                    <div className="mt-4 grid gap-3">
-                      {attendanceHistory.map((entry) => (
-                        <article
-                          key={entry.id || `${entry.workDate}-${entry.checkInAt}-${entry.checkOutAt}`}
-                          className="rounded-[1rem] border border-matcha-900/10 bg-white/70 p-4 text-sm leading-6 text-stone-600"
-                        >
-                          <strong className="block text-tea-900">{entry.workDate || "N/A"}</strong>
-                          <span className="mt-2 block">
-                            Ca: {formatShiftRange(entry)}
-                          </span>
-                          {entry.checkInAt ? (
-                            <span className="mt-1 block">Check-in: {formatDateTime(entry.checkInAt)}</span>
-                          ) : null}
-                          {entry.checkOutAt ? (
-                            <span className="mt-1 block">Check-out: {formatDateTime(entry.checkOutAt)}</span>
-                          ) : null}
-                          {entry.workedMinutes !== null && entry.workedMinutes !== undefined ? (
-                            <span className="mt-1 block">
-                              Thoi gian lam: {formatMinutes(entry.workedMinutes)}
-                            </span>
-                          ) : null}
-                        </article>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="mt-4 rounded-[1rem] border border-dashed border-matcha-900/15 bg-white/60 p-4 text-sm text-stone-600">
-                      Chua co lich su cham cong nao trong khoang thoi gian nay.
-                    </div>
-                  )}
-                </div>
               </div>
             )}
           </article>

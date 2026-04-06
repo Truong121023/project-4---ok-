@@ -8,7 +8,13 @@ If this file conflicts with older manager notes in `FRONTEND_ADMIN_API.md`, use 
 Full DTO details still live in:
 - `FRONTEND_ADMIN_API.md`
 - `FRONTEND_USER_API.md`
+- `FRONTEND_USER_ROLE_NOTE.md`
 - `FRONTEND_ORDER_INVOICE_QR_NOTE.md`
+- `FRONTEND_FIX_HANDOFF_2026-04-04.md`
+- `FRONTEND_SESSION_SECURITY_NOTE.md`
+- `FRONTEND_ADMIN_AI_DRAFT_NOTE.md`
+- `FRONTEND_AI_CHAT_NOTE.md`
+- `MOBILE_ORDER_QR_NOTE.md`
 
 ## 1. Shared Login Flow
 
@@ -20,6 +26,10 @@ All protected APIs still use the same session token flow.
 4. Call `GET /api/auth/me`
 5. Read `user.role`
 6. Route UI by role
+
+All authenticated roles can also call:
+
+- `POST /api/ai/chat/query`
 
 ### Login request sample
 
@@ -92,8 +102,9 @@ All protected APIs still use the same session token flow.
 - Full review moderation
 - Full feedback moderation
 - Full promotions and user levels management
-- Full work schedule publish and attendance monitoring
 - Full support chat inbox across stores
+- Can view revenue and best-selling dish stats across all stores, or scope dashboard/summary to one store with `?storeId={id}`
+- Can use AI chat to ask about stores, dishes, events, news, promotions, and user/account status
 
 ### Main API groups
 
@@ -104,6 +115,8 @@ All protected APIs still use the same session token flow.
 - Dashboard
   - `GET /api/admin/dashboard`
   - `GET /api/admin/summary`
+  - `ADMIN` may pass `storeId` to scope analytics to one store
+  - `POST /api/admin/ai/form-drafts/{formType}`
 - User management
   - `GET /api/admin/users`
   - `GET /api/admin/users/{id}`
@@ -140,10 +153,6 @@ All protected APIs still use the same session token flow.
 - Advanced admin-only
   - `GET|POST|PUT|DELETE /api/admin/promotions`
   - `GET|POST|PUT|DELETE /api/admin/user-levels`
-  - `PUT /api/admin/work-schedules/monthly`
-  - `GET /api/admin/work-schedules/monthly`
-  - `GET /api/admin/attendances`
-  - `GET /api/admin/attendances/summary`
 
 ### Admin user create sample
 
@@ -190,10 +199,14 @@ All protected APIs still use the same session token flow.
 
 - Login to admin area with role `MANAGER`
 - Can manage data only for their own `workingStoreId`
+- Can open dashboard and summary, but data is scoped to their own store
+- Dashboard now includes `revenue` plus `topSellingDishes` for the current store
 - Can manage employees in their own store, but only `STAFF` and `SHIPPER`
 - Cannot create/update/delete `ADMIN` or `MANAGER` users
 - Cannot create or delete store branches
 - Can monitor and moderate store-scoped orders, reviews, feedbacks, support chat
+- Receives notifications when a new order is created in their own store
+- Can use AI chat to ask about stores, dishes, events, news, promotions, and staff/shipper account status in scope
 
 ### Manager allowed APIs
 
@@ -201,6 +214,11 @@ All protected APIs still use the same session token flow.
   - `POST /api/auth/login`
   - `GET /api/auth/me`
   - `POST /api/auth/logout`
+- Dashboard
+  - `GET /api/admin/dashboard`
+  - `GET /api/admin/summary`
+  - `MANAGER` should not send another store's `storeId`; backend always locks data to `workingStoreId`
+  - `POST /api/admin/ai/form-drafts/{formType}`
 - Employee management in own store only
   - `GET /api/admin/users`
   - `GET /api/admin/users/{id}`
@@ -233,20 +251,19 @@ All protected APIs still use the same session token flow.
   - `PUT /api/admin/feedbacks/{id}/reply`
   - `DELETE /api/admin/feedbacks/{id}/reply`
   - `DELETE /api/admin/feedbacks/{id}`
-- Own store monitoring
-  - `GET /api/admin/work-schedules/monthly`
-  - `GET /api/admin/attendances`
-  - `GET /api/admin/attendances/summary`
+- Manager notification center
+  - `GET /api/admin/notifications`
+  - `GET /api/admin/notifications/unread-count`
+  - `PUT /api/admin/notifications/{id}/read`
+  - `PUT /api/admin/notifications/{id}/unread`
+  - `PUT /api/admin/notifications/read-all`
 
 ### Manager blocked APIs
 
-- `GET /api/admin/dashboard`
-- `GET /api/admin/summary`
 - `POST /api/admin/stores`
 - `DELETE /api/admin/stores/{id}`
 - `GET|POST|PUT|DELETE /api/admin/promotions`
 - `GET|POST|PUT|DELETE /api/admin/user-levels`
-- `PUT /api/admin/work-schedules/monthly`
 
 ### Manager employee create/update rule
 
@@ -275,9 +292,8 @@ All protected APIs still use the same session token flow.
 - Accept a `CONFIRMED` order
 - Work on accepted order in `PREPARING`
 - Finish kitchen step and move order to `READY_FOR_SHIPPER`
-- View own schedule
-- Check in / check out
 - Read employee notifications
+- Can use AI chat to ask about stores, dishes, events, news, promotions, and their own account status
 
 ### Staff APIs
 
@@ -287,19 +303,14 @@ All protected APIs still use the same session token flow.
   - `POST /api/employee/orders/{id}/accept-preparing`
   - `POST /api/employee/orders/{id}/mark-ready`
   - `POST /api/employee/orders/{id}/complete-preparing`
-- Schedule/attendance
-  - `GET /api/employee/work-schedules/today`
-  - `GET /api/employee/work-schedules/monthly`
-  - `GET /api/employee/attendance/today`
-  - `POST /api/employee/attendance/check-in`
-  - `POST /api/employee/attendance/check-out`
-  - `GET /api/employee/attendance/history`
 - Notifications
   - `GET /api/employee/notifications`
   - `GET /api/employee/notifications/unread-count`
   - `PUT /api/employee/notifications/{id}/read`
   - `PUT /api/employee/notifications/{id}/unread`
   - `PUT /api/employee/notifications/read-all`
+- AI chat
+  - `POST /api/ai/chat/query`
 
 ### Staff order workflow
 
@@ -341,9 +352,8 @@ All protected APIs still use the same session token flow.
 - Accept a `READY_FOR_SHIPPER` order
 - Deliver accepted order in `OUT_FOR_DELIVERY`
 - Complete delivery and move order to `COMPLETED`
-- View own schedule
-- Check in / check out
 - Read employee notifications
+- Can use AI chat to ask about stores, dishes, events, news, promotions, and their own account status
 
 ### Shipper APIs
 
@@ -352,19 +362,14 @@ All protected APIs still use the same session token flow.
   - `GET /api/employee/orders/{id}`
   - `POST /api/employee/orders/{id}/accept-delivery`
   - `POST /api/employee/orders/{id}/complete-delivery`
-- Schedule/attendance
-  - `GET /api/employee/work-schedules/today`
-  - `GET /api/employee/work-schedules/monthly`
-  - `GET /api/employee/attendance/today`
-  - `POST /api/employee/attendance/check-in`
-  - `POST /api/employee/attendance/check-out`
-  - `GET /api/employee/attendance/history`
 - Notifications
   - `GET /api/employee/notifications`
   - `GET /api/employee/notifications/unread-count`
   - `PUT /api/employee/notifications/{id}/read`
   - `PUT /api/employee/notifications/{id}/unread`
   - `PUT /api/employee/notifications/read-all`
+- AI chat
+  - `POST /api/ai/chat/query`
 
 ### Shipper order workflow
 
@@ -407,6 +412,7 @@ All protected APIs still use the same session token flow.
 - Read storefront notifications
 - Read loyalty levels
 - Open support chat with store
+- Can use AI chat to ask about stores, dishes, events, news, promotions, and their own account status
 
 ### User APIs
 
@@ -452,6 +458,8 @@ All protected APIs still use the same session token flow.
 - Support chat
   - `GET /api/support-chat/stores`
   - Socket.IO connection to `http://localhost:8080` path `/socket.io`
+- AI chat
+  - `POST /api/ai/chat/query`
 
 ### User checkout request sample
 
