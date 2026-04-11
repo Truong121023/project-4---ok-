@@ -193,7 +193,7 @@ class _FallbackPoster extends StatelessWidget {
       ),
       child: Center(
         child: Text(
-          label ?? 'Tea Matcha',
+          label ?? 'Kamatcha',
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: Colors.white,

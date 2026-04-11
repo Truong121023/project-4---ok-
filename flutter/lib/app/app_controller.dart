@@ -1937,13 +1937,13 @@ class AppController extends ChangeNotifier {
     String answer;
     if (lower.contains('voucher') || lower.contains('khuyen mai')) {
       answer =
-          'Tea Matcha Q1 dang la diem de bat dau. Ban co the mo nhanh store, mon Matcha Latte, va kiem tra bai viet hoac uu dai lien quan tu cac the tham chieu ben duoi.';
+          'Kamatcha Q1 dang la diem de bat dau. Ban co the mo nhanh store, mon Matcha Latte, va kiem tra bai viet hoac uu dai lien quan tu cac the tham chieu ben duoi.';
     } else if (lower.contains('tai khoan') || lower.contains('account')) {
       answer =
           'Minh da lay tom tat trang thai tai khoan hien tai cua ban. Ban co the xem card tai khoan ngay ben duoi de kiem tra role, verify va store scope.';
     } else {
       answer =
-          'Minh da tim duoc mot so du lieu lien quan trong he thong Tea Matcha. Ban co the mo nhanh tung the tham chieu de xem chi tiet store, dish, news hoac record noi bo neu role cua ban duoc phep.';
+          'Minh da tim duoc mot so du lieu lien quan trong he thong Kamatcha. Ban co the mo nhanh tung the tham chieu de xem chi tiet store, dish, news hoac record noi bo neu role cua ban duoc phep.';
     }
 
     return AiChatResponse(

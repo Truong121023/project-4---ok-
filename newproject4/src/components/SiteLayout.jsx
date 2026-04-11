@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import AIChatWidget from "./AIChatWidget";
 import SupportChatWidget from "./SupportChatWidget";
 import { useAuth } from "../context/AuthContext";
 import { useSiteData } from "../context/SiteDataContext";
@@ -200,6 +199,7 @@ export default function SiteLayout() {
       : "Admin";
   const navLinks = [
     ...navigationLinks,
+    ...(auth.isAuthenticated ? [{ to: "/ai-chat", label: "AI chat" }] : []),
     ...(auth.hasRole("STAFF", "SHIPPER") ? [{ to: "/employee", label: "Workspace" }] : []),
     ...(auth.hasRole("ADMIN", "MANAGER") ? [{ to: "/admin", label: adminAreaLabel }] : []),
   ];
@@ -211,6 +211,7 @@ export default function SiteLayout() {
       ? [{ to: "/admin", label: auth.hasRole("ADMIN") ? "Admin dashboard" : "Manager panel" }]
       : []),
     ...(canAccessEmployeeArea ? [{ to: "/employee", label: "Employee workspace" }] : []),
+    ...(auth.isAuthenticated ? [{ to: "/ai-chat", label: "AI chat" }] : []),
     { to: "/account", label: "Overview" },
     ...(auth.hasRole("USER")
         ? [
@@ -618,7 +619,6 @@ export default function SiteLayout() {
         </aside>
       </div>
 
-      <AIChatWidget />
       <SupportChatWidget />
 
       <footer className="relative z-10 mx-auto mt-8 flex w-full max-w-7xl flex-col gap-4 px-2 pb-4 text-sm text-stone-600 lg:flex-row lg:items-end lg:justify-between">

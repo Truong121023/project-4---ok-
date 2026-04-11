@@ -4,6 +4,7 @@ import RouteErrorBoundary from "./components/RouteErrorBoundary";
 import SessionSecurityOverlay from "./components/SessionSecurityOverlay";
 import SiteLayout from "./components/SiteLayout";
 import AccountPage from "./pages/AccountPage";
+import AIChatPage from "./pages/AIChatPage";
 import AdminPage from "./pages/AdminPage";
 import CartPage from "./pages/CartPage";
 import DishDetailPage from "./pages/DishDetailPage";
@@ -52,6 +53,7 @@ export default function App() {
 
           <Route element={<ProtectedRoute />}>
             <Route path="account/*" element={<AccountPage />} />
+            <Route path="ai-chat" element={<AIChatPage />} />
           </Route>
 
           <Route element={<ProtectedRoute allowedRoles={["USER"]} />}>

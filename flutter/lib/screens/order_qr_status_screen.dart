@@ -138,7 +138,7 @@ class _OrderQrStatusScreenState extends State<OrderQrStatusScreen> {
     final controller = AppScope.of(context);
     final totalAmount = asDouble(_order['totalAmount']);
     final invoiceNumber = asString(_order['invoiceNumber']);
-    final storeName = asString(_order['storeName'], 'Tea Matcha');
+    final storeName = asString(_order['storeName'], 'Kamatcha');
     final proofImagePath = asNullableString(_order['deliveryProofImagePath']);
     final proofNote = asNullableString(_order['deliveryProofNote']);
     final invoiceUrl = asNullableString(_order['invoicePreviewUrl']) ?? asNullableString(_order['invoiceDownloadUrl']);

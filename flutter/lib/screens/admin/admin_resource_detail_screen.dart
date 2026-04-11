@@ -285,7 +285,7 @@ class _AdminResourceDetailScreenState extends State<AdminResourceDetailScreen> {
                 maxLines: 6,
                 decoration: const InputDecoration(
                   labelText: 'Reply Message',
-                  hintText: 'Tea Matcha da ghi nhan feedback...',
+                  hintText: 'Kamatcha da ghi nhan feedback...',
                 ),
               ),
               const SizedBox(height: 16),

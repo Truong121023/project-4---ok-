@@ -612,7 +612,7 @@ class HomeBundle {
 
   factory HomeBundle.fromJson(JsonMap json) {
     return HomeBundle(
-      brand: asString(json['brand'], 'Tea Matcha'),
+      brand: asString(json['brand'], 'Kamatcha'),
       featuredStores: asObjectList(json['featuredStores'], StoreCard.fromJson),
       featuredDishes: asObjectList(json['featuredDishes'], DishCard.fromJson),
       upcomingEvents: asObjectList(json['upcomingEvents'], EventCard.fromJson),

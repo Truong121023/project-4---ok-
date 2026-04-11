@@ -192,12 +192,12 @@ class SupportChatSocketService extends ChangeNotifier {
       storeId: storeId,
       storeName: storeName,
       assignedAdminId: 1,
-      assignedAdminName: 'Tea Matcha Support',
+      assignedAdminName: 'Kamatcha Support',
       messages: const [
         SupportChatMessage(
           id: 'demo-welcome',
           senderId: 1,
-          senderName: 'Tea Matcha Support',
+          senderName: 'Kamatcha Support',
           senderRole: 'ADMIN',
           content: 'Xin chao, ben minh dang online. Ban can ho tro gi cho don hang nay?',
           createdAt: null,

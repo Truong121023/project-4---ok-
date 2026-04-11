@@ -10,6 +10,7 @@ public record AiChatQueryRequest(
 		@NotBlank(message = "message is required")
 		@Size(max = 4000, message = "message must be at most 4000 characters")
 		String message,
-		List<@Valid AiChatHistoryItem> history
+		List<@Valid AiChatHistoryItem> history,
+		Long threadId
 ) {
 }

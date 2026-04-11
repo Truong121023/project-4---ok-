@@ -41,7 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final controller = AppScope.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tea Matcha'),
+        title: const Text('Kamatcha'),
         actions: [
           IconButton(
             onPressed: () {
@@ -91,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
               children: [
                 _HeroBanner(
-                  brand: home.brand,
+                  brand: _displayBrand(home.brand),
                   loggedIn: controller.isLoggedIn,
                   useMockData: controller.config.useMockData,
                   onScanOrderQr: () {
@@ -300,6 +300,16 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+}
+
+String _displayBrand(String rawBrand) {
+  final trimmed = rawBrand.trim();
+  if (trimmed.isEmpty) {
+    return 'Kamatcha';
+  }
+  return trimmed
+      .replaceAll('Tea Matcha', 'Kamatcha')
+      .replaceAll('Tea matcha', 'Kamatcha');
 }
 
 class _HeroBanner extends StatelessWidget {

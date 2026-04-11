@@ -436,7 +436,7 @@ class MockData {
   };
 
   static HomeBundle get home => HomeBundle(
-        brand: 'Tea Matcha',
+        brand: 'Kamatcha',
         featuredStores: _stores,
         featuredDishes: _dishes,
         upcomingEvents: _events,

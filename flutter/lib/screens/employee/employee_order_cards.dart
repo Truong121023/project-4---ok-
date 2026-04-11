@@ -38,7 +38,7 @@ class EmployeeOrderFocusCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      '#${asInt(order['id'])} - ${asString(order['storeName'], 'Tea Matcha')}',
+                      '#${asInt(order['id'])} - ${asString(order['storeName'], 'Kamatcha')}',
                       style: Theme.of(context)
                           .textTheme
                           .titleMedium
@@ -123,7 +123,7 @@ class EmployeeCompletedCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '#${asInt(order['id'])} - ${asString(order['storeName'], 'Tea Matcha')}',
+                      '#${asInt(order['id'])} - ${asString(order['storeName'], 'Kamatcha')}',
                       style: Theme.of(context)
                           .textTheme
                           .titleMedium

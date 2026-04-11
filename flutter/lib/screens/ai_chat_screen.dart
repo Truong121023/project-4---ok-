@@ -86,13 +86,13 @@ class _AiChatScreenState extends State<AiChatScreen> {
       case 'STAFF':
         return const [
           'Store nay co mon matcha nao dang hot?',
-          'Cho minh xem tin tuc moi cua Tea Matcha',
+          'Cho minh xem tin tuc moi cua Kamatcha',
           'Tai khoan cua toi dang o trang thai nao?',
         ];
       case 'SHIPPER':
         return const [
           'Voucher nao dang bat de tu van cho khach?',
-          'Cho minh xem tin tuc moi cua Tea Matcha',
+          'Cho minh xem tin tuc moi cua Kamatcha',
           'Tai khoan cua toi dang o trang thai nao?',
         ];
       default:
@@ -299,7 +299,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
 
     final prompts = _quickPromptsForRole(controller.currentRole);
     return Scaffold(
-      appBar: AppBar(title: const Text('Tea Matcha AI')),
+      appBar: AppBar(title: const Text('Kamatcha AI')),
       body: Column(
         children: [
           Expanded(
@@ -437,7 +437,7 @@ class _AiChatMessageCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  incoming ? 'Tea Matcha AI' : 'Ban',
+                  incoming ? 'Kamatcha AI' : 'Ban',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 8),
@@ -586,9 +586,9 @@ class _AiChatUiMessage {
 String _welcomeMessageForRole(String role) {
   switch (role.toUpperCase()) {
     case 'ADMIN':
-      return 'Chao ban. Minh co the giup tra cuu nhanh store, mon, event, news, promotions va record quan tri theo quyen ADMIN.';
+      return 'Chao ban. Minh co the giup tra cuu nhanh store, mon, event, news, promotions va record quan tri theo quyen ADMIN cua Kamatcha.';
     case 'MANAGER':
-      return 'Chao manager. Ban co the hoi ve store hien tai, mon dang ban tot, tin tuc, promotions va nhan su trong scope cua hang.';
+      return 'Chao manager. Ban co the hoi ve store hien tai, mon dang ban tot, tin tuc, promotions va nhan su trong scope cua hang Kamatcha.';
     case 'STAFF':
       return 'Chao ban. Ban co the hoi nhanh ve mon, store, tin tuc, uu dai va trang thai tai khoan de thao tac tren mobile de hon.';
     case 'SHIPPER':

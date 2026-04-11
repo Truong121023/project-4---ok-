@@ -309,7 +309,7 @@ class _EmployeeOrderDetailScreenState extends State<EmployeeOrderDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${asString(_order['storeName'], 'Tea Matcha')} - ${employeeOrderSubtitle(_order)}',
+                    '${asString(_order['storeName'], 'Kamatcha')} - ${employeeOrderSubtitle(_order)}',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 12),

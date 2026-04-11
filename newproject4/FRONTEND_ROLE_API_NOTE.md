@@ -30,6 +30,8 @@ All protected APIs still use the same session token flow.
 All authenticated roles can also call:
 
 - `POST /api/ai/chat/query`
+- `GET /api/ai/chat/threads`
+- `GET /api/ai/chat/threads/{threadId}`
 
 ### Login request sample
 
@@ -311,6 +313,8 @@ All authenticated roles can also call:
   - `PUT /api/employee/notifications/read-all`
 - AI chat
   - `POST /api/ai/chat/query`
+  - `GET /api/ai/chat/threads`
+  - `GET /api/ai/chat/threads/{threadId}`
 
 ### Staff order workflow
 
@@ -370,6 +374,8 @@ All authenticated roles can also call:
   - `PUT /api/employee/notifications/read-all`
 - AI chat
   - `POST /api/ai/chat/query`
+  - `GET /api/ai/chat/threads`
+  - `GET /api/ai/chat/threads/{threadId}`
 
 ### Shipper order workflow
 
@@ -460,6 +466,8 @@ All authenticated roles can also call:
   - Socket.IO connection to `http://localhost:8080` path `/socket.io`
 - AI chat
   - `POST /api/ai/chat/query`
+  - `GET /api/ai/chat/threads`
+  - `GET /api/ai/chat/threads/{threadId}`
 
 ### User checkout request sample
 

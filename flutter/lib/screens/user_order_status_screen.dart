@@ -100,7 +100,7 @@ class UserOrderStatusScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '#${asInt(order['id'])} - ${asString(order['storeName'], 'Tea Matcha')}',
+                    '#${asInt(order['id'])} - ${asString(order['storeName'], 'Kamatcha')}',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 10),

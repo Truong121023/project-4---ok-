@@ -1,14 +1,15 @@
 package com.example.registrationotp.dto;
 
+import java.time.Instant;
 import java.util.List;
 
-public record AiChatResponse(
-		Long threadId,
-		String threadTitle,
-		String answer,
+public record AiChatMessageResponse(
+		Long id,
+		String role,
+		String content,
 		List<AiChatReferenceResponse> references,
 		List<AiChatActionResponse> actions,
-		AiChatCurrentUserStatusResponse currentUserStatus,
-		String model
+		String model,
+		Instant createdAt
 ) {
 }
