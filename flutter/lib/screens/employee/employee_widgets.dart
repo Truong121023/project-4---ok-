@@ -22,6 +22,7 @@ class EmployeeTaskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final actionLabel = employeeActionLabel(kind, order, currentUserId);
+    final shipperSummary = employeeAssignedShipperSummary(order);
     final totalAmount = order['totalAmount'];
     final status = asString(order['status']).trim();
 
@@ -45,6 +46,15 @@ class EmployeeTaskCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(employeeOrderSubtitle(order)),
+            if (shipperSummary != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                shipperSummary,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFF4A5A53),
+                    ),
+              ),
+            ],
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
@@ -78,33 +88,71 @@ class EmployeeNotificationCard extends StatelessWidget {
     super.key,
     required this.notification,
     required this.onToggleRead,
+    this.onTap,
   });
 
   final JsonMap notification;
   final VoidCallback onToggleRead;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final read = asBool(notification['read']);
+    final orderId = employeeNotificationOrderId(notification);
+    final actionUrl = asString(notification['actionUrl']).trim();
+    final createdAt = asDateTime(notification['createdAt']);
     return Card(
+      color: read ? null : const Color(0xFFF4F7F1),
       child: ListTile(
         contentPadding: const EdgeInsets.all(16),
         title: Text(
           asString(notification['title'], 'Thong bao'),
-          style: const TextStyle(fontWeight: FontWeight.w800),
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: read ? null : const Color(0xFF17332A),
+          ),
         ),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 8),
-          child: Text(
-            asString(notification['message']).isEmpty
-                ? 'Tap de doi trang thai da doc.'
-                : asString(notification['message']),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                asString(notification['message']).isEmpty
+                    ? 'Mo thong bao de xem chi tiet don hang.'
+                    : asString(notification['message']),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (asString(notification['type']).isNotEmpty)
+                    MetricChip(label: asString(notification['type'])),
+                  if (orderId != null) MetricChip(label: 'Don #$orderId'),
+                  if (asString(notification['relatedStoreName']).isNotEmpty)
+                    MetricChip(label: asString(notification['relatedStoreName'])),
+                  if (createdAt != null) MetricChip(label: Formatters.fullDateTime(createdAt)),
+                ],
+              ),
+              if (actionUrl.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  actionUrl,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFF4A5A53),
+                      ),
+                ),
+              ],
+            ],
           ),
         ),
         trailing: FilledButton.tonal(
           onPressed: onToggleRead,
-          child: Text(read ? 'Unread' : 'Read'),
+          child: Text(read ? 'Chua doc' : 'Da doc'),
         ),
+        isThreeLine: true,
+        onTap: onTap,
       ),
     );
   }

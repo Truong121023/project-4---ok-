@@ -36,6 +36,10 @@ const ORDER_STATUS_META = {
     label: "Cancelled",
     description: "Your order has been cancelled.",
   },
+  EXPIRED: {
+    label: "Expired",
+    description: "This order has expired and can no longer be paid.",
+  },
 };
 
 const PAYMENT_STATUS_META = {
@@ -54,6 +58,10 @@ const PAYMENT_STATUS_META = {
   FAILED: {
     label: "Payment failed",
     description: "Something went wrong while processing the payment.",
+  },
+  EXPIRED: {
+    label: "Payment expired",
+    description: "The PayOS payment session expired before the payment was completed.",
   },
 };
 
@@ -82,6 +90,10 @@ const ORDER_STAGE_META = {
     label: "Cancelled",
     description: "The order or payment was cancelled, so processing has stopped.",
   },
+  EXPIRED: {
+    label: "Expired",
+    description: "The order or payment session has expired and needs a new payment link.",
+  },
 };
 
 const ORDER_ACTION_LABELS = {
@@ -98,7 +110,17 @@ const ORDER_ACTION_LABELS = {
 };
 
 export function formatDeliveryTypeLabel(value) {
-  return String(value ?? "").toUpperCase() === "SCHEDULED" ? "Scheduled" : "Immediate";
+  const normalizedValue = String(value ?? "").toUpperCase();
+
+  if (normalizedValue === "SCHEDULED") {
+    return "Scheduled";
+  }
+
+  if (["DELIVERY", "IMMEDIATE"].includes(normalizedValue)) {
+    return "Delivery";
+  }
+
+  return normalizedValue || "Delivery";
 }
 
 export function getOrderStatusMeta(status) {
@@ -131,7 +153,7 @@ export function canRetryPayment(order) {
     return false;
   }
 
-  if (["CANCELLED", "COMPLETED"].includes(normalizedStatus)) {
+  if (["CANCELLED", "COMPLETED", "EXPIRED"].includes(normalizedStatus)) {
     return false;
   }
 
@@ -163,6 +185,13 @@ export function getOrderActionLabel(action) {
 }
 
 export function isPaymentExpired(order) {
+  const normalizedStatus = String(order?.status ?? "").toUpperCase();
+  const normalizedPaymentStatus = String(order?.paymentStatus ?? "").toUpperCase();
+
+  if (normalizedStatus === "EXPIRED" || normalizedPaymentStatus === "EXPIRED") {
+    return true;
+  }
+
   if (!canRetryPayment(order)) {
     return false;
   }
@@ -176,9 +205,62 @@ export function isPaymentExpired(order) {
   return expiresAt.getTime() <= Date.now();
 }
 
+export function hasPaymentSessionData(order) {
+  const paymentCheckoutUrl = String(order?.paymentCheckoutUrl ?? "").trim();
+  const paymentQrCode = String(order?.paymentQrCode ?? "").trim();
+  const paymentExpiresAt = String(order?.paymentExpiresAt ?? "").trim();
+
+  return Boolean(paymentCheckoutUrl || paymentQrCode || paymentExpiresAt);
+}
+
+export function hasUsablePaymentSession(order) {
+  const paymentCheckoutUrl = String(order?.paymentCheckoutUrl ?? "").trim();
+  const paymentQrCode = String(order?.paymentQrCode ?? "").trim();
+
+  if (!paymentCheckoutUrl && !paymentQrCode) {
+    return false;
+  }
+
+  return hasPaymentSessionData(order) && canRetryPayment(order) && !isPaymentExpired(order);
+}
+
+export function shouldPersistPendingPaymentOrder(order) {
+  const normalizedStatus = String(order?.status ?? "").toUpperCase();
+  const normalizedPaymentStatus = String(order?.paymentStatus ?? "").toUpperCase();
+
+  if (!order?.id) {
+    return false;
+  }
+
+  if (["PAID", "CANCELLED"].includes(normalizedPaymentStatus)) {
+    return false;
+  }
+
+  if (["CANCELLED", "COMPLETED", "EXPIRED"].includes(normalizedStatus)) {
+    return false;
+  }
+
+  return true;
+}
+
 function parseOrderPaymentTime(value) {
   const timestamp = Date.parse(value ?? "");
   return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+function mergePreferredOrder(preferredOrder, fallbackOrder) {
+  return {
+    ...fallbackOrder,
+    ...preferredOrder,
+    items:
+      Array.isArray(preferredOrder?.items) && preferredOrder.items.length
+        ? preferredOrder.items
+        : fallbackOrder?.items ?? [],
+    orders:
+      Array.isArray(preferredOrder?.orders) && preferredOrder.orders.length
+        ? preferredOrder.orders
+        : fallbackOrder?.orders ?? [],
+  };
 }
 
 export function preferFreshPaymentOrder(primaryOrder, fallbackOrder) {
@@ -192,6 +274,20 @@ export function preferFreshPaymentOrder(primaryOrder, fallbackOrder) {
 
   const primaryCheckoutUrl = String(primaryOrder.paymentCheckoutUrl ?? "").trim();
   const fallbackCheckoutUrl = String(fallbackOrder.paymentCheckoutUrl ?? "").trim();
+  const primaryQrCode = String(primaryOrder.paymentQrCode ?? "").trim();
+  const fallbackQrCode = String(fallbackOrder.paymentQrCode ?? "").trim();
+  const primaryPaymentReference = String(
+    primaryOrder.paymentReference ??
+      primaryOrder.paymentLinkId ??
+      primaryOrder.payosOrderCode ??
+      "",
+  ).trim();
+  const fallbackPaymentReference = String(
+    fallbackOrder.paymentReference ??
+      fallbackOrder.paymentLinkId ??
+      fallbackOrder.payosOrderCode ??
+      "",
+  ).trim();
   const primaryPayosOrderCode = String(primaryOrder.payosOrderCode ?? "").trim();
   const fallbackPayosOrderCode = String(fallbackOrder.payosOrderCode ?? "").trim();
   const primaryExpiry = parseOrderPaymentTime(primaryOrder.paymentExpiresAt);
@@ -199,10 +295,12 @@ export function preferFreshPaymentOrder(primaryOrder, fallbackOrder) {
 
   const primaryLooksFresher =
     (primaryCheckoutUrl && primaryCheckoutUrl !== fallbackCheckoutUrl) ||
+    (primaryQrCode && primaryQrCode !== fallbackQrCode) ||
+    (primaryPaymentReference && primaryPaymentReference !== fallbackPaymentReference) ||
     (primaryPayosOrderCode && primaryPayosOrderCode !== fallbackPayosOrderCode) ||
     (primaryExpiry !== null && (fallbackExpiry === null || primaryExpiry > fallbackExpiry));
 
-  return primaryLooksFresher ? primaryOrder : fallbackOrder;
+  return primaryLooksFresher ? mergePreferredOrder(primaryOrder, fallbackOrder) : fallbackOrder;
 }
 
 export function resolveOrderStage(order) {
@@ -211,6 +309,10 @@ export function resolveOrderStage(order) {
 
   if (normalizedStatus === "CANCELLED" || normalizedPaymentStatus === "CANCELLED") {
     return "CANCELLED";
+  }
+
+  if (normalizedStatus === "EXPIRED" || normalizedPaymentStatus === "EXPIRED") {
+    return "EXPIRED";
   }
 
   if (

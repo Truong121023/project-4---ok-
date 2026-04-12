@@ -48,6 +48,9 @@ public class User {
 	@JoinColumn(name = "working_store_id")
 	private Store workingStore;
 
+	@Column(name = "credit_points", nullable = false)
+	private int creditPoints;
+
 	@Column(name = "verified_at")
 	private Instant verifiedAt;
 
@@ -142,6 +145,14 @@ public class User {
 
 	public void setWorkingStore(Store workingStore) {
 		this.workingStore = workingStore;
+	}
+
+	public int getCreditPoints() {
+		return creditPoints;
+	}
+
+	public void setCreditPoints(int creditPoints) {
+		this.creditPoints = Math.max(creditPoints, 0);
 	}
 
 	public Instant getCreatedAt() {

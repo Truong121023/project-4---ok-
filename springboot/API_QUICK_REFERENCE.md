@@ -717,7 +717,7 @@ Detailed guides:
     "id": 91,
     "type": "ORDER_TASK",
     "title": "Don hang da thanh toan #701",
-    "message": "Don hang #701 tai Tea House Q1 da thanh toan. Nhan vien vui long nhan xu ly.",
+    "message": "Don hang #701 tai Tea House Q1 da thanh toan. Quan ly cua hang vui long nhan xu ly.",
     "relatedOrderId": 701,
     "orderId": 701,
     "relatedStoreId": 1,
@@ -802,20 +802,20 @@ Detailed guides:
     "hasNext": false,
     "hasPrevious": false
   },
-  "staffAcceptedOrderResponse": {
+  "managerAcceptedOrderResponse": {
     "id": 701,
     "status": "PREPARING",
     "paymentStatus": "PAID",
     "preparingStaffId": 15,
-    "preparingStaffName": "Barista A",
-    "statusSummary": "Nhan vien Barista A dang lam mon"
+    "preparingStaffName": "Manager A",
+    "statusSummary": "Quan ly Manager A dang xu ly don"
   },
-  "staffReadyOrderResponse": {
+  "managerReadyOrderResponse": {
     "id": 701,
     "status": "READY_FOR_SHIPPER",
     "paymentStatus": "PAID",
     "preparingStaffId": 15,
-    "preparingStaffName": "Barista A",
+    "preparingStaffName": "Manager A",
     "statusSummary": "Da lam xong - cho shipper"
   },
   "shipperAcceptedOrderResponse": {
@@ -921,10 +921,10 @@ Detailed guides:
 ```json
 {
   "adminUserRequest": {
-    "fullName": "Staff A",
-    "email": "staff@example.com",
+    "fullName": "Store Manager",
+    "email": "manager.q1@example.com",
     "password": "12345678",
-    "role": "STAFF",
+    "role": "MANAGER",
     "workingStoreId": 1,
     "enabled": true
   },
@@ -933,9 +933,9 @@ Detailed guides:
   },
   "adminUserResponse": {
     "id": 15,
-    "fullName": "Staff A",
-    "email": "staff@example.com",
-    "role": "STAFF",
+    "fullName": "Store Manager",
+    "email": "manager.q1@example.com",
+    "role": "MANAGER",
     "workingStoreId": 1,
     "workingStoreName": "Tea House Q1",
     "enabled": true,
@@ -1282,9 +1282,9 @@ Detailed guides:
     "items": [
       {
         "id": 15,
-        "fullName": "Staff A",
-        "email": "staff@example.com",
-        "role": "STAFF"
+        "fullName": "Store Manager",
+        "email": "manager.q1@example.com",
+        "role": "MANAGER"
       }
     ],
     "page": 0,

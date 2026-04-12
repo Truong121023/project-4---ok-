@@ -40,7 +40,7 @@ public class NotificationService {
 	private static final int MAX_PAGE_SIZE = 100;
 	private static final Sort DEFAULT_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
 	private static final String BRAND_NAME = "Tea Matcha";
-	private static final Set<Role> EMPLOYEE_NOTIFICATION_ROLES = EnumSet.of(Role.MANAGER, Role.STAFF, Role.SHIPPER);
+	private static final Set<Role> EMPLOYEE_NOTIFICATION_ROLES = EnumSet.of(Role.MANAGER, Role.SHIPPER);
 
 	private final SessionAuthService sessionAuthService;
 	private final UserNotificationRepository userNotificationRepository;
@@ -303,12 +303,12 @@ public class NotificationService {
 	}
 
 	@Transactional
-	public void notifyPaidOrderWaitingForStaff(Order order) {
+	public void notifyPaidOrderWaitingForManager(Order order) {
 		if (!isEmployeeTaskOrder(order)) {
 			return;
 		}
 
-		List<User> recipients = resolveTaskRecipients(order, Role.STAFF, order.getPreparingStaff());
+		List<User> recipients = resolveTaskRecipients(order, Role.MANAGER, order.getPreparingStaff());
 		if (recipients.isEmpty()) {
 			return;
 		}
@@ -316,7 +316,7 @@ public class NotificationService {
 		String title = "Don hang da thanh toan #%d".formatted(order.getId());
 		String message = order.getPreparingStaff() != null
 				? "Ban duoc giao xu ly don hang #%d tai %s.".formatted(order.getId(), resolveOrderStoreName(order))
-				: "Don hang #%d tai %s da thanh toan. Nhan vien vui long nhan xu ly.".formatted(order.getId(), resolveOrderStoreName(order));
+				: "Don hang #%d tai %s da thanh toan. Quan ly cua hang vui long nhan xu ly.".formatted(order.getId(), resolveOrderStoreName(order));
 		createOrderTaskNotifications(recipients, order, title, message);
 	}
 
@@ -333,8 +333,10 @@ public class NotificationService {
 
 		String title = "Don hang san sang giao #%d".formatted(order.getId());
 		String message = order.getDeliveringShipper() != null
-				? "Ban duoc giao giao don hang #%d tai %s.".formatted(order.getId(), resolveOrderStoreName(order))
-				: "Don hang #%d tai %s da san sang ban giao. Shipper vui long nhan viec.".formatted(order.getId(), resolveOrderStoreName(order));
+				? "Don hang #%d tai %s da duoc lam xong. Vui long den quay nhan don va giao den khach."
+						.formatted(order.getId(), resolveOrderStoreName(order))
+				: "Don hang #%d tai %s da san sang ban giao. Shipper vui long den quay nhan don va giao den khach."
+						.formatted(order.getId(), resolveOrderStoreName(order));
 		createOrderTaskNotifications(recipients, order, title, message);
 	}
 
@@ -502,7 +504,7 @@ public class NotificationService {
 	private User requireEmployeeNotificationUser(String authorizationHeader) {
 		User user = sessionAuthService.requireUser(authorizationHeader);
 		if (!EMPLOYEE_NOTIFICATION_ROLES.contains(user.getRole())) {
-			throw new ForbiddenException("Only MANAGER, STAFF, and SHIPPER accounts can access employee notifications");
+			throw new ForbiddenException("Only MANAGER and SHIPPER accounts can access employee notifications");
 		}
 		if (!user.isEnabled()) {
 			throw new ForbiddenException("Employee account is disabled");

@@ -3,10 +3,17 @@ import 'package:flutter/material.dart';
 import '../../app/app.dart';
 import '../../core/models/models.dart';
 import '../../widgets/app_widgets.dart';
+import 'employee_order_detail_screen.dart';
+import 'employee_support.dart';
 import 'employee_widgets.dart';
 
 class EmployeeNotificationsScreen extends StatefulWidget {
-  const EmployeeNotificationsScreen({super.key});
+  const EmployeeNotificationsScreen({
+    super.key,
+    required this.kind,
+  });
+
+  final EmployeeRoleKind kind;
 
   @override
   State<EmployeeNotificationsScreen> createState() =>
@@ -78,10 +85,57 @@ class _EmployeeNotificationsScreenState
     }
   }
 
+  Future<void> _openNotification(JsonMap notification) async {
+    final orderId = employeeNotificationOrderId(notification);
+    if (orderId == null) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Thong bao nay chua co actionUrl don hang hop le.')),
+      );
+      return;
+    }
+
+    final controller = AppScope.of(context);
+    try {
+      if (!asBool(notification['read'])) {
+        await controller.markEmployeeNotification(
+          notificationId: asInt(notification['id']),
+          read: true,
+        );
+      }
+      final detail = await controller.loadEmployeeOrderDetail(orderId);
+      if (!mounted) {
+        return;
+      }
+      await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(
+          builder: (_) => EmployeeOrderDetailScreen(
+            kind: widget.kind,
+            initialOrder: detail,
+            bannerMessage: asNullableString(notification['message']),
+          ),
+        ),
+      );
+      if (!mounted) {
+        return;
+      }
+      await _refresh();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Notifications')),
+      appBar: AppBar(title: const Text('Thong bao task')),
       body: FutureBuilder<_EmployeeNotificationBundle>(
         future: _future,
         builder: (context, snapshot) {
@@ -118,13 +172,16 @@ class _EmployeeNotificationsScreenState
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 6),
-                        const Text(
-                            'Tap vao tung card de doi read/unread nhanh.'),
+                        Text(
+                          widget.kind == EmployeeRoleKind.shipper
+                              ? 'Tap vao card de mo thang don duoc giao tu thong bao server gui xuong.'
+                              : 'Tap vao card de mo task va doi read/unread nhanh.',
+                        ),
                         const SizedBox(height: 12),
                         FilledButton.tonal(
                           onPressed:
                               data.notifications.isEmpty ? null : _markAllRead,
-                          child: const Text('Read all'),
+                          child: const Text('Doc het'),
                         ),
                       ],
                     ),
@@ -144,6 +201,7 @@ class _EmployeeNotificationsScreenState
                       child: EmployeeNotificationCard(
                         notification: notification,
                         onToggleRead: () => _toggleRead(notification),
+                        onTap: () => _openNotification(notification),
                       ),
                     ),
                   ),

@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import InvoicePreviewModal from "../components/InvoicePreviewModal";
-import OrderQrCard from "../components/OrderQrCard";
 import OrderStatusTracker from "../components/OrderStatusTracker";
+import PaymentQrCard from "../components/PaymentQrCard";
 import QuickAddToCartButton from "../components/QuickAddToCartButton";
 import QuickFavoriteButton from "../components/QuickFavoriteButton";
 import SmartImage from "../components/SmartImage";
@@ -12,8 +12,9 @@ import {
   canRetryPayment,
   formatDeliveryTypeLabel,
   getOrderStatusMeta,
-  isPaymentExpired,
+  hasUsablePaymentSession,
   preferFreshPaymentOrder,
+  shouldPersistPendingPaymentOrder,
 } from "../lib/orderStatus";
 import {
   canRefreshOrderPayment,
@@ -30,6 +31,7 @@ import {
   savePendingPaymentOrder,
 } from "../lib/paymentSession";
 import { navigateToExternalUrl } from "../lib/externalNavigation";
+import { formatShippingBreakdown, formatShippingDistance } from "../lib/shippingFee";
 import { ui } from "../ui";
 
 function formatPrice(value) {
@@ -78,12 +80,38 @@ export default function OrdersPage() {
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [orders, setOrders] = useState([]);
   const [orderDetail, setOrderDetail] = useState(null);
+  const paidProfileRefreshRef = useRef("");
   const orderDetailInvoicePreviewUrl = getOrderInvoicePreviewHref(orderDetail);
   const canRefreshDetailPayment = canRefreshOrderPayment(orderDetail);
   const canViewDetailInvoice = canViewOrderInvoice(orderDetail);
+  const orderDetailHasUsablePaymentSession = hasUsablePaymentSession(orderDetail);
 
   useToastMessage(error, { type: "error", title: "Don hang" });
   useToastMessage(paymentMessage, { type: "info", title: "Thanh toan" });
+
+  useEffect(() => {
+    const normalizedPaymentStatus = String(orderDetail?.paymentStatus ?? "").toUpperCase();
+    const refreshKey = orderDetail?.id
+      ? `${orderDetail.id}:${orderDetail.paidAt ?? orderDetail.updatedAt ?? normalizedPaymentStatus}`
+      : "";
+
+    if (!auth.hasRole("USER") || normalizedPaymentStatus !== "PAID" || !refreshKey) {
+      return;
+    }
+
+    if (paidProfileRefreshRef.current === refreshKey) {
+      return;
+    }
+
+    paidProfileRefreshRef.current = refreshKey;
+    void auth.refreshMe().catch(() => {});
+  }, [
+    auth,
+    orderDetail?.id,
+    orderDetail?.paidAt,
+    orderDetail?.paymentStatus,
+    orderDetail?.updatedAt,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -174,21 +202,35 @@ export default function OrdersPage() {
   }, [orders]);
 
   const syncPendingPaymentStorage = (order) => {
-    if (!order?.id) {
-      return;
-    }
-
-    if (["PAID", "CANCELLED"].includes(String(order.paymentStatus ?? "").toUpperCase())) {
-      clearPendingPaymentOrder();
-      return;
-    }
-
-    if (["CONFIRMED", "CANCELLED"].includes(String(order.status ?? "").toUpperCase())) {
+    if (!shouldPersistPendingPaymentOrder(order)) {
       clearPendingPaymentOrder();
       return;
     }
 
     savePendingPaymentOrder(order);
+  };
+
+  useEffect(() => {
+    if (!orderDetail?.id) {
+      return;
+    }
+
+    syncPendingPaymentStorage(orderDetail);
+  }, [orderDetail]);
+
+  const continueWithPaymentSession = (nextOrder) => {
+    if (!hasUsablePaymentSession(nextOrder)) {
+      return false;
+    }
+
+    if (nextOrder.paymentCheckoutUrl) {
+      setPaymentMessage("A new PayOS payment link has been created. Redirecting now...");
+      navigateToExternalUrl(nextOrder.paymentCheckoutUrl);
+      return true;
+    }
+
+    setPaymentMessage("A new PayOS payment session is ready. Scan the QR code below to continue.");
+    return true;
   };
 
   const syncOrderPaymentState = async (targetOrderId, refreshedOrder) => {
@@ -242,13 +284,13 @@ export default function OrdersPage() {
 
     try {
       const refreshedOrder = await refreshUserOrderPayment(auth, targetOrderId);
-      await syncOrderPaymentState(targetOrderId, refreshedOrder);
+      const latestOrder = await syncOrderPaymentState(targetOrderId, refreshedOrder);
       setPaymentMessage(
-        refreshedOrder.paymentStatus === "PAID"
+        latestOrder.paymentStatus === "PAID"
           ? "The order has been paid successfully."
-          : refreshedOrder.paymentStatus === "CANCELLED"
+          : latestOrder.paymentStatus === "CANCELLED"
             ? "The payment was cancelled."
-            : "The latest payment status has been refreshed.",
+          : "The latest payment status has been refreshed.",
       );
     } catch (requestError) {
       setError(requestError.message || "Unable to refresh payment status.");
@@ -269,41 +311,20 @@ export default function OrdersPage() {
 
     try {
       const refreshedOrder = await refreshUserOrderPayment(auth, targetOrderId);
-      setOrders((currentOrders) =>
-        currentOrders.map((order) =>
-          String(order.id) === String(refreshedOrder.id) ? refreshedOrder : order,
-        ),
-      );
-      setOrderDetail((currentOrder) =>
-        String(currentOrder?.id) === String(refreshedOrder.id) ? refreshedOrder : currentOrder,
-      );
-      syncPendingPaymentStorage(refreshedOrder);
+      const latestOrder = await syncOrderPaymentState(targetOrderId, refreshedOrder);
 
-      if (!canRetryPayment(refreshedOrder)) {
+      if (!canRetryPayment(latestOrder)) {
         setPaymentMessage("This order is no longer eligible for a new payment session.");
         return;
       }
 
-      if (refreshedOrder.paymentCheckoutUrl) {
-        setPaymentMessage("A new PayOS payment link has been created. Redirecting now...");
-
-        navigateToExternalUrl(refreshedOrder.paymentCheckoutUrl);
-
+      if (continueWithPaymentSession(latestOrder)) {
         return;
       }
 
-      const latestOrder = await syncOrderPaymentState(targetOrderId, refreshedOrder);
-
-      if (!latestOrder.paymentCheckoutUrl) {
-        setPaymentMessage(
-          "He thong chua tao duoc lien ket PayOS moi cho don hang nay. Vui long thu lai sau.",
-        );
-        return;
-      }
-
-      setPaymentMessage("A new PayOS payment link has been created. Redirecting now...");
-
-      navigateToExternalUrl(latestOrder.paymentCheckoutUrl);
+      setPaymentMessage(
+        "He thong chua tao duoc phien thanh toan PayOS moi cho don hang nay. Vui long thu lai sau.",
+      );
     } catch (requestError) {
       setError(requestError.message || "Unable to create a new PayOS payment.");
     } finally {
@@ -394,6 +415,9 @@ export default function OrdersPage() {
                     products
                   </span>
                   <span>Delivery type: {formatDeliveryTypeLabel(order.deliveryType)}</span>
+                  {order.shippingFeeAmount !== undefined && order.shippingFeeAmount !== null ? (
+                    <span>Shipping fee: {formatPrice(order.shippingFeeAmount)}</span>
+                  ) : null}
                   {order.scheduledDeliveryAt ? (
                     <span>Scheduled for: {formatDateTime(order.scheduledDeliveryAt)}</span>
                   ) : null}
@@ -449,6 +473,9 @@ export default function OrdersPage() {
                   {orderDetail.paymentProvider ? (
                     <span>Payment provider: {orderDetail.paymentProvider}</span>
                   ) : null}
+                  {orderDetail.paymentReference ? (
+                    <span>Payment reference: {orderDetail.paymentReference}</span>
+                  ) : null}
                   {orderDetail.invoiceAvailable ? <span>Invoice ready: Yes</span> : null}
                   {orderDetail.invoiceNumber ? (
                     <span>Invoice number: {orderDetail.invoiceNumber}</span>
@@ -459,6 +486,21 @@ export default function OrdersPage() {
                   <span>Subtotal: {formatPrice(orderDetail.subtotalAmount)}</span>
                   {Number(orderDetail.discountAmount ?? 0) > 0 ? (
                     <span>Discount: {formatPrice(orderDetail.discountAmount)}</span>
+                  ) : null}
+                  {orderDetail.shippingFeeAmount !== undefined &&
+                  orderDetail.shippingFeeAmount !== null ? (
+                    <span>Shipping fee: {formatPrice(orderDetail.shippingFeeAmount)}</span>
+                  ) : null}
+                  {orderDetail.shippingDistanceKm !== undefined &&
+                  orderDetail.shippingDistanceKm !== null ? (
+                    <span>
+                      Shipping distance: {formatShippingDistance(orderDetail.shippingDistanceKm)}
+                    </span>
+                  ) : null}
+                  {orderDetail.shippingFeeBreakdown?.length ? (
+                    <span>
+                      Shipping breakdown: {formatShippingBreakdown(orderDetail.shippingFeeBreakdown)}
+                    </span>
                   ) : null}
                   <span>Total: {formatPrice(orderDetail.totalAmount)}</span>
                   {orderDetail.promotionCode ? (
@@ -514,7 +556,7 @@ export default function OrdersPage() {
                   </button>
 
                   {canRefreshDetailPayment &&
-                  (isPaymentExpired(orderDetail) || !orderDetail.paymentCheckoutUrl) ? (
+                  !orderDetailHasUsablePaymentSession ? (
                     <button
                       className={ui.primaryButton}
                       type="button"
@@ -527,16 +569,14 @@ export default function OrdersPage() {
                     </button>
                   ) : null}
 
-                  {orderDetail.paymentCheckoutUrl &&
-                  canRefreshDetailPayment &&
-                  !isPaymentExpired(orderDetail) ? (
+                  {orderDetail.paymentCheckoutUrl && orderDetailHasUsablePaymentSession ? (
                     <a
                       className={ui.primaryButton}
                       href={orderDetail.paymentCheckoutUrl}
                       rel="noreferrer"
                       target="_blank"
                     >
-                      Mo PayOS
+                      Thanh toan
                     </a>
                   ) : null}
 
@@ -551,17 +591,17 @@ export default function OrdersPage() {
                   ) : null}
                 </div>
 
-                {canRefreshDetailPayment && isPaymentExpired(orderDetail) ? (
+                {canRefreshDetailPayment && !orderDetailHasUsablePaymentSession ? (
                   <div className="rounded-[1.2rem] border border-amber-200 bg-amber-50/90 p-4 text-sm leading-7 text-amber-900">
-                    The old PayOS link has expired. Use <strong>Create new PayOS payment</strong> to
-                    generate a fresh payment session.
+                    The current PayOS session is no longer usable. Use{" "}
+                    <strong>Create new PayOS payment</strong> to generate a fresh payment session.
                   </div>
                 ) : null}
 
-                <OrderQrCard
+                <PaymentQrCard
                   order={orderDetail}
-                  title="Invoice QR"
-                  subtitle="Quet ma nay de mo hoa don cong khai tren trinh duyet hoac dua cho staff/shipper quet trong app noi bo."
+                  title="PayOS QR"
+                  subtitle="Scan the latest PayOS QR directly from paymentQrCode, or continue checkout with the payment button."
                 />
 
                 <div className="grid gap-3">

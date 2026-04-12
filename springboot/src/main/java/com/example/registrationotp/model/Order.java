@@ -47,6 +47,12 @@ public class Order {
 	@Column(name = "discount_amount", nullable = false, precision = 12, scale = 2)
 	private BigDecimal discountAmount = BigDecimal.ZERO;
 
+	@Column(name = "shipping_distance_km", precision = 10, scale = 3)
+	private BigDecimal shippingDistanceKm = BigDecimal.ZERO;
+
+	@Column(name = "shipping_fee_amount", nullable = false, precision = 12, scale = 2)
+	private BigDecimal shippingFeeAmount = BigDecimal.ZERO;
+
 	@Column(name = "promotion_code", length = 50)
 	private String promotionCode;
 
@@ -127,6 +133,9 @@ public class Order {
 
 	@Column(name = "payment_expires_at")
 	private Instant paymentExpiresAt;
+
+	@Column(name = "credit_points_awarded", nullable = false)
+	private Integer creditPointsAwarded = 0;
 
 	@Column(name = "paid_at")
 	private Instant paidAt;
@@ -216,6 +225,22 @@ public class Order {
 
 	public void setDiscountAmount(BigDecimal discountAmount) {
 		this.discountAmount = discountAmount;
+	}
+
+	public BigDecimal getShippingDistanceKm() {
+		return shippingDistanceKm;
+	}
+
+	public void setShippingDistanceKm(BigDecimal shippingDistanceKm) {
+		this.shippingDistanceKm = shippingDistanceKm == null ? BigDecimal.ZERO : shippingDistanceKm;
+	}
+
+	public BigDecimal getShippingFeeAmount() {
+		return shippingFeeAmount;
+	}
+
+	public void setShippingFeeAmount(BigDecimal shippingFeeAmount) {
+		this.shippingFeeAmount = shippingFeeAmount == null ? BigDecimal.ZERO : shippingFeeAmount;
 	}
 
 	public String getPromotionCode() {
@@ -408,6 +433,14 @@ public class Order {
 
 	public void setPaymentExpiresAt(Instant paymentExpiresAt) {
 		this.paymentExpiresAt = paymentExpiresAt;
+	}
+
+	public Integer getCreditPointsAwarded() {
+		return creditPointsAwarded;
+	}
+
+	public void setCreditPointsAwarded(Integer creditPointsAwarded) {
+		this.creditPointsAwarded = creditPointsAwarded == null ? 0 : Math.max(creditPointsAwarded, 0);
 	}
 
 	public Instant getPaidAt() {

@@ -132,6 +132,24 @@ class AppController extends ChangeNotifier {
     return api.getHome();
   }
 
+  Future<void> refreshCurrentUser() async {
+    if (config.useMockData) {
+      notifyListeners();
+      return;
+    }
+    final currentSession = session;
+    if (currentSession == null) {
+      return;
+    }
+    final currentUser = await api.getCurrentUser(currentSession.accessToken);
+    if (session?.accessToken != currentSession.accessToken) {
+      return;
+    }
+    session = currentSession.copyWith(user: currentUser);
+    await sessionStore.saveSession(session!);
+    notifyListeners();
+  }
+
   Future<AiChatResponse> queryAiChat({
     required String message,
     List<AiChatHistoryEntry> history = const [],
@@ -965,6 +983,13 @@ class AppController extends ChangeNotifier {
       orderId: orderId,
     );
     await refreshOrders();
+    if (detail.paymentStatus.toUpperCase() == 'PAID') {
+      try {
+        await refreshCurrentUser();
+      } catch (_) {
+        // Keep refreshed payment state even if profile sync fails.
+      }
+    }
     return detail;
   }
 
@@ -1545,7 +1570,7 @@ class AppController extends ChangeNotifier {
   Future<CheckoutResult> checkout({
     required int deliveryAddressId,
     String promotionCode = '',
-    String deliveryType = 'IMMEDIATE',
+    String deliveryType = 'DELIVERY',
     DateTime? scheduledDeliveryAt,
   }) async {
       if (config.useMockData) {
@@ -1569,6 +1594,13 @@ class AppController extends ChangeNotifier {
       );
       lastCheckout = result;
       await _loadProtectedState();
+      if (result.paymentStatus.toUpperCase() == 'PAID') {
+        try {
+          await refreshCurrentUser();
+        } catch (_) {
+          // Keep checkout success visible even if profile sync fails.
+        }
+      }
       return result;
     } finally {
       checkoutBusy = false;

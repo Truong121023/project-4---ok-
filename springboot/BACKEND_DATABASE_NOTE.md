@@ -73,7 +73,7 @@ Important behavior:
 - `GET /api/auth/me` checks DB-backed session validity
 - Non-admin users can still log in successfully; frontend must check role for admin UI
 - User must be verified before normal login
-- `workingStoreId` is important for `MANAGER`, `STAFF`, and `SHIPPER`
+- `workingStoreId` is important for `MANAGER` and `SHIPPER`
 
 ## 5. Backend Functional Domains
 
@@ -155,7 +155,7 @@ Main backend behavior:
 
 Purpose:
 
-- daily operations for `STAFF` and `SHIPPER`
+- daily operations for `MANAGER` and `SHIPPER`
 
 Main endpoints:
 
@@ -170,8 +170,8 @@ Main endpoints:
 
 Main backend behavior:
 
-- `STAFF` can accept orders in `CONFIRMED` state and move them into preparing flow
-- `STAFF` completes kitchen/preparing flow by moving order to `READY_FOR_SHIPPER`
+- `MANAGER` can accept orders in `CONFIRMED` state and move them into preparing flow
+- `MANAGER` completes preparing flow by moving order to `READY_FOR_SHIPPER`
 - `SHIPPER` can accept orders in `READY_FOR_SHIPPER`
 - `SHIPPER` completes delivery by moving order to `COMPLETED`
 - employee notifications are stored in the same notification table as user notifications, but filtered by employee use case
@@ -240,7 +240,7 @@ Main backend behavior:
 - new active event can trigger brand event notifications
 - newly published news can trigger notifications
 - order creation and order status changes can trigger notifications
-- paid orders can trigger waiting-for-staff notifications
+- paid orders can trigger waiting-for-manager notifications
 - ready orders can trigger waiting-for-shipper notifications
 
 ### 5.7 Support Chat Domain
@@ -281,8 +281,8 @@ Important database note:
 ## 6. Role Behavior
 
 - `ADMIN`: full system access. Can manage all stores, all users, all admin resources, all orders, promotions, levels, schedules, feedback moderation, reviews, and support inbox.
-- `MANAGER`: store-scoped operational access for their `workingStoreId`. Can manage their own store's operational data and their own staff/shipper accounts. Cannot create/delete branches and cannot create or promote anyone to `ADMIN` or `MANAGER`.
-- `STAFF`: receives confirmed orders, prepares them, and marks them ready for shipper.
+- `MANAGER`: store-scoped operational access for their `workingStoreId`. Can manage their own store's operational data and their own shipper accounts. Cannot create/delete branches and cannot create or promote anyone to `ADMIN` or `MANAGER`.
+
 - `SHIPPER`: receives orders waiting for shipper, starts delivery, and marks delivery complete.
 - `USER`: storefront role. Can browse catalog, place orders, manage addresses, reviews, favorites, feedback, notifications, and support chat.
 
@@ -416,7 +416,7 @@ These tables exist because several entities store ordered arrays or tag lists.
 
 ## 13. Status And Enum Concepts Used Across Backend
 
-- `Role`: `ADMIN`, `MANAGER`, `SHIPPER`, `STAFF`, `USER`
+- `Role`: `ADMIN`, `MANAGER`, `SHIPPER`, `USER`
 - `OrderStatus`: `PENDING`, `CONFIRMED`, `PREPARING`, `READY_FOR_SHIPPER`, `OUT_FOR_DELIVERY`, `COMPLETED`, `CANCELLED`
 - `PaymentStatus`: `PENDING`, `PAID`, `CANCELLED`, `FAILED`
 - `DeliveryType`: `IMMEDIATE`, `SCHEDULED`

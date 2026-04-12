@@ -790,7 +790,7 @@ public class DemoDataSeeder {
 			Map<Long, UserDeliveryAddress> addressesByUserId
 	) {
 		List<User> preparingPool = users.stream()
-				.filter(user -> user.getRole() == Role.STAFF || user.getRole() == Role.MANAGER)
+				.filter(user -> user.getRole() == Role.MANAGER)
 				.toList();
 		List<User> shipperPool = users.stream()
 				.filter(user -> user.getRole() == Role.SHIPPER)
@@ -1005,7 +1005,7 @@ public class DemoDataSeeder {
 		List<EmployeeAttendance> attendances = new ArrayList<>();
 		for (int index = 0; index < users.size(); index++) {
 			User user = users.get(index);
-			if (user.getRole() != Role.STAFF && user.getRole() != Role.SHIPPER) {
+			if (user.getRole() != Role.MANAGER && user.getRole() != Role.SHIPPER) {
 				continue;
 			}
 			EmployeeWorkSchedule schedule = new EmployeeWorkSchedule();
@@ -1145,7 +1145,7 @@ public class DemoDataSeeder {
 			return Role.MANAGER;
 		}
 		if (index < 8) {
-			return Role.STAFF;
+			return Role.MANAGER;
 		}
 		if (index < 10) {
 			return Role.SHIPPER;

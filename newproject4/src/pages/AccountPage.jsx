@@ -222,6 +222,10 @@ function formatPrice(value) {
   }).format(Number.isFinite(amount) ? amount : 0);
 }
 
+function formatCount(value) {
+  return Number(value ?? 0).toLocaleString("vi-VN");
+}
+
 function formatQuarterLabel(year, quarter) {
   if (!year || !quarter) {
     return "N/A";
@@ -983,6 +987,18 @@ export default function AccountPage() {
                 {auth.user?.verifiedAt ?? "Not verified yet"}
               </strong>
             </article>
+            {isUser ? (
+              <article className="rounded-3xl border border-matcha-900/10 bg-white/65 p-5 sm:col-span-2">
+                <p className="text-sm text-stone-600">Credit points</p>
+                <strong className="mt-2 block text-2xl text-tea-900">
+                  {formatCount(auth.user?.creditPoints)}
+                </strong>
+                <p className="mt-2 text-sm leading-7 text-stone-600">
+                  Updates after paid SIGNATURE orders. Every 1,000 VND of eligible spend adds 1
+                  credit point.
+                </p>
+              </article>
+            ) : null}
           </div>
 
           <div className="flex flex-wrap gap-3">

@@ -1,9 +1,10 @@
 package com.example.registrationotp.repository;
 
-import java.util.Optional;
-import java.util.List;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -13,6 +14,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.example.registrationotp.model.Order;
+import com.example.registrationotp.model.OrderStatus;
 
 public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecificationExecutor<Order> {
 
@@ -27,6 +29,8 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
 	List<Order> findAllByPayosOrderCode(Long payosOrderCode);
 
 	Optional<Order> findByInvoiceQrToken(String invoiceQrToken);
+
+	long countByDeliveringShipperIdAndStatusIn(Long deliveringShipperId, Collection<OrderStatus> statuses);
 
 	@Query("""
 			select coalesce(sum(o.totalAmount), 0)

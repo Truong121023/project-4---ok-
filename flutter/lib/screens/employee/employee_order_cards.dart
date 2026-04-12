@@ -24,6 +24,7 @@ class EmployeeOrderFocusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final actionLabel = employeeActionLabel(kind, order, currentUserId);
+    final shipperSummary = employeeAssignedShipperSummary(order);
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(24),
@@ -52,6 +53,15 @@ class EmployeeOrderFocusCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(employeeOrderSubtitle(order)),
+              if (shipperSummary != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  shipperSummary,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: const Color(0xFF4A5A53),
+                      ),
+                ),
+              ],
               const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
@@ -94,6 +104,7 @@ class EmployeeCompletedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final photoFile = photoPath == null ? null : File(photoPath!);
     final hasPhoto = photoFile != null && photoFile.existsSync();
+    final shipperSummary = employeeAssignedShipperSummary(order);
 
     return Card(
       child: InkWell(
@@ -134,6 +145,15 @@ class EmployeeCompletedCard extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(asString(order['statusSummary'],
                         employeeCompletedQueueLabel(kind))),
+                    if (shipperSummary != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        shipperSummary,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: const Color(0xFF4A5A53),
+                            ),
+                      ),
+                    ],
                     const SizedBox(height: 10),
                     Wrap(
                       spacing: 8,

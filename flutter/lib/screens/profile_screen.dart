@@ -45,6 +45,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               if (session == null) {
                 return;
               }
+              await controller.refreshCurrentUser();
               await controller.refreshOrders();
               await controller.loadDeliveryAddresses();
               await controller.loadFavorites();
@@ -86,6 +87,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               MetricChip(label: session.user.verified ? 'Verified' : 'Cho verify'),
                               MetricChip(label: '${controller.orders.length} don'),
                               MetricChip(label: '${controller.cart.totalItems} sp trong cart'),
+                              MetricChip(label: '${session.user.creditPoints} credit'),
                             ],
                           ),
                           const SizedBox(height: 16),
@@ -172,7 +174,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ActionMenuCard(
                     icon: Icons.workspace_premium_outlined,
                     title: 'Loyalty levels',
-                    subtitle: 'Xem muc level hien tai theo tung store va nguong chi tieu.',
+                    subtitle: 'Xem muc level hien tai theo tung store de biet quyen dung voucher va nguong chi tieu.',
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(builder: (_) => const LoyaltyLevelsScreen()),

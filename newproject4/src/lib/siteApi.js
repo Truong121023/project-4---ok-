@@ -412,6 +412,8 @@ function mapDishDetailStore(store) {
     storeName: pickText(store?.storeName, store?.name),
     address: pickText(store?.address),
     area: pickText(store?.area),
+    latitude: toNullableNumber(store?.latitude),
+    longitude: toNullableNumber(store?.longitude),
     distanceKm: toNullableNumber(store?.distanceKm),
     storeOpen: Boolean(pickValue(store?.storeOpen, store?.isOpen, store?.open)),
     storeDisabled: Boolean(store?.storeDisabled),
@@ -572,11 +574,22 @@ function mapDeliveryAddress(address) {
     fullName: pickText(address?.fullName, address?.name),
     phoneNumber: pickText(address?.phoneNumber, address?.phone),
     deliveryAddress: pickText(address?.deliveryAddress, address?.address),
+    latitude: toNullableNumber(address?.latitude),
+    longitude: toNullableNumber(address?.longitude),
     primary: Boolean(address?.primary),
     verifiedAt: pickText(address?.verifiedAt),
     lastUsedAt: pickText(address?.lastUsedAt),
     createdAt: pickText(address?.createdAt),
     updatedAt: pickText(address?.updatedAt),
+  };
+}
+
+function mapShippingFeeBreakdownItem(item) {
+  return {
+    storeId: toId(item?.storeId),
+    storeName: pickText(item?.storeName),
+    distanceKm: toNullableNumber(item?.distanceKm),
+    shippingFeeAmount: toNumber(item?.shippingFeeAmount, 0),
   };
 }
 
@@ -586,6 +599,12 @@ function mapCartItem(item) {
     storeId: toId(item?.storeId),
     storeSlug: pickText(item?.storeSlug),
     storeName: pickText(item?.storeName),
+    storeLatitude: toNullableNumber(
+      pickValue(item?.storeLatitude, item?.store?.latitude, item?.latitude),
+    ),
+    storeLongitude: toNullableNumber(
+      pickValue(item?.storeLongitude, item?.store?.longitude, item?.longitude),
+    ),
     dishId: toId(item?.dishId),
     dishName: pickText(item?.dishName),
     quantity: toNumber(item?.quantity, 0),
@@ -609,8 +628,27 @@ function mapCart(payload) {
     items: ensureArray(payload?.items).map(mapCartItem),
     totalItems: toNumber(payload?.totalItems, 0),
     subtotal: toNumber(pickValue(payload?.subtotal, payload?.totalAmount), 0),
+    subtotalAmount: toNumber(pickValue(payload?.subtotalAmount, payload?.subtotal, payload?.totalAmount), 0),
+    discountAmount: toNumber(payload?.discountAmount, 0),
+    shippingDistanceKm: toNullableNumber(payload?.shippingDistanceKm),
+    shippingFeeAmount: toNullableNumber(payload?.shippingFeeAmount),
+    shippingFeeBreakdown: ensureArray(payload?.shippingFeeBreakdown).map(mapShippingFeeBreakdownItem),
+    totalAmount: toNumber(pickValue(payload?.totalAmount, payload?.subtotal, payload?.subtotalAmount), 0),
     createdAt: pickText(payload?.createdAt),
     updatedAt: pickText(payload?.updatedAt),
+  };
+}
+
+function mapCheckoutPricing(payload) {
+  return {
+    subtotalAmount: toNumber(pickValue(payload?.subtotalAmount, payload?.subtotal), 0),
+    discountAmount: toNumber(payload?.discountAmount, 0),
+    shippingDistanceKm: toNullableNumber(payload?.shippingDistanceKm),
+    shippingFeeAmount: toNullableNumber(payload?.shippingFeeAmount),
+    shippingFeeBreakdown: ensureArray(payload?.shippingFeeBreakdown).map(mapShippingFeeBreakdownItem),
+    totalAmount: toNumber(pickValue(payload?.totalAmount, payload?.subtotalAmount, payload?.subtotal), 0),
+    promotionCode: pickText(payload?.promotionCode),
+    statusSummary: pickText(payload?.statusSummary),
   };
 }
 
@@ -697,13 +735,18 @@ function mapOrder(payload, includeNestedOrders = true) {
     status: pickText(payload?.status),
     paymentStatus: pickText(payload?.paymentStatus),
     paymentProvider: pickText(payload?.paymentProvider),
-    payosOrderCode: pickText(payload?.payosOrderCode),
+    payosOrderCode: pickText(payload?.payosOrderCode, payload?.orderCode),
     paymentLinkId: pickText(payload?.paymentLinkId),
     paymentCheckoutUrl: pickText(payload?.paymentCheckoutUrl),
     paymentQrCode: pickText(payload?.paymentQrCode),
     paymentExpiresAt: pickText(payload?.paymentExpiresAt),
     paidAt: pickText(payload?.paidAt),
-    paymentReference: pickText(payload?.paymentReference),
+    paymentReference: pickText(
+      payload?.paymentReference,
+      payload?.paymentLinkId,
+      payload?.orderCode,
+      payload?.payosOrderCode,
+    ),
     invoiceAvailable: Boolean(payload?.invoiceAvailable),
     invoiceId: toId(payload?.invoiceId),
     invoiceNumber: pickText(payload?.invoiceNumber),
@@ -716,6 +759,9 @@ function mapOrder(payload, includeNestedOrders = true) {
       .filter(Boolean),
     subtotalAmount: toNumber(pickValue(payload?.subtotalAmount, payload?.subtotal), 0),
     discountAmount: toNumber(payload?.discountAmount, 0),
+    shippingDistanceKm: toNullableNumber(payload?.shippingDistanceKm),
+    shippingFeeAmount: toNullableNumber(payload?.shippingFeeAmount),
+    shippingFeeBreakdown: ensureArray(payload?.shippingFeeBreakdown).map(mapShippingFeeBreakdownItem),
     totalAmount: toNumber(pickValue(payload?.totalAmount, payload?.subtotal), 0),
     promotionCode: pickText(payload?.promotionCode),
     promotionScope: pickText(payload?.promotionScope),
@@ -1344,6 +1390,24 @@ export async function checkoutUserCart(auth, checkoutPayload = {}) {
   });
 
   return mapOrder(payload);
+}
+
+export async function previewUserCartCheckout(auth, previewPayload = {}) {
+  const payload = await apiRequest("/api/user/cart/checkout-preview", {
+    method: "POST",
+    body: {
+      deliveryAddressId: toRequestNumber(previewPayload?.deliveryAddressId),
+      promotionCode: previewPayload?.promotionCode?.trim() || undefined,
+      deliveryType: previewPayload?.deliveryType || undefined,
+      scheduledDeliveryAt:
+        previewPayload?.deliveryType === "SCHEDULED"
+          ? previewPayload?.scheduledDeliveryAt || undefined
+          : undefined,
+    },
+    ...authOptions(auth),
+  });
+
+  return mapCheckoutPricing(payload);
 }
 
 export async function fetchUserOrders(auth, query = {}) {

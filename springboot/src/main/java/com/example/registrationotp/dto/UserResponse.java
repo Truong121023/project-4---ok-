@@ -15,6 +15,7 @@ public record UserResponse(
 		String workingStoreAddress,
 		boolean verified,
 		boolean profileCompleted,
+		int creditPoints,
 		Instant createdAt,
 		Instant verifiedAt
 ) {
@@ -30,6 +31,7 @@ public record UserResponse(
 				user.getWorkingStore() != null ? user.getWorkingStore().getAddress() : null,
 				user.getVerifiedAt() != null,
 				user.isProfileCompleted(),
+				user.getCreditPoints(),
 				user.getCreatedAt(),
 				user.getVerifiedAt()
 		);

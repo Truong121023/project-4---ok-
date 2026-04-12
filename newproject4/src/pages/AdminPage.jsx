@@ -2172,10 +2172,6 @@ export default function AdminPage() {
         nextDraft.deliveringShipperId = "";
       }
 
-      if (activeSection === "promotions" && fieldName === "scope" && value === "ORDER") {
-        nextDraft.applicableDishIdsText = "";
-      }
-
       return {
         ...current,
         [activeSection]: nextDraft,
@@ -3120,9 +3116,6 @@ export default function AdminPage() {
           : "",
         item.minStoreBillAmount !== undefined && item.minStoreBillAmount !== null
           ? `Minimum store bill: ${formatCurrency(item.minStoreBillAmount)}`
-          : "",
-        item.minCrossStoreBillAmount !== undefined && item.minCrossStoreBillAmount !== null
-          ? `Minimum cross-store bill: ${formatCurrency(item.minCrossStoreBillAmount)}`
           : "",
         Array.isArray(item.applicableDishIds) && item.applicableDishIds.length
           ? `Applicable dish IDs: ${item.applicableDishIds.join(", ")}`

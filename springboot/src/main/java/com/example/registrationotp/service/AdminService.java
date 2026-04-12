@@ -56,6 +56,7 @@ import com.example.registrationotp.dto.PageResponse;
 import com.example.registrationotp.dto.PromotionResponse;
 import com.example.registrationotp.dto.ReviewRequest;
 import com.example.registrationotp.dto.ReviewResponse;
+import com.example.registrationotp.dto.ShippingFeeBreakdownItemResponse;
 import com.example.registrationotp.dto.StoreRequest;
 import com.example.registrationotp.dto.StoreDishRequest;
 import com.example.registrationotp.dto.StoreDishResponse;
@@ -112,7 +113,8 @@ public class AdminService {
 	private static final int DEFAULT_PAGE_SIZE = 10;
 	private static final int MAX_PAGE_SIZE = 100;
 	private static final Sort DEFAULT_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
-	private static final Collection<Role> MANAGED_EMPLOYEE_ROLES = List.of(Role.STAFF, Role.SHIPPER);
+	private static final String SIGNATURE_CATEGORY_NAME = "SIGNATURE";
+	private static final Collection<Role> MANAGED_EMPLOYEE_ROLES = List.of(Role.SHIPPER);
 
 	private final SessionAuthService sessionAuthService;
 	private final UserRepository userRepository;
@@ -236,7 +238,7 @@ public class AdminService {
 			Long workingStoreId = requireManagerWorkingStoreId(operator);
 			specification = specification.and((root, query, criteriaBuilder) -> criteriaBuilder.and(
 					criteriaBuilder.equal(root.join("workingStore", JoinType.LEFT).get("id"), workingStoreId),
-					root.get("role").in(Role.STAFF, Role.SHIPPER)
+					root.get("role").in(Role.SHIPPER)
 			));
 		}
 		return PageResponse.from(userRepository.findAll(specification, buildPageable(page, size))
@@ -495,10 +497,13 @@ public class AdminService {
 		if (operator.getRole() == Role.MANAGER) {
 			Long workingStoreId = requireManagerWorkingStoreId(operator);
 			specification = specification.and(
-					(root, query, criteriaBuilder) -> criteriaBuilder.equal(
-							root.join("store", JoinType.LEFT).get("id"),
-							workingStoreId
-					)
+					(root, query, criteriaBuilder) -> {
+						Join<Category, Store> store = root.join("store", JoinType.LEFT);
+						return criteriaBuilder.or(
+								criteriaBuilder.equal(store.get("id"), workingStoreId),
+								buildSignatureCategoryPredicate(root, criteriaBuilder)
+						);
+					}
 			);
 		}
 		return PageResponse.from(categoryRepository.findAll(specification, buildPageable(page, size))
@@ -509,7 +514,7 @@ public class AdminService {
 	public CategoryResponse getCategory(String authorizationHeader, Long id) {
 		User operator = requireAdminOrManagerOperator(authorizationHeader);
 		Category category = findCategory(id);
-		validateStoreOwnership(operator, category.getStore().getId());
+		validateCategoryReadAccess(operator, category);
 		return CategoryResponse.from(category);
 	}
 
@@ -548,10 +553,14 @@ public class AdminService {
 		if (operator.getRole() == Role.MANAGER) {
 			Long workingStoreId = requireManagerWorkingStoreId(operator);
 			specification = specification.and(
-					(root, query, criteriaBuilder) -> criteriaBuilder.equal(
-							root.join("category", JoinType.LEFT).join("store", JoinType.LEFT).get("id"),
-							workingStoreId
-					)
+					(root, query, criteriaBuilder) -> {
+						Join<Dish, Category> category = root.join("category", JoinType.LEFT);
+						Join<Category, Store> store = category.join("store", JoinType.LEFT);
+						return criteriaBuilder.or(
+								criteriaBuilder.equal(store.get("id"), workingStoreId),
+								buildSignatureCategoryPredicate(category, criteriaBuilder)
+						);
+					}
 			);
 		}
 		return PageResponse.from(dishRepository.findAll(specification, buildPageable(page, size))
@@ -562,16 +571,17 @@ public class AdminService {
 	public DishResponse getDish(String authorizationHeader, Long id) {
 		User operator = requireAdminOrManagerOperator(authorizationHeader);
 		Dish dish = findDish(id);
-		validateStoreOwnership(operator, dish.getCategory().getStore().getId());
+		validateDishReadAccess(operator, dish);
 		return DishResponse.from(dish);
 	}
 
 	@Transactional
 	public DishResponse createDish(String authorizationHeader, DishRequest request) {
 		User operator = requireAdminOrManagerOperator(authorizationHeader);
-		validateStoreOwnership(operator, findCategory(request.categoryId()).getStore().getId());
+		Category category = findCategory(request.categoryId());
+		validateDishTargetCategoryForWrite(operator, category);
 		Dish dish = new Dish();
-		applyDishRequest(dish, request);
+		applyDishRequest(dish, request, category);
 		return DishResponse.from(dishRepository.save(dish));
 	}
 
@@ -579,9 +589,10 @@ public class AdminService {
 	public DishResponse updateDish(String authorizationHeader, Long id, DishRequest request) {
 		User operator = requireAdminOrManagerOperator(authorizationHeader);
 		Dish dish = findDish(id);
-		validateStoreOwnership(operator, dish.getCategory().getStore().getId());
-		validateStoreOwnership(operator, findCategory(request.categoryId()).getStore().getId());
-		applyDishRequest(dish, request);
+		Category category = findCategory(request.categoryId());
+		validateDishWriteAccess(operator, dish);
+		validateDishTargetCategoryForWrite(operator, category);
+		applyDishRequest(dish, request, category);
 		return DishResponse.from(dishRepository.save(dish));
 	}
 
@@ -589,7 +600,7 @@ public class AdminService {
 	public DishResponse updateDishHighlights(String authorizationHeader, Long id, HighlightMetadataRequest request) {
 		User operator = sessionAuthService.requireAdminOrManager(authorizationHeader);
 		Dish dish = findDish(id);
-		validateStoreOwnership(operator, dish.getCategory().getStore().getId());
+		validateDishWriteAccess(operator, dish);
 		applyDishHighlights(dish, request.highlightSummary(), request.highlightTags());
 		return DishResponse.from(dishRepository.save(dish));
 	}
@@ -598,7 +609,7 @@ public class AdminService {
 	public MessageResponse deleteDish(String authorizationHeader, Long id) {
 		User operator = requireAdminOrManagerOperator(authorizationHeader);
 		Dish dish = findDish(id);
-		validateStoreOwnership(operator, dish.getCategory().getStore().getId());
+		validateDishWriteAccess(operator, dish);
 		deleteDishInternal(id);
 		return new MessageResponse("Dish deleted successfully");
 	}
@@ -631,14 +642,16 @@ public class AdminService {
 	@Transactional
 	public StoreDishResponse createStoreDish(String authorizationHeader, StoreDishRequest request) {
 		User operator = requireAdminOrManagerOperator(authorizationHeader);
-		validateStoreOwnership(operator, request.storeId());
+		Store store = findStore(request.storeId());
+		Dish dish = findDish(request.dishId());
+		validateStoreDishCreateAccess(operator, store, dish, request);
 		storeDishRepository.findByStoreIdAndDishId(request.storeId(), request.dishId())
 				.ifPresent(existing -> {
 					throw new ConflictException("Store dish already exists for this store and dish");
 				});
 
 		StoreDish storeDish = new StoreDish();
-		applyStoreDishRequest(storeDish, request);
+		applyStoreDishRequest(storeDish, request, store, dish);
 		return StoreDishResponse.from(storeDishRepository.save(storeDish));
 	}
 
@@ -646,15 +659,16 @@ public class AdminService {
 	public StoreDishResponse updateStoreDish(String authorizationHeader, Long id, StoreDishRequest request) {
 		User operator = requireAdminOrManagerOperator(authorizationHeader);
 		StoreDish storeDish = findStoreDish(id);
-		validateStoreOwnership(operator, storeDish.getStore().getId());
-		validateStoreOwnership(operator, request.storeId());
+		Store store = findStore(request.storeId());
+		Dish dish = findDish(request.dishId());
+		validateStoreDishUpdateAccess(operator, storeDish, store, dish, request);
 		storeDishRepository.findByStoreIdAndDishId(request.storeId(), request.dishId())
 				.filter(existing -> !existing.getId().equals(id))
 				.ifPresent(existing -> {
 					throw new ConflictException("Store dish already exists for this store and dish");
 				});
 
-		applyStoreDishRequest(storeDish, request);
+		applyStoreDishRequest(storeDish, request, store, dish);
 		return StoreDishResponse.from(storeDishRepository.save(storeDish));
 	}
 
@@ -1171,6 +1185,14 @@ public class AdminService {
 				&& !order.getInvoiceQrToken().isBlank();
 		String invoicePreviewUrl = invoiceAvailable ? "/api/public/order-qr/" + order.getInvoiceQrToken() : null;
 		String invoiceDownloadUrl = invoiceAvailable ? invoicePreviewUrl + "?download=true" : null;
+		List<ShippingFeeBreakdownItemResponse> shippingFeeBreakdown = firstItem == null
+				? List.of()
+				: List.of(new ShippingFeeBreakdownItemResponse(
+						firstItem.storeId(),
+						firstItem.storeName(),
+						order.getShippingDistanceKm(),
+						order.getShippingFeeAmount()
+				));
 		return new OrderResponse(
 				order.getId(),
 				order.getUser() != null ? order.getUser().getId() : null,
@@ -1189,6 +1211,9 @@ public class AdminService {
 				order.getPaymentReference(),
 				order.getSubtotalAmount(),
 				order.getDiscountAmount(),
+				order.getShippingDistanceKm(),
+				order.getShippingFeeAmount(),
+				shippingFeeBreakdown,
 				order.getTotalAmount(),
 				order.getPromotionCode(),
 				order.getPromotionScope(),
@@ -1698,7 +1723,7 @@ public class AdminService {
 	private void applyWorkingStore(User user, Role role, Long workingStoreId) {
 		if (role.requiresWorkingStore()) {
 			if (workingStoreId == null) {
-				throw new BadRequestException("workingStoreId is required for MANAGER, SHIPPER, and STAFF");
+				throw new BadRequestException("workingStoreId is required for MANAGER and SHIPPER");
 			}
 			user.setWorkingStore(findStore(workingStoreId));
 			return;
@@ -1777,8 +1802,8 @@ public class AdminService {
 		category.setActive(request.active());
 	}
 
-	private void applyDishRequest(Dish dish, DishRequest request) {
-		dish.setCategory(findCategory(request.categoryId()));
+	private void applyDishRequest(Dish dish, DishRequest request, Category category) {
+		dish.setCategory(category);
 		dish.setName(request.name().trim());
 		dish.setDescription(trimToNull(request.description()));
 		dish.setNote(trimToNull(request.note()));
@@ -1842,9 +1867,9 @@ public class AdminService {
 		return normalizedSlug;
 	}
 
-	private void applyStoreDishRequest(StoreDish storeDish, StoreDishRequest request) {
-		storeDish.setStore(findStore(request.storeId()));
-		storeDish.setDish(findDish(request.dishId()));
+	private void applyStoreDishRequest(StoreDish storeDish, StoreDishRequest request, Store store, Dish dish) {
+		storeDish.setStore(store);
+		storeDish.setDish(dish);
 		storeDish.setQuantity(request.quantity());
 		storeDish.setAvailable(request.available());
 		storeDish.setPriceOverride(request.priceOverride());
@@ -2059,12 +2084,152 @@ public class AdminService {
 		}
 	}
 
+	private void validateCategoryReadAccess(User operator, Category category) {
+		if (operator.getRole() != Role.MANAGER) {
+			return;
+		}
+		if (isSignatureCategory(category)) {
+			return;
+		}
+		validateStoreOwnership(operator, resolveCategoryStoreId(category));
+	}
+
+	private void validateDishReadAccess(User operator, Dish dish) {
+		if (operator.getRole() != Role.MANAGER) {
+			return;
+		}
+		if (isSystemDish(dish)) {
+			return;
+		}
+		validateStoreOwnership(operator, resolveDishStoreId(dish));
+	}
+
+	private void validateDishWriteAccess(User operator, Dish dish) {
+		if (operator.getRole() != Role.MANAGER) {
+			return;
+		}
+		if (isSystemDish(dish)) {
+			throw new ForbiddenException("Manager cannot modify system dishes in the SIGNATURE category");
+		}
+		validateStoreOwnership(operator, resolveDishStoreId(dish));
+	}
+
+	private void validateDishTargetCategoryForWrite(User operator, Category category) {
+		Long categoryStoreId = resolveCategoryStoreId(category);
+		if (operator.getRole() == Role.MANAGER) {
+			if (categoryStoreId == null) {
+				throw new ForbiddenException("Manager can only create or update local dishes for their own store");
+			}
+			validateStoreOwnership(operator, categoryStoreId);
+			return;
+		}
+		if (categoryStoreId == null && !isSignatureCategory(category)) {
+			throw new BadRequestException("System dishes must use the SIGNATURE category");
+		}
+	}
+
+	private void validateStoreDishCreateAccess(User operator, Store store, Dish dish, StoreDishRequest request) {
+		validateStoreOwnership(operator, store.getId());
+		if (operator.getRole() != Role.MANAGER) {
+			return;
+		}
+		validateManagerStoreDishAccess(operator, store, dish, null, request);
+	}
+
+	private void validateStoreDishUpdateAccess(
+			User operator,
+			StoreDish existing,
+			Store store,
+			Dish dish,
+			StoreDishRequest request
+	) {
+		validateStoreOwnership(operator, existing.getStore().getId());
+		validateStoreOwnership(operator, store.getId());
+		if (operator.getRole() != Role.MANAGER) {
+			return;
+		}
+		if (!Objects.equals(existing.getStore().getId(), store.getId())
+				|| !Objects.equals(existing.getDish().getId(), dish.getId())) {
+			throw new ForbiddenException("Manager can only update inventory settings for an existing store dish");
+		}
+		validateManagerStoreDishAccess(operator, store, dish, existing, request);
+	}
+
+	private void validateManagerStoreDishAccess(
+			User operator,
+			Store store,
+			Dish dish,
+			StoreDish existing,
+			StoreDishRequest request
+	) {
+		validateStoreOwnership(operator, store.getId());
+		if (isSystemDish(dish)) {
+			if (existing == null) {
+				if (request.priceOverride() != null) {
+					throw new ForbiddenException("Manager can only set inventory fields for SIGNATURE dishes");
+				}
+				return;
+			}
+			if (!samePrice(existing.getPriceOverride(), request.priceOverride())) {
+				throw new ForbiddenException("Manager can only change quantity and availability for SIGNATURE dishes");
+			}
+			return;
+		}
+
+		Long dishStoreId = resolveDishStoreId(dish);
+		if (!Objects.equals(store.getId(), dishStoreId)) {
+			throw new ForbiddenException("Manager can only manage local dishes that belong to their own store");
+		}
+	}
+
+	private boolean isSignatureCategory(Category category) {
+		return category != null
+				&& resolveCategoryStoreId(category) == null
+				&& SIGNATURE_CATEGORY_NAME.equalsIgnoreCase(trimToNull(category.getName()));
+	}
+
+	private boolean isSystemDish(Dish dish) {
+		return dish != null && isSignatureCategory(dish.getCategory());
+	}
+
+	private Long resolveCategoryStoreId(Category category) {
+		if (category == null || category.getStore() == null) {
+			return null;
+		}
+		return category.getStore().getId();
+	}
+
+	private Long resolveDishStoreId(Dish dish) {
+		if (dish == null) {
+			return null;
+		}
+		return resolveCategoryStoreId(dish.getCategory());
+	}
+
+	private Predicate buildSignatureCategoryPredicate(Expression<?> categoryOrRoot, CriteriaBuilder criteriaBuilder) {
+		@SuppressWarnings("unchecked")
+		Expression<Category> categoryExpression = (Expression<Category>) categoryOrRoot;
+		Expression<String> name = ((jakarta.persistence.criteria.Path<?>) categoryExpression).get("name").as(String.class);
+		Expression<?> store = ((jakarta.persistence.criteria.Path<?>) categoryExpression).get("store");
+		return criteriaBuilder.and(
+				criteriaBuilder.isNull(store),
+				criteriaBuilder.equal(criteriaBuilder.upper(name), SIGNATURE_CATEGORY_NAME)
+		);
+	}
+
+	private boolean samePrice(BigDecimal left, BigDecimal right) {
+		if (left == null || right == null) {
+			return left == null && right == null;
+		}
+		return left.compareTo(right) == 0;
+	}
+
 	private void validateUserManagementRequest(User operator, AdminUserRequest request) {
 		if (operator.getRole() != Role.MANAGER) {
 			return;
 		}
-		if (request.role() != Role.STAFF && request.role() != Role.SHIPPER) {
-			throw new ForbiddenException("Manager can only create or update STAFF and SHIPPER accounts");
+		if (request.role() != Role.SHIPPER) {
+			throw new ForbiddenException("Manager can only create or update SHIPPER accounts");
 		}
 		if (!Objects.equals(requireManagerWorkingStoreId(operator), request.workingStoreId())) {
 			throw new ForbiddenException("Manager can only assign employees to their own store");
@@ -2075,8 +2240,8 @@ public class AdminService {
 		if (operator.getRole() != Role.MANAGER) {
 			return;
 		}
-		if (managedUser.getRole() != Role.STAFF && managedUser.getRole() != Role.SHIPPER) {
-			throw new ForbiddenException("Manager can only manage STAFF and SHIPPER accounts");
+		if (managedUser.getRole() != Role.SHIPPER) {
+			throw new ForbiddenException("Manager can only manage SHIPPER accounts");
 		}
 		if (managedUser.getWorkingStore() == null || managedUser.getWorkingStore().getId() == null) {
 			throw new ForbiddenException("Managed user does not belong to your store");

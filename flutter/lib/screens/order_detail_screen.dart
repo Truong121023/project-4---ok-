@@ -6,6 +6,7 @@ import '../core/models/models.dart';
 import '../core/utils/formatters.dart';
 import '../widgets/app_widgets.dart';
 import '../widgets/order_processing_timeline.dart';
+import '../widgets/payment_widgets.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   const OrderDetailScreen({
@@ -82,9 +83,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(order.statusSummary.isEmpty ? 'Da refresh thanh toan' : order.statusSummary)),
       );
-      if (order.paymentCheckoutUrl.isNotEmpty) {
-        await _openExternalUrl(order.paymentCheckoutUrl);
-      }
     } catch (error) {
       if (!mounted) {
         return;
@@ -123,6 +121,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           }
 
           final order = snapshot.data!;
+          final hasPaymentPayload = order.paymentQrCode.isNotEmpty ||
+              order.paymentCheckoutUrl.isNotEmpty ||
+              order.paymentExpiresAt != null;
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView(
@@ -148,6 +149,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             MetricChip(label: order.status),
                             MetricChip(label: order.paymentStatus),
                             MetricChip(label: Formatters.currency(order.totalAmount)),
+                            if (order.promotionCode.isNotEmpty) MetricChip(label: order.promotionCode),
+                            if (order.hasShippingSummary)
+                              MetricChip(label: 'Ship ${Formatters.currency(order.shippingFeeAmount)}'),
                           ],
                         ),
                         const SizedBox(height: 18),
@@ -175,18 +179,24 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                 icon: const Icon(Icons.receipt_long_outlined),
                                 label: const Text('Mo hoa don'),
                               ),
-                            if (order.paymentCheckoutUrl.isNotEmpty)
-                              OutlinedButton.icon(
-                                onPressed: () => _openExternalUrl(order.paymentCheckoutUrl),
-                                icon: const Icon(Icons.open_in_browser_outlined),
-                                label: const Text('Mo PayOS'),
-                              ),
                           ],
                         ),
                       ],
                     ),
                   ),
                 ),
+                if (hasPaymentPayload) ...[
+                  const SizedBox(height: 20),
+                  PaymentQrSection(
+                    qrCode: order.paymentQrCode,
+                    checkoutUrl: order.paymentCheckoutUrl,
+                    expiresAt: order.paymentExpiresAt,
+                    subtitle: 'Uu tien quet QR PayOS. Neu QR khong tien, ban co the mo trang thanh toan tu nut ben duoi.',
+                    onOpenCheckoutUrl: order.paymentCheckoutUrl.isEmpty
+                        ? null
+                        : () => _openExternalUrl(order.paymentCheckoutUrl),
+                  ),
+                ],
                 const SizedBox(height: 20),
                 OrderProcessingTimeline(
                   confirmedByUserName: order.confirmedByUserName,
@@ -194,6 +204,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   confirmedAt: order.confirmedAt,
                   preparingStaffName: order.preparingStaffName,
                   deliveringShipperName: order.deliveringShipperName,
+                  deliveryStatus: order.status,
                   deliveryProofCapturedAt: order.deliveryProofCapturedAt,
                 ),
                 if (order.deliveryProofImagePath != null) ...[
@@ -246,7 +257,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         const SizedBox(height: 6),
                         Text(order.deliveryAddress),
                         const SizedBox(height: 10),
-                        Text('Kieu giao: ${order.deliveryType}'),
+                        Text('Kieu giao: ${deliveryTypeLabel(order.deliveryType)}'),
                         if (order.scheduledDeliveryAt != null) ...[
                           const SizedBox(height: 6),
                           Text('Hen giao: ${Formatters.fullDateTime(order.scheduledDeliveryAt)}'),
@@ -303,6 +314,40 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Text('Tam tinh: ${Formatters.currency(order.subtotalAmount)}'),
+                        const SizedBox(height: 6),
+                        Text('Giam gia: ${Formatters.currency(order.discountAmount)}'),
+                        const SizedBox(height: 6),
+                        Text('Shipping fee: ${Formatters.currency(order.shippingFeeAmount)}'),
+                        if (order.shippingDistanceKm != null) ...[
+                          const SizedBox(height: 6),
+                          Text('Shipping distance: ${Formatters.distance(order.shippingDistanceKm)}'),
+                        ],
+                        if (order.shippingFeeBreakdown.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            'Shipping breakdown: ${order.shippingFeeBreakdown.map((item) => '${item.storeName}: ${Formatters.currency(item.shippingFeeAmount)}${item.distanceKm == null ? '' : ' (${Formatters.distance(item.distanceKm)})'}').join(' | ')}',
+                          ),
+                        ],
+                        const SizedBox(height: 6),
+                        Text(
+                          'Promotion: ${order.promotionCode.isEmpty ? 'Khong ap dung' : order.promotionCode}',
+                        ),
+                        if (order.promotionScope.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text('Promotion scope: ${order.promotionScope}'),
+                        ],
+                        if (order.promotionEligibleAmount > 0) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            'Promotion eligible amount: ${Formatters.currency(order.promotionEligibleAmount)}',
+                          ),
+                        ],
+                        if (order.promotionDishIds.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text('Promotion dish IDs: ${order.promotionDishIds.join(', ')}'),
+                        ],
+                        const SizedBox(height: 6),
                         Text('Provider: ${order.paymentProvider.isEmpty ? 'Dang cap nhat' : order.paymentProvider}'),
                         const SizedBox(height: 6),
                         Text('Reference: ${order.paymentReference.isEmpty ? 'Dang cap nhat' : order.paymentReference}'),

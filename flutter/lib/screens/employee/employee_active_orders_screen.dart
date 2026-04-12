@@ -120,8 +120,8 @@ class _EmployeeActiveOrdersScreenState extends State<EmployeeActiveOrdersScreen>
                         const SizedBox(height: 8),
                         Text(
                           widget.kind == EmployeeRoleKind.staff
-                              ? 'Don sau khi quet QR va nhan thanh cong se vao day de tiep tuc lam mon.'
-                              : 'Don sau khi quet QR va nhan giao thanh cong se vao day de chot giao hang.',
+                              ? 'Don sau khi nhan thanh cong se vao day de tiep tuc lam mon.'
+                              : 'Don sau khi nhan giao thanh cong se vao day de theo doi proof va chot giao hang.',
                         ),
                       ],
                     ),
@@ -131,7 +131,7 @@ class _EmployeeActiveOrdersScreenState extends State<EmployeeActiveOrdersScreen>
                 if (activeOrders.isEmpty)
                   const EmptyStateCard(
                     title: 'Chua co don dang xu ly',
-                    message: 'Quet QR tren hoa don de nhan don, sau do card se xuat hien o day.',
+                    message: 'Nhan task tu thong bao hoac quet QR tren hoa don, sau do card se xuat hien o day.',
                   )
                 else
                   ...activeOrders.map(

@@ -35,6 +35,12 @@ public class UserDeliveryAddress {
 	@Column(name = "delivery_address", nullable = false, length = 255)
 	private String deliveryAddress;
 
+	@Column(name = "latitude")
+	private Double latitude;
+
+	@Column(name = "longitude")
+	private Double longitude;
+
 	@Column(name = "is_primary")
 	private Boolean primaryAddress = Boolean.FALSE;
 
@@ -100,6 +106,22 @@ public class UserDeliveryAddress {
 
 	public void setDeliveryAddress(String deliveryAddress) {
 		this.deliveryAddress = deliveryAddress;
+	}
+
+	public Double getLatitude() {
+		return latitude;
+	}
+
+	public void setLatitude(Double latitude) {
+		this.latitude = latitude;
+	}
+
+	public Double getLongitude() {
+		return longitude;
+	}
+
+	public void setLongitude(Double longitude) {
+		this.longitude = longitude;
 	}
 
 	public boolean isPrimaryAddress() {

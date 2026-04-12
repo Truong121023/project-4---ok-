@@ -1,4 +1,5 @@
 import 'catalog_models.dart';
+import 'commerce_models.dart';
 import 'common_models.dart';
 
 class FeaturedDishPreview {
@@ -214,6 +215,9 @@ class OrderDetail {
     required this.paidAt,
     required this.subtotalAmount,
     required this.discountAmount,
+    required this.shippingDistanceKm,
+    required this.shippingFeeAmount,
+    required this.shippingFeeBreakdown,
     required this.totalAmount,
     required this.promotionCode,
     required this.promotionScope,
@@ -264,6 +268,9 @@ class OrderDetail {
       paidAt: asDateTime(json['paidAt']),
       subtotalAmount: asDouble(json['subtotalAmount']),
       discountAmount: asDouble(json['discountAmount']),
+      shippingDistanceKm: json['shippingDistanceKm'] == null ? null : asDouble(json['shippingDistanceKm']),
+      shippingFeeAmount: asDouble(json['shippingFeeAmount']),
+      shippingFeeBreakdown: asObjectList(json['shippingFeeBreakdown'], ShippingFeeBreakdownItem.fromJson),
       totalAmount: asDouble(json['totalAmount']),
       promotionCode: asString(json['promotionCode']),
       promotionScope: asString(json['promotionScope']),
@@ -313,6 +320,9 @@ class OrderDetail {
   final DateTime? paidAt;
   final double subtotalAmount;
   final double discountAmount;
+  final double? shippingDistanceKm;
+  final double shippingFeeAmount;
+  final List<ShippingFeeBreakdownItem> shippingFeeBreakdown;
   final double totalAmount;
   final String promotionCode;
   final String promotionScope;
@@ -347,6 +357,8 @@ class OrderDetail {
 
   bool get canRefreshPayment => allowedActions.contains('REFRESH_PAYMENT');
   bool get canViewInvoice => invoiceAvailable || allowedActions.contains('VIEW_INVOICE');
+  bool get hasShippingSummary =>
+      shippingDistanceKm != null || shippingFeeAmount > 0 || shippingFeeBreakdown.isNotEmpty;
 }
 
 class UserLevel {

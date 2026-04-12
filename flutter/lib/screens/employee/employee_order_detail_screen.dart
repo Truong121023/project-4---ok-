@@ -129,6 +129,38 @@ class _EmployeeOrderDetailScreenState extends State<EmployeeOrderDetailScreen> {
     return asString(_order['deliveryAddress']).trim();
   }
 
+  String _deliveryAssignmentSummary(int currentUserId, List<String> allowedActions) {
+    final shipperName = asNullableString(_order['deliveringShipperName'])?.trim();
+    final shipperId = asNullableInt(_order['deliveringShipperId']);
+    final status = asString(_order['status']).trim().toUpperCase();
+
+    if ((shipperName == null || shipperName.isEmpty) && shipperId == null) {
+      return status == 'READY_FOR_SHIPPER'
+          ? 'Backend chua auto-assign shipper cho don nay. Don se cho shipper trong cua hang nhan viec.'
+          : 'Chua co thong tin shipper cho don nay.';
+    }
+
+    final identity = shipperName != null && shipperName.isNotEmpty
+        ? shipperId == null
+            ? shipperName
+            : '$shipperName (#$shipperId)'
+        : 'Shipper #$shipperId';
+    final assignmentSummary = switch (status) {
+      'READY_FOR_SHIPPER' => '$identity da duoc assign va dang cho den quay nhan don.',
+      'OUT_FOR_DELIVERY' => '$identity dang giao don nay.',
+      'COMPLETED' => '$identity da giao don thanh cong.',
+      _ => '$identity dang phu trach giao don nay.',
+    };
+    final isDifferentShipper = widget.kind == EmployeeRoleKind.shipper &&
+        shipperId != null &&
+        shipperId != currentUserId &&
+        !allowedActions.contains('ACCEPT_DELIVERY');
+    if (!isDifferentShipper) {
+      return assignmentSummary;
+    }
+    return '$assignmentSummary Don nay dang duoc giao cho shipper khac nen nut nhan giao se an theo allowedActions.';
+  }
+
   Future<void> _openGoogleMapsDirections() async {
     final controller = AppScope.of(context);
     final origin = _shipperOriginAddress(controller);
@@ -255,6 +287,12 @@ class _EmployeeOrderDetailScreenState extends State<EmployeeOrderDetailScreen> {
     final serverProofNote = asNullableString(_order['deliveryProofNote']);
     final shipperOriginAddress = _shipperOriginAddress(controller);
     final shipperDestinationAddress = _shipperDestinationAddress();
+    final shipperId = asNullableInt(_order['deliveringShipperId']);
+    final shipperName = asNullableString(_order['deliveringShipperName'])?.trim();
+    final showDeliveryAssignmentCard =
+        asString(_order['status']).trim().toUpperCase() == 'READY_FOR_SHIPPER' ||
+        shipperId != null ||
+        (shipperName != null && shipperName.isNotEmpty);
 
     return Scaffold(
       appBar: AppBar(
@@ -362,8 +400,44 @@ class _EmployeeOrderDetailScreenState extends State<EmployeeOrderDetailScreen> {
             confirmedAt: asDateTime(_order['confirmedAt']),
             preparingStaffName: asNullableString(_order['preparingStaffName']),
             deliveringShipperName: asNullableString(_order['deliveringShipperName']),
+            deliveryStatus: asString(_order['status']),
             deliveryProofCapturedAt: asDateTime(_order['deliveryProofCapturedAt']),
           ),
+          if (showDeliveryAssignmentCard) ...[
+            const SizedBox(height: 20),
+            SectionHeader(
+              title: 'Phan cong giao hang',
+              subtitle: 'Du lieu shipper nay den truc tiep tu employee order response cua server.',
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _deliveryAssignmentSummary(currentUserId, allowedActions),
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        MetricChip(
+                          label: shipperName == null || shipperName.isEmpty
+                              ? 'Chua co shipper'
+                              : 'Shipper: $shipperName',
+                        ),
+                        if (shipperId != null) MetricChip(label: 'ID: $shipperId'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 20),
           SectionHeader(
             title: 'Thao tac hien tai',

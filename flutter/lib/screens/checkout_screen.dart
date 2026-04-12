@@ -4,6 +4,7 @@ import '../app/app.dart';
 import '../core/models/models.dart';
 import '../core/services/api_service.dart';
 import '../core/utils/formatters.dart';
+import '../core/utils/shipping_fee_estimator.dart';
 import '../widgets/app_widgets.dart';
 import 'address_book_screen.dart';
 import 'checkout_result_screen.dart';
@@ -18,7 +19,7 @@ class CheckoutScreen extends StatefulWidget {
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
   final _promotionController = TextEditingController();
-  String _deliveryType = 'IMMEDIATE';
+  String _deliveryType = 'DELIVERY';
   DateTime? _scheduledAt;
   DeliveryAddress? _selectedAddress;
 
@@ -159,6 +160,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         }
 
         final selectedAddress = _selectedAddress ?? controller.primaryDeliveryAddress;
+        final shippingEstimate = estimateCartShipping(
+          cart: controller.cart,
+          address: selectedAddress,
+          deliveryType: _deliveryType,
+        );
         return Scaffold(
           appBar: AppBar(title: const Text('Checkout')),
           body: ListView(
@@ -181,6 +187,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         Text(
                           '${selectedAddress.fullName} - ${selectedAddress.phoneNumber}\n${selectedAddress.deliveryAddress}',
                         ),
+                      if (selectedAddress != null) ...[
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            MetricChip(
+                              label: selectedAddress.hasCoordinates
+                                  ? 'Da co toa do'
+                                  : 'Chua co toa do',
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       Wrap(
                         spacing: 8,
@@ -239,10 +259,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         runSpacing: 8,
                         children: [
                           ChoiceChip(
-                            label: const Text('Ngay'),
-                            selected: _deliveryType == 'IMMEDIATE',
+                            label: const Text('Giao ngay'),
+                            selected: _deliveryType == 'DELIVERY',
                             onSelected: (_) => setState(() {
-                              _deliveryType = 'IMMEDIATE';
+                              _deliveryType = 'DELIVERY';
                               _scheduledAt = null;
                             }),
                           ),
@@ -253,6 +273,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 12),
+                      Text('Dang gui deliveryType: $_deliveryType (${deliveryTypeLabel(_deliveryType)})'),
                       if (_deliveryType == 'SCHEDULED') ...[
                         const SizedBox(height: 12),
                         FilledButton.tonal(
@@ -271,6 +293,51 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           labelText: 'Ma giam gia (neu co)',
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Promo hien uu tien validate o backend. Voucher chi ap dung cho 1 hoa don cua 1 store trong mot lan checkout va se bi reject neu bill co mon local/store specialty.',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SectionHeader(
+                        title: 'Shipping fee',
+                        subtitle: 'Frontend co the uoc tinh nhanh, nhung tong tien cuoi cung van theo response backend.',
+                      ),
+                      const SizedBox(height: 12),
+                      if (!shippingEstimate.isDeliveryOrder)
+                        const Text('Don pickup khong tinh shipping fee.')
+                      else if (shippingEstimate.pendingMessage != null)
+                        Text(shippingEstimate.pendingMessage!)
+                      else ...[
+                        Text(
+                          'Estimated shipping fee: ${Formatters.currency(shippingEstimate.shippingFeeAmount)}',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Shipping distance: ${Formatters.distance(shippingEstimate.shippingDistanceKm)}',
+                        ),
+                        if (shippingEstimate.shippingFeeBreakdown.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          ...shippingEstimate.shippingFeeBreakdown.map(
+                            (item) => Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: Text(
+                                '${item.storeName}: ${Formatters.distance(item.distanceKm)} - ${Formatters.currency(item.shippingFeeAmount)}',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ],
                   ),
                 ),
@@ -283,8 +350,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Tong tam tinh: ${Formatters.currency(controller.cart.subtotal)}',
+                        'Tong tam tinh mon: ${Formatters.currency(controller.cart.subtotal)}',
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                      if (shippingEstimate.pendingMessage == null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Estimated shipping fee: ${Formatters.currency(shippingEstimate.shippingFeeAmount)}',
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Tam tinh truoc promo: ${Formatters.currency(controller.cart.subtotal + shippingEstimate.shippingFeeAmount)}',
+                        ),
+                      ],
+                      if (controller.session != null) ...[
+                        const SizedBox(height: 8),
+                        Text('Credit hien tai: ${controller.session!.user.creditPoints}'),
+                      ],
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Discount, shipping fee cuoi cung va totalAmount se duoc thay bang gia tri backend tra ve trong checkout response.',
                       ),
                       const SizedBox(height: 8),
                       Text('Return URL: ${controller.config.defaultReturnUrl}'),

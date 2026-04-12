@@ -1218,7 +1218,7 @@ class ApiService {
     required int deliveryAddressId,
     required String returnUrl,
     required String cancelUrl,
-    String deliveryType = 'IMMEDIATE',
+    String deliveryType = 'DELIVERY',
     String promotionCode = '',
     DateTime? scheduledDeliveryAt,
   }) async {

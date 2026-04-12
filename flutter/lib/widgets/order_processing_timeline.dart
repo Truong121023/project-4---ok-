@@ -13,6 +13,7 @@ class OrderProcessingTimeline extends StatelessWidget {
     this.confirmedAt,
     this.preparingStaffName,
     this.deliveringShipperName,
+    this.deliveryStatus,
     this.deliveryProofCapturedAt,
   });
 
@@ -23,6 +24,7 @@ class OrderProcessingTimeline extends StatelessWidget {
   final DateTime? confirmedAt;
   final String? preparingStaffName;
   final String? deliveringShipperName;
+  final String? deliveryStatus;
   final DateTime? deliveryProofCapturedAt;
 
   @override
@@ -68,17 +70,8 @@ class OrderProcessingTimeline extends StatelessWidget {
                 _TimelineRow(
                   icon: Icons.delivery_dining_outlined,
                   title: 'Shipper giao hang',
-                  subtitle: deliveringShipperName == null
-                      ? 'Dang cho shipper nhan don giao.'
-                      : _joinParts(
-                          [
-                            '$deliveringShipperName dang giao hoac da giao don.',
-                            deliveryProofCapturedAt == null
-                                ? null
-                                : 'Proof luc ${Formatters.fullDateTime(deliveryProofCapturedAt)}',
-                          ],
-                        ),
-                  done: deliveringShipperName != null,
+                  subtitle: _deliverySubtitle(),
+                  done: _deliveryDone(),
                 ),
               ],
             ),
@@ -90,6 +83,54 @@ class OrderProcessingTimeline extends StatelessWidget {
 
   String _joinParts(List<String?> values) {
     return values.whereType<String>().where((value) => value.trim().isNotEmpty).join(' | ');
+  }
+
+  String _deliverySubtitle() {
+    final shipperName = deliveringShipperName?.trim();
+    final normalizedStatus = deliveryStatus?.trim().toUpperCase() ?? '';
+
+    if (shipperName == null || shipperName.isEmpty) {
+      return 'Dang cho shipper nhan don giao.';
+    }
+
+    return switch (normalizedStatus) {
+      'READY_FOR_SHIPPER' => '$shipperName da duoc assign va dang cho den quay nhan don.',
+      'OUT_FOR_DELIVERY' => _joinParts(
+          [
+            '$shipperName dang giao don.',
+            deliveryProofCapturedAt == null
+                ? null
+                : 'Proof luc ${Formatters.fullDateTime(deliveryProofCapturedAt)}',
+          ],
+        ),
+      'COMPLETED' => _joinParts(
+          [
+            '$shipperName da giao hang thanh cong.',
+            deliveryProofCapturedAt == null
+                ? null
+                : 'Proof luc ${Formatters.fullDateTime(deliveryProofCapturedAt)}',
+          ],
+        ),
+      _ => _joinParts(
+          [
+            '$shipperName dang phu trach don nay.',
+            deliveryProofCapturedAt == null
+                ? null
+                : 'Proof luc ${Formatters.fullDateTime(deliveryProofCapturedAt)}',
+          ],
+        ),
+    };
+  }
+
+  bool _deliveryDone() {
+    final shipperName = deliveringShipperName?.trim();
+    if (shipperName == null || shipperName.isEmpty) {
+      return false;
+    }
+    final normalizedStatus = deliveryStatus?.trim().toUpperCase() ?? '';
+    return normalizedStatus == 'OUT_FOR_DELIVERY' ||
+        normalizedStatus == 'COMPLETED' ||
+        deliveryProofCapturedAt != null;
   }
 }
 

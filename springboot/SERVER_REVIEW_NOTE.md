@@ -15,7 +15,7 @@ Backend dang phu trach cac nhom chuc nang chinh:
 - xac thuc va session token
 - public catalog cho storefront
 - user app: cart, checkout, order, payment, invoice, QR, favorites, reviews, feedback
-- employee app: staff, shipper xu ly don
+- employee app: manager, shipper xu ly don
 - admin/manager app: CRUD va dashboard
 - notification center
 - promotion va user levels
@@ -100,11 +100,11 @@ Database lien quan:
 - `ai_chat_threads`
 - `ai_chat_messages`
 
-### 2.4 Staff va shipper
+### 2.4 Manager va shipper
 
 Server xu ly:
-- staff nhan don khau chuan bi
-- staff mark ready
+- manager nhan don khau chuan bi
+- manager mark ready
 - shipper nhan don giao
 - shipper complete delivery
 - scan QR order
@@ -176,7 +176,7 @@ Database lien quan:
 
 Server xu ly:
 - thong bao cho user
-- thong bao cho staff/shipper
+- thong bao cho manager/shipper
 - thong bao cho manager khi co don moi
 - doc / danh dau da doc / unread / read all
 
@@ -312,7 +312,7 @@ Luu y:
 - `orders`
   - order chinh
   - tong tien, discount, payment status, order status
-  - assignee manager/staff/shipper
+  - assignee manager/shipper
   - invoice fields
   - QR token
   - delivery proof
@@ -372,11 +372,11 @@ Luu y:
 ### 3.9 Legacy / hien van ton tai trong schema
 
 - `employee_work_schedules`
-  - lich lam viec nhan vien
+  - lich lam viec nhan vien (legacy, da bo khoi contract chinh)
   - hien API da bo khoi contract chinh, nhung entity/table van con trong code schema
 
 - `employee_attendances`
-  - cham cong nhan vien
+  - cham cong nhan vien (legacy, da bo khoi contract chinh)
   - hien API da bo khoi contract chinh, nhung entity/table van con trong code schema
 
 ## 4. Diem review nhanh cho team docs
@@ -385,7 +385,7 @@ Neu review o muc tong quan, co the nho backend theo 5 lop:
 - auth + users
 - catalog + content
 - commerce: cart / order / payment / invoice
-- operations: admin / manager / staff / shipper
+- operations: admin / manager / shipper
 - engagement: notifications / feedback / reviews / support chat / AI
 
 Neu review o muc database, co the nho:

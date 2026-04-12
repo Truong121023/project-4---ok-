@@ -415,7 +415,7 @@ Relation and frontend expectation gaps are tracked separately in `BACKEND_RELATI
 
 ## 1A. Employee Workflow
 
-Scope: this section is for the staff/shipper app, not the customer storefront.
+Scope: this section is for the manager/shipper app, not the customer storefront.
 
 ### Employee Order APIs
 
@@ -423,8 +423,8 @@ Scope: this section is for the staff/shipper app, not the customer storefront.
 | --- | --- | --- | --- | --- |
 | `GET` | `/api/employee/orders` | `?mine=true&search=123&page=0&size=10` | `PageResponse<OrderResponse>` | `mine=false` or omitted returns available tasks plus the current employee's active task |
 | `GET` | `/api/employee/orders/{id}` | Header only | `OrderResponse` | Opens the order from an employee notification |
-| `POST` | `/api/employee/orders/{id}/accept-preparing` | Header only | `OrderResponse` | `STAFF` only |
-| `POST` | `/api/employee/orders/{id}/mark-ready` | Header only | `OrderResponse` | `STAFF` only |
+| `POST` | `/api/employee/orders/{id}/accept-preparing` | Header only | `OrderResponse` | `MANAGER` only |
+| `POST` | `/api/employee/orders/{id}/mark-ready` | Header only | `OrderResponse` | `MANAGER` only |
 | `POST` | `/api/employee/orders/{id}/accept-delivery` | Header only | `OrderResponse` | `SHIPPER` only |
 | `POST` | `/api/employee/orders/{id}/complete-delivery` | Header only | `OrderResponse` | `SHIPPER` only |
 
@@ -440,12 +440,12 @@ Scope: this section is for the staff/shipper app, not the customer storefront.
 
 ### Employee Workflow Notes
 
-- `STAFF` and `SHIPPER` must use the same bearer token pattern: `Authorization: Bearer <accessToken>`.
+- `MANAGER` and `SHIPPER` must use the same bearer token pattern: `Authorization: Bearer <accessToken>`.
 - Employee accounts must be enabled and must have `workingStoreId`.
-- When an order becomes paid, the store's `STAFF` receives an `ORDER_TASK` notification.
-- If the order already has `preparingStaffId`, only that staff member receives and sees the task.
-- `POST /api/employee/orders/{id}/accept-preparing` sets `preparingStaffId` to the current staff and moves the order to `PREPARING`.
-- `POST /api/employee/orders/{id}/mark-ready` keeps the assigned staff and moves the order to `READY_FOR_SHIPPER`.
+- When an order becomes paid, the store's `MANAGER` receives an `ORDER_TASK` notification.
+- If the order already has `preparingStaffId`, only that manager receives and sees the task.
+- `POST /api/employee/orders/{id}/accept-preparing` sets `preparingStaffId` to the current manager and moves the order to `PREPARING`.
+- `POST /api/employee/orders/{id}/mark-ready` keeps the assigned manager and moves the order to `READY_FOR_SHIPPER`.
 - When an order becomes `READY_FOR_SHIPPER`, the store's `SHIPPER` receives an `ORDER_TASK` notification.
 - If the order already has `deliveringShipperId`, only that shipper receives and sees the task.
 - `POST /api/employee/orders/{id}/accept-delivery` sets `deliveringShipperId` to the current shipper and moves the order to `OUT_FOR_DELIVERY`.
@@ -511,7 +511,7 @@ Scope: this section is for the staff/shipper app, not the customer storefront.
 
 1. Poll `GET /api/employee/notifications/unread-count` or `GET /api/employee/notifications?read=false` to show the task badge.
 2. When the employee taps a task notification, open `GET /api/employee/orders/{id}` using `relatedOrderId` or `actionUrl`.
-3. In the `STAFF` app:
+3. In the `MANAGER` app:
    - show `Nhan viec` when `status=CONFIRMED`
    - call `POST /api/employee/orders/{id}/accept-preparing`
    - show `Hoan tat mon` when `status=PREPARING` and `preparingStaffId` is the current user
@@ -1083,7 +1083,7 @@ Scope: this section is for the staff/shipper app, not the customer storefront.
     "id": 91,
     "type": "ORDER_TASK",
     "title": "Don hang da thanh toan #701",
-    "message": "Don hang #701 tai Tea House Q1 da thanh toan. Nhan vien vui long nhan xu ly.",
+    "message": "Don hang #701 tai Tea House Q1 da thanh toan. Quan ly cua hang vui long nhan xu ly.",
     "relatedOrderId": 701,
     "orderId": 701,
     "relatedStoreId": 1,
@@ -1170,20 +1170,20 @@ Scope: this section is for the staff/shipper app, not the customer storefront.
     "hasNext": false,
     "hasPrevious": false
   },
-  "staffAcceptedOrderResponse": {
+  "managerAcceptedOrderResponse": {
     "id": 701,
     "status": "PREPARING",
     "paymentStatus": "PAID",
     "preparingStaffId": 15,
-    "preparingStaffName": "Barista A",
-    "statusSummary": "Nhan vien Barista A dang lam mon"
+    "preparingStaffName": "Manager A",
+    "statusSummary": "Quan ly Manager A dang xu ly don"
   },
-  "staffReadyOrderResponse": {
+  "managerReadyOrderResponse": {
     "id": 701,
     "status": "READY_FOR_SHIPPER",
     "paymentStatus": "PAID",
     "preparingStaffId": 15,
-    "preparingStaffName": "Barista A",
+    "preparingStaffName": "Manager A",
     "statusSummary": "Da lam xong - cho shipper"
   },
   "shipperAcceptedOrderResponse": {

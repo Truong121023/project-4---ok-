@@ -40,7 +40,7 @@ Backend now already supports:
   - `targetScreen = USER_ORDER_STATUS`
   - full `order`
 
-### `STAFF`
+### Preparing Actor (`MANAGER`)
 
 - scan QR
 - app calls:
@@ -99,7 +99,7 @@ Wrong role:
 ```json
 {
   "status": 403,
-  "message": "Only STAFF and SHIPPER accounts can manage employee orders"
+  "message": "Only MANAGER and SHIPPER accounts can manage employee orders"
 }
 ```
 

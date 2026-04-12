@@ -124,9 +124,22 @@ public class DeliveryAddressService {
 	}
 
 	private void applyRequest(UserDeliveryAddress deliveryAddress, DeliveryAddressRequest request) {
+		validateCoordinatePair(request.latitude(), request.longitude());
+		String normalizedDeliveryAddress = request.deliveryAddress().trim();
+		boolean addressChanged = deliveryAddress.getDeliveryAddress() != null
+				&& !deliveryAddress.getDeliveryAddress().equals(normalizedDeliveryAddress);
 		deliveryAddress.setFullName(request.fullName().trim());
 		deliveryAddress.setPhoneNumber(request.phoneNumber().trim());
-		deliveryAddress.setDeliveryAddress(request.deliveryAddress().trim());
+		deliveryAddress.setDeliveryAddress(normalizedDeliveryAddress);
+		if (request.latitude() != null && request.longitude() != null) {
+			deliveryAddress.setLatitude(request.latitude());
+			deliveryAddress.setLongitude(request.longitude());
+			return;
+		}
+		if (deliveryAddress.getId() == null || addressChanged) {
+			deliveryAddress.setLatitude(null);
+			deliveryAddress.setLongitude(null);
+		}
 	}
 
 	private void applyPrimarySelectionOnCreate(Long userId, UserDeliveryAddress deliveryAddress, Boolean requestedPrimary) {
@@ -180,5 +193,12 @@ public class DeliveryAddressService {
 
 	private Instant coalesce(Instant value) {
 		return value == null ? MIN_INSTANT : value;
+	}
+
+	private void validateCoordinatePair(Double latitude, Double longitude) {
+		if ((latitude == null) == (longitude == null)) {
+			return;
+		}
+		throw new com.example.registrationotp.exception.BadRequestException("latitude and longitude must either both be provided or both be null");
 	}
 }

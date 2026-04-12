@@ -23,7 +23,10 @@ export function savePendingPaymentOrder(order) {
       orderIds: Array.isArray(order?.orders)
         ? order.orders.map((entry) => String(entry?.id ?? "")).filter(Boolean)
         : [primaryOrderId],
+      paymentProvider: order?.paymentProvider ?? "",
+      paymentReference: order?.paymentReference ?? "",
       paymentCheckoutUrl: order.paymentCheckoutUrl ?? "",
+      paymentQrCode: order?.paymentQrCode ?? "",
       paymentExpiresAt: order.paymentExpiresAt ?? "",
       updatedAt: order.updatedAt ?? "",
     }),

@@ -132,6 +132,7 @@ class UserOrderStatusScreen extends StatelessWidget {
             confirmedAt: asDateTime(order['confirmedAt']),
             preparingStaffName: asNullableString(order['preparingStaffName']),
             deliveringShipperName: asNullableString(order['deliveringShipperName']),
+            deliveryStatus: asString(order['status']),
             deliveryProofCapturedAt: asDateTime(order['deliveryProofCapturedAt']),
           ),
           const SizedBox(height: 20),

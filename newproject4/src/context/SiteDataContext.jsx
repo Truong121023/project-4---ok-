@@ -31,6 +31,7 @@ import {
   markAllUserNotificationsRead,
   markUserNotificationRead,
   markUserNotificationUnread,
+  previewUserCartCheckout,
   setPrimaryUserDeliveryAddress,
   updateUserCartItem,
   updateUserDeliveryAddress,
@@ -50,6 +51,12 @@ function emptyCart() {
     items: [],
     totalItems: 0,
     subtotal: 0,
+    subtotalAmount: 0,
+    discountAmount: 0,
+    shippingDistanceKm: null,
+    shippingFeeAmount: null,
+    shippingFeeBreakdown: [],
+    totalAmount: 0,
     createdAt: "",
     updatedAt: "",
   };
@@ -79,6 +86,14 @@ function normalizeCartSnapshot(snapshot) {
           storeId: String(item?.storeId ?? ""),
           storeSlug: String(item?.storeSlug ?? ""),
           storeName: String(item?.storeName ?? ""),
+          storeLatitude:
+            item?.storeLatitude === undefined || item?.storeLatitude === null
+              ? null
+              : Number(item.storeLatitude),
+          storeLongitude:
+            item?.storeLongitude === undefined || item?.storeLongitude === null
+              ? null
+              : Number(item.storeLongitude),
           dishId: String(item?.dishId ?? ""),
           dishName: String(item?.dishName ?? ""),
           quantity: Number(item?.quantity ?? 0),
@@ -105,6 +120,28 @@ function normalizeCartSnapshot(snapshot) {
     items,
     totalItems,
     subtotal,
+    subtotalAmount: Number(snapshot?.subtotalAmount ?? subtotal),
+    discountAmount: Number(snapshot?.discountAmount ?? 0),
+    shippingDistanceKm:
+      snapshot?.shippingDistanceKm === undefined || snapshot?.shippingDistanceKm === null
+        ? null
+        : Number(snapshot.shippingDistanceKm),
+    shippingFeeAmount:
+      snapshot?.shippingFeeAmount === undefined || snapshot?.shippingFeeAmount === null
+        ? null
+        : Number(snapshot.shippingFeeAmount),
+    shippingFeeBreakdown: Array.isArray(snapshot?.shippingFeeBreakdown)
+      ? snapshot.shippingFeeBreakdown.map((item) => ({
+          storeId: String(item?.storeId ?? ""),
+          storeName: String(item?.storeName ?? ""),
+          distanceKm:
+            item?.distanceKm === undefined || item?.distanceKm === null
+              ? null
+              : Number(item.distanceKm),
+          shippingFeeAmount: Number(item?.shippingFeeAmount ?? 0),
+        }))
+      : [],
+    totalAmount: Number(snapshot?.totalAmount ?? subtotal),
     createdAt: String(snapshot?.createdAt ?? ""),
     updatedAt: String(snapshot?.updatedAt ?? ""),
   };
@@ -168,6 +205,14 @@ async function buildGuestCartItemSnapshot({ itemId, storeId, quantity }) {
     storeName: String(matchedStore.storeName ?? matchedStore.name ?? ""),
     dishId: String(itemId),
     dishName: String(response.dish?.name ?? ""),
+    storeLatitude:
+      matchedStore?.latitude === undefined || matchedStore?.latitude === null
+        ? null
+        : Number(matchedStore.latitude),
+    storeLongitude:
+      matchedStore?.longitude === undefined || matchedStore?.longitude === null
+        ? null
+        : Number(matchedStore.longitude),
     quantity: Number(quantity ?? 1),
     unitPrice,
     totalPrice: unitPrice * Number(quantity ?? 1),
@@ -782,6 +827,35 @@ export function SiteDataProvider({ children }) {
     }
   };
 
+  const previewCartCheckout = async (payload = {}) => {
+    if (!canUseUserFeatures) {
+      return {
+        ok: false,
+        loginRequired: !auth.isAuthenticated,
+        preview: null,
+        message: auth.isAuthenticated
+          ? "Only USER accounts can preview checkout."
+          : "Please sign in with a USER account to preview checkout.",
+      };
+    }
+
+    try {
+      const preview = await previewUserCartCheckout(auth, payload);
+      return {
+        ok: true,
+        preview,
+        message: preview?.statusSummary || "Checkout preview loaded.",
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        preview: null,
+        error,
+        message: getApiErrorMessage(error, "Unable to preview checkout."),
+      };
+    }
+  };
+
   const deleteReview = async (reviewId) => {
     if (!canUseUserFeatures) {
       return { ok: false, message: "Only USER accounts can delete reviews." };
@@ -983,6 +1057,7 @@ export function SiteDataProvider({ children }) {
     updateCartItemQuantity,
     removeCartItem,
     clearCart,
+    previewCartCheckout,
     checkoutCart,
     deleteReview,
     removeFeedback,

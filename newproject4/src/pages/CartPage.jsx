@@ -5,7 +5,15 @@ import QuickFavoriteButton from "../components/QuickFavoriteButton";
 import SmartImage from "../components/SmartImage";
 import { useAuth } from "../context/AuthContext";
 import { useSiteData } from "../context/SiteDataContext";
+import { ApiError } from "../lib/api";
+import { geocodeAddress } from "../lib/locationLookup";
 import { savePendingPaymentOrder } from "../lib/paymentSession";
+import {
+  calculateCartShippingEstimate,
+  formatShippingBreakdown,
+  formatShippingDistance,
+  hasCoordinatePair,
+} from "../lib/shippingFee";
 import { buildStorePath } from "../lib/storeRouting";
 import { ui } from "../ui";
 
@@ -18,7 +26,7 @@ function formatCompactNumber(value) {
 }
 
 function formatDeliveryType(value) {
-  return value === "SCHEDULED" ? "Scheduled" : "Immediate";
+  return value === "SCHEDULED" ? "Scheduled" : "Delivery";
 }
 
 function resolvePrimaryOrderId(checkoutResult) {
@@ -61,7 +69,7 @@ function describeCartItem(line) {
       label: "Scheduled only",
       className:
         "inline-flex items-center rounded-full bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-800",
-      hint: "This item is not available for immediate delivery, but it can still be checked out as a scheduled order.",
+      hint: "This item is not available for delivery right now, but it can still be checked out as a scheduled order.",
     };
   }
 
@@ -88,13 +96,20 @@ export default function CartPage() {
     updateCartItemQuantity,
     removeCartItem,
     clearCart,
+    previewCartCheckout,
     checkoutCart,
   } = useSiteData();
   const [notice, setNotice] = useState("");
   const [selectedDeliveryAddressId, setSelectedDeliveryAddressId] = useState("");
   const [promotionCode, setPromotionCode] = useState("");
-  const [deliveryType, setDeliveryType] = useState("IMMEDIATE");
+  const [deliveryType, setDeliveryType] = useState("DELIVERY");
   const [scheduledDeliveryAt, setScheduledDeliveryAt] = useState("");
+  const [resolvedDeliveryLocation, setResolvedDeliveryLocation] = useState(null);
+  const [deliveryLocationLoading, setDeliveryLocationLoading] = useState(false);
+  const [deliveryLocationError, setDeliveryLocationError] = useState("");
+  const [pricingPreview, setPricingPreview] = useState(null);
+  const [pricingPreviewLoading, setPricingPreviewLoading] = useState(false);
+  const [pricingPreviewNotice, setPricingPreviewNotice] = useState("");
 
   const blockingIssues = useMemo(
     () =>
@@ -169,6 +184,14 @@ export default function CartPage() {
       null,
     [deliveryAddresses, selectedDeliveryAddressId],
   );
+  const scheduledDeliveryAtIso = useMemo(() => {
+    if (deliveryType !== "SCHEDULED" || !scheduledDeliveryAt) {
+      return undefined;
+    }
+
+    const scheduledDate = new Date(scheduledDeliveryAt);
+    return Number.isNaN(scheduledDate.getTime()) ? undefined : scheduledDate.toISOString();
+  }, [deliveryType, scheduledDeliveryAt]);
   const loginState = {
     from: { pathname: "/cart" },
     message: "Sign in to continue with checkout and payment.",
@@ -181,6 +204,166 @@ export default function CartPage() {
     !cartItems.length ||
     !selectedDeliveryAddressId ||
     (deliveryType === "SCHEDULED" && !scheduledDeliveryAt);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function resolveDeliveryLocation() {
+      if (!selectedDeliveryAddress) {
+        setResolvedDeliveryLocation(null);
+        setDeliveryLocationError("");
+        setDeliveryLocationLoading(false);
+        return;
+      }
+
+      if (hasCoordinatePair(selectedDeliveryAddress)) {
+        setResolvedDeliveryLocation({
+          latitude: Number(selectedDeliveryAddress.latitude),
+          longitude: Number(selectedDeliveryAddress.longitude),
+          label: selectedDeliveryAddress.deliveryAddress,
+        });
+        setDeliveryLocationError("");
+        setDeliveryLocationLoading(false);
+        return;
+      }
+
+      if (!selectedDeliveryAddress.deliveryAddress) {
+        setResolvedDeliveryLocation(null);
+        setDeliveryLocationError("Shipping fee will be finalized after address coordinates are available.");
+        setDeliveryLocationLoading(false);
+        return;
+      }
+
+      setDeliveryLocationLoading(true);
+      setDeliveryLocationError("");
+
+      try {
+        const geocodedLocation = await geocodeAddress(selectedDeliveryAddress.deliveryAddress);
+
+        if (!cancelled) {
+          setResolvedDeliveryLocation(geocodedLocation);
+          setDeliveryLocationError("");
+        }
+      } catch {
+        if (!cancelled) {
+          setResolvedDeliveryLocation(null);
+          setDeliveryLocationError(
+            "Shipping fee will be finalized after address coordinates are available.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setDeliveryLocationLoading(false);
+        }
+      }
+    }
+
+    void resolveDeliveryLocation();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDeliveryAddress]);
+
+  const localPricingEstimate = useMemo(
+    () =>
+      calculateCartShippingEstimate({
+        cartItems,
+        deliveryAddress: resolvedDeliveryLocation,
+        deliveryType,
+        subtotalAmount: cartSubtotal,
+        discountAmount: 0,
+      }),
+    [cartItems, cartSubtotal, deliveryType, resolvedDeliveryLocation],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPricingPreview() {
+      setPricingPreview(null);
+      setPricingPreviewNotice("");
+
+      if (
+        !canUseUserFeatures ||
+        !cartItems.length ||
+        !selectedDeliveryAddressId ||
+        (deliveryType === "SCHEDULED" && !scheduledDeliveryAtIso)
+      ) {
+        setPricingPreviewLoading(false);
+        return;
+      }
+
+      setPricingPreviewLoading(true);
+
+      const result = await previewCartCheckout({
+        deliveryAddressId: selectedDeliveryAddressId,
+        promotionCode,
+        deliveryType,
+        scheduledDeliveryAt: scheduledDeliveryAtIso,
+      });
+
+      if (cancelled) {
+        return;
+      }
+
+      if (result.ok) {
+        setPricingPreview({
+          ...result.preview,
+          source: "backend",
+        });
+        setPricingPreviewNotice("");
+        setPricingPreviewLoading(false);
+        return;
+      }
+
+      if (result.error instanceof ApiError && [404, 405].includes(result.error.status)) {
+        setPricingPreview(null);
+        setPricingPreviewNotice("");
+        setPricingPreviewLoading(false);
+        return;
+      }
+
+      setPricingPreview(null);
+      setPricingPreviewNotice(
+        result.message || "Final shipping fee will be confirmed at checkout.",
+      );
+      setPricingPreviewLoading(false);
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void loadPricingPreview();
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    canUseUserFeatures,
+    cartItems,
+    deliveryType,
+    previewCartCheckout,
+    promotionCode,
+    scheduledDeliveryAtIso,
+    selectedDeliveryAddressId,
+  ]);
+
+  const pricingSummary = pricingPreview ?? localPricingEstimate;
+  const showPricingSummary = !canUseGuestCart && !requiresUserCheckout;
+  const hasShippingFee =
+    pricingSummary?.shippingFeeAmount !== undefined && pricingSummary?.shippingFeeAmount !== null;
+  const hasShippingDistance =
+    pricingSummary?.shippingDistanceKm !== undefined && pricingSummary?.shippingDistanceKm !== null;
+  const hasDiscount =
+    pricingSummary?.discountAmount !== undefined &&
+    pricingSummary?.discountAmount !== null &&
+    Number(pricingSummary.discountAmount) > 0;
+  const shippingFeeLabel =
+    pricingPreview?.source === "backend" ? "Shipping fee" : "Estimated shipping fee";
+  const totalLabel =
+    pricingPreview?.source === "backend" ? "Final total" : "Estimated total";
+  const shippingBreakdownLabel = formatShippingBreakdown(pricingSummary?.shippingFeeBreakdown);
 
   const handleQuantityChange = async (line, nextQuantity) => {
     const normalizedQuantity = Math.max(1, Number(nextQuantity || 1));
@@ -280,7 +463,7 @@ export default function CartPage() {
             <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-700">
               {canUseGuestCart
                 ? "You can add items to the cart before signing in. When you are ready to order and pay, just sign in with a USER account."
-                : "You can update quantities, remove line items, choose immediate delivery when stores are open, or schedule ahead when needed."}
+                : "You can update quantities, remove line items, choose delivery when stores are open, or schedule ahead when needed."}
             </p>
           </div>
 
@@ -295,7 +478,7 @@ export default function CartPage() {
           {[
             { label: "Status", value: cart.status || "OPEN" },
             { label: "Total quantity", value: formatCompactNumber(cartCount) },
-            { label: "Subtotal", value: formatPrice(cartSubtotal) },
+            { label: "Item subtotal", value: formatPrice(cartSubtotal) },
           ].map((stat) => (
             <article
               key={stat.label}
@@ -440,8 +623,28 @@ export default function CartPage() {
               {[
                 { label: "Line items", value: formatCompactNumber(cartItems.length) },
                 { label: "Total quantity", value: formatCompactNumber(cartCount) },
-                { label: "Total", value: formatPrice(cartSubtotal) },
-              ].map((stat) => (
+                { label: "Item subtotal", value: formatPrice(cartSubtotal) },
+                hasDiscount
+                  ? {
+                      label: pricingPreview?.source === "backend" ? "Discount" : "Estimated discount",
+                      value: formatPrice(pricingSummary.discountAmount),
+                    }
+                  : null,
+                hasShippingFee
+                  ? {
+                      label: shippingFeeLabel,
+                      value: formatPrice(pricingSummary.shippingFeeAmount),
+                    }
+                  : null,
+                pricingSummary?.totalAmount !== undefined && pricingSummary?.totalAmount !== null
+                  ? {
+                      label: totalLabel,
+                      value: formatPrice(pricingSummary.totalAmount),
+                    }
+                  : null,
+              ]
+                .filter(Boolean)
+                .map((stat) => (
                 <div
                   key={stat.label}
                   className="rounded-[1.2rem] border border-matcha-900/10 bg-white/72 p-4"
@@ -449,21 +652,82 @@ export default function CartPage() {
                   <strong className="block text-lg font-bold text-tea-900">{stat.value}</strong>
                   <span className="mt-1 block text-sm text-stone-600">{stat.label}</span>
                 </div>
-              ))}
+                ))}
             </div>
+
+            {showPricingSummary ? (
+              <div className="mt-5 rounded-[1.2rem] border border-matcha-900/10 bg-white/72 p-4 text-sm leading-7 text-stone-700">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-tea-900">
+                      {pricingPreview?.source === "backend"
+                        ? "Checkout pricing"
+                        : "Shipping estimate"}
+                    </p>
+                    <p className="mt-1 text-xs uppercase tracking-[0.18em] text-stone-500">
+                      {pricingPreview?.source === "backend"
+                        ? "Confirmed by backend preview"
+                        : "Calculated locally from map distance"}
+                    </p>
+                  </div>
+
+                  {pricingPreviewLoading || deliveryLocationLoading ? (
+                    <span className="rounded-full bg-matcha-500/12 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-matcha-700">
+                      Updating...
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="mt-4 grid gap-2 text-sm text-stone-600">
+                  {hasShippingDistance ? (
+                    <span>
+                      Shipping distance: {formatShippingDistance(pricingSummary.shippingDistanceKm)}
+                    </span>
+                  ) : null}
+                  {shippingBreakdownLabel ? (
+                    <span>Per-store breakdown: {shippingBreakdownLabel}</span>
+                  ) : null}
+                  {pricingPreview?.promotionCode ? (
+                    <span>Promotion code: {pricingPreview.promotionCode}</span>
+                  ) : null}
+                </div>
+
+                {pricingPreviewNotice ? (
+                  <div className="mt-4 rounded-[1rem] border border-amber-200 bg-amber-50/90 p-4 text-sm leading-7 text-amber-900">
+                    {pricingPreviewNotice}
+                  </div>
+                ) : null}
+
+                {!pricingPreviewNotice && deliveryLocationError ? (
+                  <div className="mt-4 rounded-[1rem] border border-amber-200 bg-amber-50/90 p-4 text-sm leading-7 text-amber-900">
+                    {deliveryLocationError}
+                  </div>
+                ) : null}
+
+                {!pricingPreviewNotice && !deliveryLocationError && pricingSummary?.statusSummary ? (
+                  <p className="mt-4 text-sm leading-7 text-stone-600">{pricingSummary.statusSummary}</p>
+                ) : null}
+
+                {!pricingPreview && !pricingPreviewNotice && !deliveryLocationError && !hasCoordinatePair(resolvedDeliveryLocation) ? (
+                  <p className="mt-4 text-sm leading-7 text-stone-600">
+                    Final shipping fee will be confirmed by the backend during checkout.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             <div className="mt-5 rounded-[1.2rem] border border-matcha-900/10 bg-matcha-500/10 p-4 text-sm leading-7 text-stone-700">
               {blockingIssues.length ? (
                 <p>
                   {deliveryType === "SCHEDULED"
                     ? `${blockingIssues.length} item(s) cannot be included in a scheduled order yet. Please check stock and availability for each line.`
-                    : `${blockingIssues.length} item(s) are not available for immediate delivery. You can switch to scheduled delivery if they are still schedulable.`}
+                    : `${blockingIssues.length} item(s) are not available for delivery right now. You can switch to scheduled delivery if they are still schedulable.`}
                 </p>
               ) : (
                 <p>
                   {deliveryType === "SCHEDULED"
                     ? "Your cart is ready for a scheduled order."
-                    : "Your cart is ready for immediate delivery."}
+                    : "Your cart is ready for delivery."}
                 </p>
               )}
             </div>
@@ -569,7 +833,7 @@ export default function CartPage() {
                       value={deliveryType}
                       onChange={(event) => setDeliveryType(event.target.value)}
                     >
-                      <option value="IMMEDIATE">{formatDeliveryType("IMMEDIATE")}</option>
+                      <option value="DELIVERY">{formatDeliveryType("DELIVERY")}</option>
                       <option value="SCHEDULED">{formatDeliveryType("SCHEDULED")}</option>
                     </select>
                   </label>
@@ -591,14 +855,15 @@ export default function CartPage() {
 
                   <div className="rounded-[1rem] border border-matcha-900/10 bg-stone-50/90 p-4 text-sm leading-7 text-stone-600">
                     {deliveryType === "SCHEDULED"
-                      ? "Scheduled delivery lets you place the order ahead of time for items that are not available immediately."
-                      : "Immediate delivery is only available when every store in the cart is currently open."}
+                      ? "Scheduled delivery lets you place the order ahead of time for items that are not available right away."
+                      : "Delivery is only available when every store in the cart is currently open."}
                   </div>
 
                   {storeCount > 1 ? (
                     <div className="rounded-[1rem] border border-matcha-900/10 bg-stone-50/90 p-4 text-sm leading-7 text-stone-600">
                       Your cart currently contains {storeCount} stores. During checkout, the backend
-                      may split this into multiple orders per branch while still using a single PayOS link.
+                      may split this into multiple orders per branch while still using a single PayOS
+                      link, and a promotion code can only apply to one store bill in that checkout.
                     </div>
                   ) : null}
 
@@ -613,6 +878,11 @@ export default function CartPage() {
                       onChange={(event) => setPromotionCode(event.target.value)}
                       placeholder="For example: MATCHA10"
                     />
+                    <span className="text-xs leading-6 text-stone-500">
+                      Promotions apply to one store bill only and should be used for SIGNATURE
+                      dishes. If the cart includes local specialty items, the backend will reject
+                      the code with a clear message.
+                    </span>
                   </label>
                 </div>
 

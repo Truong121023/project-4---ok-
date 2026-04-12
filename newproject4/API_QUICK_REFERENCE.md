@@ -8,6 +8,7 @@ Detailed guides:
 - `FRONTEND_ADMIN_API.md`
 - `FRONTEND_ADMIN_AI_DRAFT_NOTE.md`
 - `FRONTEND_AI_CHAT_NOTE.md`
+- `FRONTEND_SHIPPING_FEE_CONTRACT.md`
 
 ## Common Rules
 

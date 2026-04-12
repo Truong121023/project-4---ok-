@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.registrationotp.dto.CartItemRequest;
 import com.example.registrationotp.dto.CartResponse;
+import com.example.registrationotp.dto.CheckoutPreviewRequest;
+import com.example.registrationotp.dto.CheckoutPreviewResponse;
 import com.example.registrationotp.dto.CheckoutRequest;
 import com.example.registrationotp.dto.CheckoutResponse;
 import com.example.registrationotp.dto.MessageResponse;
@@ -78,5 +80,13 @@ public class CartController {
 			@Valid @RequestBody CheckoutRequest request
 	) {
 		return ResponseEntity.ok(orderService.checkout(authorizationHeader, request));
+	}
+
+	@PostMapping("/checkout-preview")
+	public ResponseEntity<CheckoutPreviewResponse> checkoutPreview(
+			@RequestHeader("Authorization") String authorizationHeader,
+			@Valid @RequestBody CheckoutPreviewRequest request
+	) {
+		return ResponseEntity.ok(orderService.checkoutPreview(authorizationHeader, request));
 	}
 }

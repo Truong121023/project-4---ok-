@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../ai_chat_screen.dart';
 import 'employee_active_orders_screen.dart';
 import 'employee_completed_orders_screen.dart';
+import 'employee_notifications_screen.dart';
 import 'employee_scan_screen.dart';
 import 'employee_support.dart';
 
@@ -25,6 +26,7 @@ class _EmployeeShellState extends State<EmployeeShell> {
         EmployeeScanScreen(kind: widget.kind),
         EmployeeActiveOrdersScreen(kind: widget.kind),
         EmployeeCompletedOrdersScreen(kind: widget.kind),
+        EmployeeNotificationsScreen(kind: widget.kind),
       ];
 
   @override
@@ -55,6 +57,11 @@ class _EmployeeShellState extends State<EmployeeShell> {
             icon: Icon(Icons.checklist_rtl_outlined),
             selectedIcon: Icon(Icons.checklist_rtl),
             label: employeeCompletedQueueLabel(widget.kind),
+          ),
+          const NavigationDestination(
+            icon: Icon(Icons.notifications_outlined),
+            selectedIcon: Icon(Icons.notifications),
+            label: 'Thong bao',
           ),
         ],
         onDestinationSelected: (index) => setState(() => _index = index),

@@ -254,7 +254,6 @@ export function createEmptyDraft(sectionKey, collections) {
         minOrderAmount: "",
         maxDiscountAmount: "",
         minStoreBillAmount: "",
-        minCrossStoreBillAmount: "",
         usageLimit: "",
         startsAt: "",
         endsAt: "",
@@ -436,10 +435,6 @@ export function hydrateSectionDraft(sectionKey, entity) {
           entity.minStoreBillAmount === undefined || entity.minStoreBillAmount === null
             ? ""
             : String(entity.minStoreBillAmount),
-        minCrossStoreBillAmount:
-          entity.minCrossStoreBillAmount === undefined || entity.minCrossStoreBillAmount === null
-            ? ""
-            : String(entity.minCrossStoreBillAmount),
         usageLimit:
           entity.usageLimit === undefined || entity.usageLimit === null
             ? ""
@@ -640,14 +635,10 @@ export function serializeSectionDraft(sectionKey, draft) {
         const minOrderAmount = toNullableNumber(draft.minOrderAmount);
         const maxDiscountAmount = toNullableNumber(draft.maxDiscountAmount);
         const minStoreBillAmount = toNullableNumber(draft.minStoreBillAmount);
-        const minCrossStoreBillAmount = toNullableNumber(draft.minCrossStoreBillAmount);
-        const applicableDishIds =
-          draft.scope === "DISH"
-            ? String(draft.applicableDishIdsText ?? "")
-                .split(",")
-                .map((value) => Number(String(value).trim()))
-                .filter((value) => Number.isFinite(value))
-            : [];
+        const applicableDishIds = String(draft.applicableDishIdsText ?? "")
+          .split(",")
+          .map((value) => Number(String(value).trim()))
+          .filter((value) => Number.isFinite(value));
         const eligibleStoreIds = String(draft.eligibleStoreIdsText ?? "")
           .split(",")
           .map((value) => Number(String(value).trim()))
@@ -669,7 +660,6 @@ export function serializeSectionDraft(sectionKey, draft) {
         maxDiscountAmount,
         maximumDiscountAmount: maxDiscountAmount,
         minStoreBillAmount,
-        minCrossStoreBillAmount,
         usageLimit: toNullableNumber(draft.usageLimit),
         startsAt: toApiDateTime(draft.startsAt),
         endsAt: toApiDateTime(draft.endsAt),
@@ -1483,14 +1473,6 @@ export function buildSectionConfigs({
           placeholder: "100000",
         },
         {
-          name: "minCrossStoreBillAmount",
-          label: "Minimum cross-store bill",
-          type: "number",
-          min: "0",
-          step: "0.01",
-          placeholder: "250000",
-        },
-        {
           name: "usageLimit",
           label: "Usage limit",
           type: "number",
@@ -1516,7 +1498,7 @@ export function buildSectionConfigs({
           type: "textarea",
           placeholder: "10, 11, 12",
           description:
-            "Only used when scope = DISH. Enter dishId values separated by commas. Frontend will send both applicableDishIds and promotionDishIds.",
+            "Optional. Enter SIGNATURE dishId values separated by commas. Frontend will send both applicableDishIds and promotionDishIds.",
         },
         {
           name: "eligibleStoreIdsText",

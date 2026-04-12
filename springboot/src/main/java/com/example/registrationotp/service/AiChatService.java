@@ -629,7 +629,7 @@ public class AiChatService {
 			if (operator.getWorkingStore() != null && operator.getWorkingStore().getId() != null) {
 				users.addAll(userRepository.findAllByWorkingStoreIdAndRoleInAndEnabledTrue(
 						operator.getWorkingStore().getId(),
-						List.of(Role.STAFF, Role.SHIPPER)
+						List.of(Role.SHIPPER)
 				));
 			}
 			return users.stream().distinct().toList();
@@ -647,7 +647,7 @@ public class AiChatService {
 		return target.getWorkingStore() != null
 				&& operator.getWorkingStore() != null
 				&& Objects.equals(target.getWorkingStore().getId(), operator.getWorkingStore().getId())
-				&& (target.getRole() == Role.STAFF || target.getRole() == Role.SHIPPER);
+				&& target.getRole() == Role.SHIPPER;
 	}
 
 	private boolean isVisiblePromotion(Promotion promotion) {

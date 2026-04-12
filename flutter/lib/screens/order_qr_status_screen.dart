@@ -250,6 +250,7 @@ class _OrderQrStatusScreenState extends State<OrderQrStatusScreen> {
             confirmedAt: asDateTime(_order['confirmedAt']),
             preparingStaffName: asNullableString(_order['preparingStaffName']),
             deliveringShipperName: asNullableString(_order['deliveringShipperName']),
+            deliveryStatus: asString(_order['status']),
             deliveryProofCapturedAt: asDateTime(_order['deliveryProofCapturedAt']),
           ),
           if (widget.viewerRole.toUpperCase() == 'MANAGER') ...[

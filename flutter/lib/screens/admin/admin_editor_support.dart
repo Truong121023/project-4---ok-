@@ -270,16 +270,30 @@ const Map<String, AdminEditableModuleDefinition> adminEditableModules = {
       AdminEditorFieldDefinition(key: 'scope', label: 'Scope', type: AdminEditorFieldType.text, options: _promotionScopeOptions),
       AdminEditorFieldDefinition(key: 'discountType', label: 'Discount Type', type: AdminEditorFieldType.text, options: _discountTypeOptions),
       AdminEditorFieldDefinition(key: 'discountValue', label: 'Discount Value', type: AdminEditorFieldType.decimal, requiredOnCreate: true, requiredOnEdit: true),
-      AdminEditorFieldDefinition(key: 'minimumOrderAmount', label: 'Minimum Order Amount', type: AdminEditorFieldType.decimal),
+      AdminEditorFieldDefinition(key: 'minOrderAmount', label: 'Min Order Amount', type: AdminEditorFieldType.decimal),
       AdminEditorFieldDefinition(key: 'maximumDiscountAmount', label: 'Maximum Discount Amount', type: AdminEditorFieldType.decimal),
       AdminEditorFieldDefinition(key: 'minStoreBillAmount', label: 'Min Store Bill Amount', type: AdminEditorFieldType.decimal),
-      AdminEditorFieldDefinition(key: 'minCrossStoreBillAmount', label: 'Min Cross Store Bill Amount', type: AdminEditorFieldType.decimal),
       AdminEditorFieldDefinition(key: 'usageLimit', label: 'Usage Limit', type: AdminEditorFieldType.integer),
       AdminEditorFieldDefinition(key: 'startsAt', label: 'Starts At', type: AdminEditorFieldType.dateTime, hint: '2026-04-01T00:00:00Z'),
       AdminEditorFieldDefinition(key: 'endsAt', label: 'Ends At', type: AdminEditorFieldType.dateTime, hint: '2026-04-30T23:59:59Z'),
-      AdminEditorFieldDefinition(key: 'promotionDishIds', label: 'Promotion Dish IDs', type: AdminEditorFieldType.jsonList),
-      AdminEditorFieldDefinition(key: 'eligibleStoreIds', label: 'Eligible Store IDs', type: AdminEditorFieldType.jsonList),
-      AdminEditorFieldDefinition(key: 'eligibleUserLevelIds', label: 'Eligible User Level IDs', type: AdminEditorFieldType.jsonList),
+      AdminEditorFieldDefinition(
+        key: 'promotionDishIds',
+        label: 'Promotion Dish IDs',
+        type: AdminEditorFieldType.jsonList,
+        helperText: 'Chi nen chon ID cua mon SIGNATURE. Backend se validate lai neu co mon local/store specialty.',
+      ),
+      AdminEditorFieldDefinition(
+        key: 'eligibleStoreIds',
+        label: 'Eligible Store IDs',
+        type: AdminEditorFieldType.jsonList,
+        helperText: 'De trong neu promo dung cho moi store hop le.',
+      ),
+      AdminEditorFieldDefinition(
+        key: 'eligibleUserLevelIds',
+        label: 'Eligible User Level IDs',
+        type: AdminEditorFieldType.jsonList,
+        helperText: 'Dung de goi y eligibility theo membership tren frontend, backend van la noi quyet dinh cuoi cung.',
+      ),
       AdminEditorFieldDefinition(key: 'active', label: 'Active', type: AdminEditorFieldType.boolean, alwaysInclude: true),
     ],
   ),
@@ -381,7 +395,12 @@ String encodeAdminJson(dynamic value) {
 }
 
 String editorFieldInitialText(AdminEditorFieldDefinition field, JsonMap data) {
-  final value = data[field.key];
+  final value = data[field.key] ??
+      switch (field.key) {
+        'minOrderAmount' => data['minimumOrderAmount'],
+        'promotionDishIds' => data['applicableDishIds'],
+        _ => null,
+      };
   if (value == null) {
     return '';
   }

@@ -321,8 +321,8 @@ public class SeedDb {
 			users.put("admin", userRepository.save(user("Platform Admin", "admin@teamatcha.local", Role.ADMIN, null)));
 			users.put("manager-d1", userRepository.save(user("District Manager", "manager.d1@teamatcha.local", Role.MANAGER, stores.get("district-1"))));
 			users.put("manager-river", userRepository.save(user("Riverside Manager", "manager.riverside@teamatcha.local", Role.MANAGER, stores.get("riverside"))));
-			users.put("staff-d1", userRepository.save(user("District Staff", "staff.d1@teamatcha.local", Role.STAFF, stores.get("district-1"))));
-			users.put("staff-garden", userRepository.save(user("Garden Staff", "staff.garden@teamatcha.local", Role.STAFF, stores.get("garden"))));
+			users.put("ops-manager-d1", userRepository.save(user("District Operations Manager", "ops.manager.d1@teamatcha.local", Role.MANAGER, stores.get("district-1"))));
+			users.put("ops-manager-garden", userRepository.save(user("Garden Operations Manager", "ops.manager.garden@teamatcha.local", Role.MANAGER, stores.get("garden"))));
 			users.put("shipper-d1", userRepository.save(user("District Shipper", "shipper.d1@teamatcha.local", Role.SHIPPER, stores.get("district-1"))));
 			users.put("shipper-airport", userRepository.save(user("Airport Shipper", "shipper.airport@teamatcha.local", Role.SHIPPER, stores.get("airport"))));
 			users.put("anna", userRepository.save(user("Anna Nguyen", "user.anna@teamatcha.local", Role.USER, null)));

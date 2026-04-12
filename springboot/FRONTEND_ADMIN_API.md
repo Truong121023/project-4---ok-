@@ -24,7 +24,7 @@ AI form draft handoff is available in `FRONTEND_ADMIN_AI_DRAFT_NOTE.md`.
   - `hasNext`
   - `hasPrevious`
 - Common enums used by the admin API:
-  - `Role`: `ADMIN`, `MANAGER`, `SHIPPER`, `STAFF`, `USER`
+  - `Role`: `ADMIN`, `MANAGER`, `SHIPPER`, `USER`
   - `OrderStatus`: `PENDING`, `CONFIRMED`, `PREPARING`, `READY_FOR_SHIPPER`, `OUT_FOR_DELIVERY`, `COMPLETED`, `CANCELLED`
   - `PaymentStatus`: `PENDING`, `PAID`, `CANCELLED`, `FAILED`
   - `OrderStageFilter`: `UNPAID`, `PAID`, `PREPARING`, `DELIVERING`, `COMPLETED`, `CANCELLED`
@@ -63,7 +63,7 @@ AI form draft handoff is available in `FRONTEND_ADMIN_AI_DRAFT_NOTE.md`.
 2. Store the returned `accessToken` and send it as `Authorization: Bearer <accessToken>`.
 3. Call `GET /api/auth/me` right after login to confirm the session and read the current role.
 4. Allow admin navigation only when the role is `ADMIN` or `MANAGER`.
-5. If the role is `MANAGER`, show only store-scoped admin resources for `workingStoreId`, plus staff/shipper management for that store.
+5. If the role is `MANAGER`, show only store-scoped admin resources for `workingStoreId`, plus shipper management and preparing-flow operations for that store.
 6. If `GET /api/auth/me` fails, clear the token and force the login screen.
 
 ## Admin Login Notes
@@ -219,7 +219,7 @@ AI form draft handoff is available in `FRONTEND_ADMIN_AI_DRAFT_NOTE.md`.
 
 - `password` is required when creating a user.
 - `password` is optional on update; if sent and not blank, the backend updates the password.
-- `workingStoreId` is used for staff-like roles that need a store assignment.
+- `workingStoreId` is used for store-assigned roles such as `MANAGER` and `SHIPPER`.
 - `enabled` is a required boolean in the request body.
 - `PUT /api/admin/users/{id}/verification` is the explicit endpoint to toggle account verification status for existing users.
 
@@ -345,6 +345,15 @@ AI form draft handoff is available in `FRONTEND_ADMIN_AI_DRAFT_NOTE.md`.
   - `createdAt`
   - `updatedAt`
 
+### Category access notes
+
+- Global category `SIGNATURE` is represented by:
+  - `storeId = null`
+  - `name = "SIGNATURE"`
+- `ADMIN` can create, update, and delete the global `SIGNATURE` category.
+- `MANAGER` can read the global `SIGNATURE` category from category list/detail for dish attachment flows.
+- `MANAGER` can create, update, and delete only local categories whose `storeId` matches their own `workingStoreId`.
+
 ## 6. Dishes
 
 | Method | Path | Query / Body | Response | Notes |
@@ -382,6 +391,20 @@ AI form draft handoff is available in `FRONTEND_ADMIN_AI_DRAFT_NOTE.md`.
   - `sections`
   - `createdAt`
   - `updatedAt`
+
+### Dish access notes
+
+- A system dish is a dish whose category is the global `SIGNATURE` category.
+- A system dish is easy to detect in current response shape because:
+  - `DishResponse.storeId = null`
+  - `DishResponse.categoryName = "SIGNATURE"`
+- `ADMIN` creates franchise-wide system dishes by posting `DishRequest.categoryId` that points to the global `SIGNATURE` category.
+- `MANAGER` sees both:
+  - local dishes of their own store
+  - system dishes in the global `SIGNATURE` category
+- `MANAGER` can `POST`, `PUT`, and `DELETE` only local dishes whose category belongs to their own store.
+- `MANAGER` cannot edit system dishes in `SIGNATURE`.
+- Storefront store detail already renders both signature menu and local menu from `store_dishes`. A dish appears in a store menu only after that store has a matching `store_dishes` row.
 
 ## 7. Reviews
 
@@ -500,6 +523,22 @@ AI form draft handoff is available in `FRONTEND_ADMIN_AI_DRAFT_NOTE.md`.
   - `createdAt`
   - `updatedAt`
 
+### Store-dish access notes
+
+- Use `POST /api/admin/store-dishes` to attach a system `SIGNATURE` dish to one store.
+- `MANAGER` can attach a system dish only to their own store.
+- For a system `SIGNATURE` dish, `MANAGER` can update only inventory-style fields through `store_dishes`:
+  - `quantity`
+  - `available`
+- For a system `SIGNATURE` dish, `MANAGER` should keep these unchanged on update:
+  - `storeId`
+  - `dishId`
+  - `priceOverride`
+- Recommended frontend behavior for `MANAGER` on signature dishes:
+  - create attachment with `priceOverride = null`
+  - later update only `quantity` and `available`
+- For a local dish that belongs to the manager's own store, `MANAGER` can still manage the full `store_dishes` record for that store.
+
 ## 10. Orders
 
 | Method | Path | Query / Body | Response | Notes |
@@ -566,7 +605,7 @@ AI form draft handoff is available in `FRONTEND_ADMIN_AI_DRAFT_NOTE.md`.
   - attendance log pages
   - check-in/check-out actions
   - attendance summary widgets
-  - staff/shipper shift pages based on backend APIs
+  - manager/shipper operation pages based on backend APIs
 
 ## 11. Promotions
 
@@ -781,10 +820,10 @@ AI form draft handoff is available in `FRONTEND_ADMIN_AI_DRAFT_NOTE.md`.
 ```json
 {
   "adminUserRequest": {
-    "fullName": "Staff A",
-    "email": "staff@example.com",
+    "fullName": "Store Manager",
+    "email": "manager.q1@example.com",
     "password": "12345678",
-    "role": "STAFF",
+    "role": "MANAGER",
     "workingStoreId": 1,
     "enabled": true
   },

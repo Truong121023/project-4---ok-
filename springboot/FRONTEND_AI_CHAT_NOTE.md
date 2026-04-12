@@ -16,7 +16,6 @@ Purpose: this file explains the AI chat APIs that all authenticated roles can us
 - Supported roles:
   - `ADMIN`
   - `MANAGER`
-  - `STAFF`
   - `SHIPPER`
   - `USER`
 
@@ -71,11 +70,11 @@ Frontend no longer needs to persist the full AI chat history locally in order to
   "history": [
     {
       "role": "user",
-      "content": "Mình muốn uống gì dễ uống"
+      "content": "MÃ¬nh muá»‘n uá»‘ng gÃ¬ dá»… uá»‘ng"
     },
     {
       "role": "assistant",
-      "content": "Bạn có thể thử nhóm latte hoặc cooler dịu vị."
+      "content": "Báº¡n cÃ³ thá»ƒ thá»­ nhÃ³m latte hoáº·c cooler dá»‹u vá»‹."
     }
   ],
   "threadId": 18
@@ -98,7 +97,7 @@ Fields:
 {
   "threadId": 18,
   "threadTitle": "Goi y cho minh mon matcha it ngot de de uong buoi chieu",
-  "answer": "Nếu bạn muốn dễ uống vào buổi chiều, mình gợi ý Jasmine Matcha Cooler hoặc Matcha Latte ít ngọt. Mình cũng kèm thêm các món tương tự để bạn xem nhanh.",
+  "answer": "Náº¿u báº¡n muá»‘n dá»… uá»‘ng vÃ o buá»•i chiá»u, mÃ¬nh gá»£i Ã½ Jasmine Matcha Cooler hoáº·c Matcha Latte Ã­t ngá»t. MÃ¬nh cÅ©ng kÃ¨m thÃªm cÃ¡c mÃ³n tÆ°Æ¡ng tá»± Ä‘á»ƒ báº¡n xem nhanh.",
   "references": [
     {
       "referenceKey": "dish:88",
@@ -178,7 +177,7 @@ Fields:
       "title": "Goi y cho minh mon matcha it ngot de de uong buoi chieu",
       "messageCount": 6,
       "lastMessageRole": "assistant",
-      "lastMessagePreview": "Nếu bạn muốn dễ uống vào buổi chiều, mình gợi ý Jasmine Matcha Cooler hoặc Matcha Latte ít ngọt...",
+      "lastMessagePreview": "Náº¿u báº¡n muá»‘n dá»… uá»‘ng vÃ o buá»•i chiá»u, mÃ¬nh gá»£i Ã½ Jasmine Matcha Cooler hoáº·c Matcha Latte Ã­t ngá»t...",
       "lastMessageAt": "2026-04-11T04:15:10Z",
       "updatedAt": "2026-04-11T04:15:10Z"
     },
@@ -217,7 +216,7 @@ Use this endpoint for:
     {
       "id": 101,
       "role": "user",
-      "content": "Mình muốn uống gì dễ uống",
+      "content": "MÃ¬nh muá»‘n uá»‘ng gÃ¬ dá»… uá»‘ng",
       "references": [],
       "actions": [],
       "model": null,
@@ -226,7 +225,7 @@ Use this endpoint for:
     {
       "id": 102,
       "role": "assistant",
-      "content": "Bạn có thể thử nhóm latte hoặc cooler dịu vị.",
+      "content": "Báº¡n cÃ³ thá»ƒ thá»­ nhÃ³m latte hoáº·c cooler dá»‹u vá»‹.",
       "references": [
         {
           "referenceKey": "dish:88",
@@ -327,8 +326,8 @@ Fields:
 
 - A user can only list and open their own AI chat threads
 - Backend checks `threadId` ownership before appending messages or returning old messages
-- `USER`, `STAFF`, and `SHIPPER` only get their own account status in `currentUserStatus`
-- `MANAGER` can get quick links for staff/shipper accounts in their own store only
+- `USER` and `SHIPPER` only get their own account status in `currentUserStatus`
+- `MANAGER` can get quick links for shipper accounts in their own store only
 - `ADMIN` can get admin quick links to user records
 - Public content is visible to all roles, but internal admin quick links are only filled when the role is allowed
 - Backend does not let AI invent IDs or links; it only returns references from real database candidates

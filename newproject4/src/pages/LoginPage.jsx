@@ -13,6 +13,20 @@ const initialForm = {
   password: "",
 };
 
+function resolveLoginErrorMessage(requestError, fallbackMessage) {
+  const message = getApiErrorMessage(requestError, fallbackMessage);
+  const normalizedMessage = String(message ?? "").trim().toLowerCase();
+
+  if (
+    normalizedMessage === "unexpected server error" ||
+    normalizedMessage === "request failed with status 500."
+  ) {
+    return "Dang nhap tren website khong ho tro cho tai khoan SHIPPER. Neu ban dang dung tai khoan SHIPPER, vui long dang nhap bang ung dung mobile.";
+  }
+
+  return message;
+}
+
 export default function LoginPage() {
   const auth = useAuth();
   const location = useLocation();
@@ -74,7 +88,7 @@ export default function LoginPage() {
       const response = await auth.login(form);
       finishLogin(response);
     } catch (submitError) {
-      setError(getApiErrorMessage(submitError, "Sign-in failed."));
+      setError(resolveLoginErrorMessage(submitError, "Sign-in failed."));
     } finally {
       setLoading(false);
     }
@@ -112,7 +126,7 @@ export default function LoginPage() {
         finishLogin(response);
       } catch (googleLoginError) {
         if (!cancelled) {
-          const nextMessage = getApiErrorMessage(
+          const nextMessage = resolveLoginErrorMessage(
             googleLoginError,
             "Dang nhap Google that bai.",
           );
@@ -216,6 +230,11 @@ export default function LoginPage() {
               Dang nhap bang email, mat khau hoac chon Google de dang nhap nhanh khi email Google
               cua ban da trung voi tai khoan trong he thong Tea Matcha.
             </p>
+          </div>
+
+          <div className="rounded-[1.2rem] border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm leading-7 text-amber-900">
+            Tai khoan <strong>SHIPPER</strong> chi dang nhap tren ung dung mobile. Website nay
+            danh cho USER, STAFF, MANAGER va ADMIN.
           </div>
 
           {infoMessage ? (
