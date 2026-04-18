@@ -2396,7 +2396,7 @@ class AppController extends ChangeNotifier {
     if (lower.contains('voucher') || lower.contains('promotion')) {
       answer =
           'Kamatcha Q1 is a good place to start. You can quickly open the store, the Matcha Latte item, and related articles or offers from the reference cards below.';
-    } else if (lower.contains('account')) {
+    } else if (lower.contains('tai khoan') || lower.contains('account')) {
       answer =
           'I pulled a quick summary of your current account status. You can open the account card below to check role, verification, and store scope.';
     } else {

@@ -101,6 +101,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
     super.dispose();
   }
 
+<<<<<<< HEAD
   void _resetState() {
     setState(() {
       _messages = const [];
@@ -115,6 +116,41 @@ class _AiChatScreenState extends State<AiChatScreen> {
       _error = null;
       _composerController.clear();
     });
+=======
+  List<String> _quickPromptsForRole(String role) {
+    switch (role.toUpperCase()) {
+      case 'ADMIN':
+        return const [
+          'Hom nay store nao ban tot nhat?',
+          'Cho minh xem uu dai dang bat cua he thong',
+          'Tai khoan manager nao dang phu trach Q1?',
+        ];
+      case 'MANAGER':
+        return const [
+          'Tom tat store cua toi hom nay',
+          'Mon nao dang ban tot nhat o store nay?',
+          'Cho minh xem feedback gan day cua store',
+        ];
+      case 'STAFF':
+        return const [
+          'Store nay co mon matcha nao dang hot?',
+          'Cho minh xem tin tuc moi cua Kamatcha',
+          'Tai khoan cua toi dang o trang thai nao?',
+        ];
+      case 'SHIPPER':
+        return const [
+          'Voucher nao dang bat de tu van cho khach?',
+          'Cho minh xem tin tuc moi cua Kamatcha',
+          'Tai khoan cua toi dang o trang thai nao?',
+        ];
+      default:
+        return const [
+          'Cua hang nao o Quan 1 co matcha latte?',
+          'Cho minh xem uu dai dang bat',
+          'Tai khoan cua toi dang o trang thai nao?',
+        ];
+    }
+>>>>>>> origin/main
   }
 
   Future<void> _bootstrap() async {
@@ -847,6 +883,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
         activeThreadSummary.isNotEmpty ? activeThreadSummary.first : null;
 
     return Scaffold(
+<<<<<<< HEAD
       appBar: AppBar(
         title: const Text('Kamatcha AI'),
         actions: [
@@ -892,6 +929,9 @@ class _AiChatScreenState extends State<AiChatScreen> {
           ),
         ],
       ),
+=======
+      appBar: AppBar(title: const Text('Kamatcha AI')),
+>>>>>>> origin/main
       body: Column(
         children: [
           Padding(
@@ -1067,6 +1107,7 @@ class _AiQuickPromptCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+<<<<<<< HEAD
     if (prompts.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -1091,6 +1132,104 @@ class _AiQuickPromptCard extends StatelessWidget {
                 onPressed: () => onSelectPrompt(prompt),
               );
             },
+=======
+    final controller = AppScope.of(context);
+    final incoming = message.role == 'assistant';
+    return Align(
+      alignment: incoming ? Alignment.centerLeft : Alignment.centerRight,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 380),
+        child: Card(
+          color: incoming ? null : const Color(0xFFE8F0E0),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  incoming ? 'Kamatcha AI' : 'Ban',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                Text(message.content),
+                if (message.currentUserStatus != null) ...[
+                  const SizedBox(height: 12),
+                  _AiUserStatusCard(status: message.currentUserStatus!),
+                ],
+                if (message.references.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  ...message.references.map(
+                    (reference) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: () => onOpenReference(reference),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.78),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: const Color(0xFFE1E6D7)),
+                          ),
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 72,
+                                child: NetworkOrFallbackImage(
+                                  imageUrl: controller.config.resolveImageUrl(reference.imagePath),
+                                  height: 72,
+                                  borderRadius: BorderRadius.circular(16),
+                                  label: reference.title,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      reference.title,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleSmall
+                                          ?.copyWith(fontWeight: FontWeight.w800),
+                                    ),
+                                    if ((reference.subtitle ?? '').trim().isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        reference.subtitle!,
+                                        maxLines: 3,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                    const SizedBox(height: 8),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: [
+                                        MetricChip(label: reference.entityType),
+                                        if ((reference.slug ?? '').trim().isNotEmpty)
+                                          MetricChip(label: reference.slug!),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(Icons.arrow_forward_ios, size: 16),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+>>>>>>> origin/main
           ),
         ),
       ),
@@ -1839,9 +1978,15 @@ class _AiConversationSheetResult {
 String _welcomeMessageForRole(String role) {
   switch (role.toUpperCase()) {
     case 'ADMIN':
+<<<<<<< HEAD
       return 'Quickly look up stores, items, events, news, promotions, and admin records across Kamatcha.';
     case 'MANAGER':
       return 'Ask about the current store, best sellers, news, promotions, and staff within the store scope.';
+=======
+      return 'Chao ban. Minh co the giup tra cuu nhanh store, mon, event, news, promotions va record quan tri theo quyen ADMIN cua Kamatcha.';
+    case 'MANAGER':
+      return 'Chao manager. Ban co the hoi ve store hien tai, mon dang ban tot, tin tuc, promotions va nhan su trong scope cua hang Kamatcha.';
+>>>>>>> origin/main
     case 'STAFF':
       return 'Quickly ask about actionable orders, items, stores, and related info to work faster on mobile.';
     case 'SHIPPER':

@@ -1,4 +1,4 @@
-﻿export const sectionTabs = [
+export const sectionTabs = [
   { key: "users", label: "User" },
   { key: "stores", label: "Stores" },
   { key: "events", label: "Events" },
@@ -1566,4 +1566,3 @@ export function buildSectionConfigs({
     },
   };
 }
-

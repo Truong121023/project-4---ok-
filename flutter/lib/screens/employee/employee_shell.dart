@@ -70,22 +70,22 @@ class _EmployeeShellState extends State<EmployeeShell> {
         selectedIcon: Icon(Icons.qr_code_scanner),
         label: 'Scan',
       ),
-        NavigationDestination(
-          icon: Icon(Icons.notifications_active_outlined),
-          selectedIcon: Icon(Icons.notifications_active),
-          label: 'Inbox',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.local_cafe_outlined),
-          selectedIcon: Icon(Icons.local_cafe),
-          label: 'Active',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.inventory_2_outlined),
-          selectedIcon: Icon(Icons.inventory_2),
-          label: 'Completed',
-        ),
-      ];
+      NavigationDestination(
+        icon: Icon(Icons.notifications_active_outlined),
+        selectedIcon: Icon(Icons.notifications_active),
+        label: 'Inbox',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.local_cafe_outlined),
+        selectedIcon: Icon(Icons.local_cafe),
+        label: 'Active',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.inventory_2_outlined),
+        selectedIcon: Icon(Icons.inventory_2),
+        label: 'Completed',
+      ),
+    ];
   }
 
   @override

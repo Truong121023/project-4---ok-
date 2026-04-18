@@ -265,7 +265,7 @@ class EmployeeNotificationCard extends StatelessWidget {
         ),
         trailing: FilledButton.tonal(
           onPressed: onToggleRead,
-          child: Text(read ? 'Unread' : 'Read'),
+          child: Text(read ? 'Mark unread' : 'Mark read'),
         ),
         isThreeLine: true,
         onTap: onTap,

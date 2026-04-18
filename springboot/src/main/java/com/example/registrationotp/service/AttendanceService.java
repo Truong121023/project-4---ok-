@@ -59,7 +59,7 @@ public class AttendanceService {
 			java.util.Comparator.comparing(EmployeeWorkSchedule::getWorkDate)
 					.thenComparing(EmployeeWorkSchedule::getScheduledStartTime)
 					.thenComparing(EmployeeWorkSchedule::getId, java.util.Comparator.nullsLast(Long::compareTo));
-	private static final Set<Role> EMPLOYEE_ROLES = EnumSet.of(Role.STAFF, Role.SHIPPER);
+	private static final Set<Role> EMPLOYEE_ROLES = EnumSet.of(Role.MANAGER, Role.SHIPPER);
 
 	private final SessionAuthService sessionAuthService;
 	private final EmployeeAttendanceRepository employeeAttendanceRepository;
@@ -220,13 +220,13 @@ public class AttendanceService {
 		);
 
 		long totalAssignedStaff = schedules.stream()
-				.filter(schedule -> schedule.getEmployeeRole() == Role.STAFF)
+				.filter(schedule -> schedule.getEmployeeRole() == Role.MANAGER)
 				.count();
 		long totalAssignedShippers = schedules.stream()
 				.filter(schedule -> schedule.getEmployeeRole() == Role.SHIPPER)
 				.count();
 		long presentStaffCount = attendances.stream()
-				.filter(attendance -> attendance.getEmployeeRole() == Role.STAFF)
+				.filter(attendance -> attendance.getEmployeeRole() == Role.MANAGER)
 				.count();
 		long presentShipperCount = attendances.stream()
 				.filter(attendance -> attendance.getEmployeeRole() == Role.SHIPPER)
@@ -356,7 +356,7 @@ public class AttendanceService {
 	private User requireEmployee(String authorizationHeader) {
 		User user = sessionAuthService.requireUser(authorizationHeader);
 		if (!EMPLOYEE_ROLES.contains(user.getRole())) {
-			throw new ForbiddenException("Only STAFF and SHIPPER accounts can use attendance");
+			throw new ForbiddenException("Only MANAGER and SHIPPER accounts can use attendance");
 		}
 		if (!user.isEnabled()) {
 			throw new ForbiddenException("Employee account is disabled");
@@ -398,7 +398,7 @@ public class AttendanceService {
 
 	private void validateEmployeeRoleFilter(Role role) {
 		if (role != null && !EMPLOYEE_ROLES.contains(role)) {
-			throw new BadRequestException("role filter only supports STAFF or SHIPPER");
+			throw new BadRequestException("role filter only supports MANAGER or SHIPPER");
 		}
 	}
 
@@ -425,7 +425,7 @@ public class AttendanceService {
 			throw new BadRequestException("Employee user %d is disabled".formatted(employee.getId()));
 		}
 		if (!EMPLOYEE_ROLES.contains(employee.getRole())) {
-			throw new BadRequestException("User %d must have STAFF or SHIPPER role".formatted(employee.getId()));
+			throw new BadRequestException("User %d must have MANAGER or SHIPPER role".formatted(employee.getId()));
 		}
 		if (employee.getWorkingStore() == null || employee.getWorkingStore().getId() == null) {
 			throw new BadRequestException("User %d is not assigned to a working store".formatted(employee.getId()));

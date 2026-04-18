@@ -3582,6 +3582,7 @@ class RegistrationOtpApplicationTests {
 		User buyerUser = saveUser("Auto Shipper Buyer", "auto-shipper-buyer@example.com", Role.USER, true);
 
 		Store store = saveStore("District 3 Kamatcha", "45 Vo Van Tan", "district3@example.com", "0900001111");
+Store store = saveStore("District 3 Tea Matcha", "45 Vo Van Tan", "district3@example.com", "0900001111");
 		Category category = saveCategory("Latte", store);
 		Dish dish = saveDish("Hot Matcha Latte", category, new BigDecimal("70000"));
 

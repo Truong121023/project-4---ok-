@@ -10,7 +10,7 @@ Tai lieu nay chot lai hien trang backend Spring Boot va quy doi cac yeu cau moi 
 - `review`: da co cho `STORE`, `EVENT`, `DISH`; luong public va user da chan `CATEGORY`
 - `promotion`: hien chi ho tro `ORDER` va `DISH`
 - `auth + OTP`: hien chi co OTP dang ky/xac minh email, chua co doi mat khau quen mat khau qua OTP
-- `phan quyen`: da co `ADMIN`, `MANAGER`, `STAFF`, `SHIPPER`, `USER`
+- `phan quyen`: hien tai dung `ADMIN`, `MANAGER`, `SHIPPER`, `USER`
 
 ## 2. Mapping yeu cau USER
 
@@ -111,9 +111,9 @@ Tai lieu nay chot lai hien trang backend Spring Boot va quy doi cac yeu cau moi 
 - `GET /api/user/support/conversations/{id}/messages`
 - `POST /api/user/support/conversations/{id}/messages`
 
-### Staff scan
+### Manager scan
 
-- `POST /api/staff/orders/{id}/claim-by-scan`
+- `GET /api/mobile/order-qr/{token}` hoac `POST /api/employee/orders/scan` cho manager
 - `POST /api/shipper/orders/{id}/claim-by-scan`
 
 ## 7. Luong realtime de xuat
@@ -162,7 +162,7 @@ Ly do chon WebSocket:
 
 ### Sprint 5 - van hanh tai cua hang
 
-- QR scan nhan don cho `STAFF` va `SHIPPER`
+- QR scan nhan don cho `MANAGER` va `SHIPPER`
 - Dashboard tong hop, trang lien ket va thong tin van hanh
 
 ## 9. Cac quy tac nghiep vu can khoa som

@@ -1,147 +1,67 @@
 # Frontend Order Invoice QR Note
 
-Updated on 2026-03-30.
+Updated on 2026-04-11.
 
-Purpose: this file is a frontend handoff note for the new order, invoice, and QR workflow.
-Use this together with:
-- `FRONTEND_ROLE_API_NOTE.md`
-- `FRONTEND_ADMIN_API.md`
-- `FRONTEND_USER_API.md`
+Purpose: this file is the frontend handoff for order actions, invoice rendering, and QR workflow.
 
 ## 1. What Changed
 
 Backend now supports:
-- invoice metadata directly inside `OrderResponse`
+- invoice metadata inside `OrderResponse`
 - printable invoice HTML for admin and user
 - public invoice preview by QR token
-- QR scan workflow for `STAFF` and `SHIPPER`
-- server-driven `allowedActions` so frontend does not need to hardcode all action rules
+- QR scan workflow for `MANAGER` and `SHIPPER`
+- role-aware mobile QR resolution for `USER`, `MANAGER`, `SHIPPER`, `ADMIN`
+- server-driven `allowedActions`
 
-Important frontend rule:
-- Always render action buttons from `order.allowedActions`
-- Do not infer workflow only from `status`
+Important:
+- `STAFF` role is removed.
+- Preparing flow is now owned by `MANAGER`.
+- Legacy fields `preparingStaffId` and `preparingStaffName` still exist, but now they represent the assigned manager.
 
-## 2. New And Updated Endpoints
+## 2. Main Endpoints
 
-| Method | Path | Auth | Body | Response | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `POST` | `/api/admin/orders/{id}/confirm` | `ADMIN`, `MANAGER` | none | `OrderResponse` | Confirm paid order so staff can pick it up |
-| `POST` | `/api/admin/orders/{id}/cancel` | `ADMIN`, `MANAGER` | none | `OrderResponse` | Cancel order |
-| `POST` | `/api/admin/orders/{id}/mark-paid` | `ADMIN`, `MANAGER` | none | `OrderResponse` | Manual/COD mark as paid |
-| `POST` | `/api/admin/orders/{id}/invoice/generate` | `ADMIN`, `MANAGER` | none | `OrderResponse` | Idempotent helper to ensure invoice exists |
-| `GET` | `/api/admin/orders/{id}/invoice` | `ADMIN`, `MANAGER` | query: `download` | `text/html` | Invoice preview or download |
-| `GET` | `/api/admin/orders/{id}/scan-history` | `ADMIN`, `MANAGER` | none | `List<OrderScanAuditResponse>` | Newest first |
-| `GET` | `/api/user/orders/{id}/invoice` | `USER` owner only | query: `download` | `text/html` | User invoice preview or download |
-| `GET` | `/api/public/order-qr/{token}` | public | query: `download` | `text/html` | Open invoice from QR |
-| `POST` | `/api/employee/orders/scan` | `STAFF`, `SHIPPER` | `EmployeeOrderScanRequest` | `EmployeeOrderScanResponse` | QR claim flow |
+| Method | Path | Auth | Response | Notes |
+| --- | --- | --- | --- | --- |
+| `POST` | `/api/admin/orders/{id}/confirm` | `ADMIN`, `MANAGER` | `OrderResponse` | Confirm paid order so manager can pick it up |
+| `POST` | `/api/admin/orders/{id}/cancel` | `ADMIN`, `MANAGER` | `OrderResponse` | Cancel order |
+| `POST` | `/api/admin/orders/{id}/mark-paid` | `ADMIN`, `MANAGER` | `OrderResponse` | Manual/COD mark as paid |
+| `POST` | `/api/admin/orders/{id}/invoice/generate` | `ADMIN`, `MANAGER` | `OrderResponse` | Ensure invoice exists |
+| `GET` | `/api/admin/orders/{id}/invoice` | `ADMIN`, `MANAGER` | `text/html` | Preview or download invoice |
+| `GET` | `/api/admin/orders/{id}/scan-history` | `ADMIN`, `MANAGER` | `List<OrderScanAuditResponse>` | Newest first |
+| `GET` | `/api/user/orders/{id}/invoice` | `USER` owner | `text/html` | Preview or download invoice |
+| `GET` | `/api/public/order-qr/{token}` | public | `text/html` | Public invoice preview |
+| `POST` | `/api/employee/orders/scan` | `MANAGER`, `SHIPPER` | `EmployeeOrderScanResponse` | QR claim flow |
 
-Existing order detail/list APIs now return richer `OrderResponse`:
-- `GET /api/admin/orders`
-- `GET /api/admin/orders/{id}`
-- `GET /api/user/orders`
-- `GET /api/user/orders/{id}`
-- `GET /api/employee/orders`
-- `GET /api/employee/orders/{id}`
-- `POST /api/user/orders/{id}/refresh-payment`
+## 3. Key OrderResponse Fields
 
-## 3. New Fields In OrderResponse
+Frontend should use these fields when rendering order progress and actions:
 
-These fields are now included in `OrderResponse`:
+- `confirmedByUserId`
+- `confirmedByUserName`
+- `confirmedByUserRole`
+- `confirmedAt`
+- `preparingStaffId`
+- `preparingStaffName`
+- `deliveringShipperId`
+- `deliveringShipperName`
+- `invoiceAvailable`
+- `invoiceNumber`
+- `invoiceIssuedAt`
+- `invoicePreviewUrl`
+- `invoiceDownloadUrl`
+- `orderQrToken`
+- `allowedActions`
+- `paidAt`
 
-- `invoiceAvailable`: `boolean`
-- `invoiceId`: `Long`
-- `invoiceNumber`: `String`
-- `invoiceIssuedAt`: `Instant`
-- `invoiceDownloadUrl`: `String`
-- `invoicePreviewUrl`: `String`
-- `orderQrToken`: `String`
-- `confirmedByUserId`: `Long`
-- `confirmedByUserName`: `String`
-- `confirmedByUserRole`: `String`
-- `confirmedAt`: `Instant`
-- `allowedActions`: `List<OrderAllowedAction>`
-- `preparingStaffId`: `Long`
-- `preparingStaffName`: `String`
-- `deliveringShipperId`: `Long`
-- `deliveringShipperName`: `String`
-- `paidAt`: `Instant`
-
-Notes:
-- `invoiceId` currently equals `order.id` when invoice exists.
-- `invoicePreviewUrl` and `invoiceDownloadUrl` are the easiest fields for web frontend to open directly.
-- `orderQrToken` is the QR token backing the public invoice route.
-
-### OrderResponse sample
-
-```json
-{
-  "id": 22,
-  "userId": 7,
-  "storeId": 1,
-  "storeSlug": "tea-house-q1",
-  "storeName": "Tea House Q1",
-  "status": "CONFIRMED",
-  "paymentStatus": "PAID",
-  "paymentProvider": "PAYOS",
-  "payosOrderCode": 220001,
-  "paymentLinkId": "payos_link_123",
-  "paymentCheckoutUrl": "https://pay.payos.vn/web/abc",
-  "paymentQrCode": "000201010212...",
-  "paymentExpiresAt": "2026-03-30T12:34:56Z",
-  "paidAt": "2026-03-30T10:15:00Z",
-  "subtotalAmount": 180000,
-  "discountAmount": 20000,
-  "totalAmount": 160000,
-  "deliveryType": "DELIVERY",
-  "confirmedByUserId": 5,
-  "confirmedByUserName": "Store Manager",
-  "confirmedByUserRole": "MANAGER",
-  "confirmedAt": "2026-03-30T10:18:00Z",
-  "preparingStaffId": null,
-  "preparingStaffName": null,
-  "deliveringShipperId": null,
-  "deliveringShipperName": null,
-  "invoiceAvailable": true,
-  "invoiceId": 22,
-  "invoiceNumber": "TM-INV-00000022",
-  "invoiceIssuedAt": "2026-03-30T10:15:00Z",
-  "invoiceDownloadUrl": "/api/public/order-qr/qr_tok_abc?download=true",
-  "invoicePreviewUrl": "/api/public/order-qr/qr_tok_abc",
-  "orderQrToken": "qr_tok_abc",
-  "allowedActions": ["VIEW_INVOICE", "ACCEPT_PREPARING"],
-  "statusSummary": "CONFIRMED",
-  "items": [
-    {
-      "id": 91,
-      "storeId": 1,
-      "storeSlug": "tea-house-q1",
-      "storeName": "Tea House Q1",
-      "dishId": 88,
-      "dishName": "Matcha Latte",
-      "quantity": 2,
-      "unitPrice": 90000,
-      "totalPrice": 180000,
-      "imagePaths": ["/uploads/dishes/matcha-latte.jpg"],
-      "createdAt": "2026-03-30T10:10:00Z",
-      "updatedAt": "2026-03-30T10:10:00Z"
-    }
-  ],
-  "createdAt": "2026-03-30T10:10:00Z",
-  "updatedAt": "2026-03-30T10:15:00Z"
-}
-```
+Important legacy note:
+- `preparingStaffId` and `preparingStaffName` now hold the assigned `MANAGER`
 
 ## 4. allowedActions By Role
 
-Frontend should trust `allowedActions` from backend.
+Frontend must trust `order.allowedActions`.
 
-Progress display recommendation:
-- render the confirmation stage from `confirmedByUserName`
-- render the preparing stage from `preparingStaffName`
-- render the delivery stage from `deliveringShipperName`
-- show them in that order on the order processing timeline
-
-### `ADMIN` and `MANAGER`
+### `ADMIN`
 
 Possible actions:
 - `CONFIRM_ORDER`
@@ -150,31 +70,28 @@ Possible actions:
 - `GENERATE_INVOICE`
 - `VIEW_INVOICE`
 
-Current rules:
-- `CONFIRM_ORDER`: only when `paymentStatus=PAID` and `status=PENDING`
-- `CANCEL_ORDER`: when order is not `CANCELLED` and not `COMPLETED`
-- `MARK_PAID`: when order is not paid yet and not cancelled
-- `GENERATE_INVOICE`: when order is paid, not cancelled, and invoice does not exist yet
-- `VIEW_INVOICE`: when invoice already exists
-
-### `STAFF`
+### `MANAGER`
 
 Possible actions:
+- `CONFIRM_ORDER`
+- `CANCEL_ORDER`
+- `MARK_PAID`
+- `GENERATE_INVOICE`
+- `VIEW_INVOICE`
 - `ACCEPT_PREPARING`
 - `MARK_READY`
-- `VIEW_INVOICE`
 
-Current rules:
-- `ACCEPT_PREPARING`: only when:
-  - order belongs to staff's `workingStoreId`
+Manager preparing rules:
+- `ACCEPT_PREPARING` when:
+  - order belongs to manager `workingStoreId`
   - `paymentStatus=PAID`
   - `status=CONFIRMED`
-  - no other staff has claimed it, or already claimed by self
-- `MARK_READY`: only when:
-  - order belongs to staff's `workingStoreId`
+  - no other manager has claimed it, or already claimed by self
+- `MARK_READY` when:
+  - order belongs to manager `workingStoreId`
   - `paymentStatus=PAID`
   - `status=PREPARING`
-  - order is claimed by that same staff
+  - current manager is the assigned preparing actor
 
 ### `SHIPPER`
 
@@ -183,140 +100,50 @@ Possible actions:
 - `MARK_COMPLETED`
 - `VIEW_INVOICE`
 
-Current rules:
-- `ACCEPT_DELIVERY`: only when:
-  - order belongs to shipper's `workingStoreId`
-  - `paymentStatus=PAID`
-  - `status=READY_FOR_SHIPPER`
-  - no other shipper has claimed it, or already claimed by self
-- `MARK_COMPLETED`: only when:
-  - order belongs to shipper's `workingStoreId`
-  - `paymentStatus=PAID`
-  - `status=OUT_FOR_DELIVERY`
-  - order is claimed by that same shipper
-
 ### `USER`
 
 Possible actions:
 - `REFRESH_PAYMENT`
 - `VIEW_INVOICE`
 
-Current rules:
-- `REFRESH_PAYMENT`: only when:
-  - order belongs to current user
-  - order is not paid yet
-  - order is not cancelled
-- `VIEW_INVOICE`: only when invoice exists
+## 5. Timeline Rendering Rule
 
-## 5. Request And Response Samples
+Render order progress actors in this order:
+1. `confirmedByUserName`
+2. `preparingStaffName`
+3. `deliveringShipperName`
 
-### 5.1 Admin confirm order
+Do not rename fields in frontend contract yet.
+Only change the label shown in UI:
+- `preparingStaffName` should display as the manager handling preparation
 
-Request:
+## 6. Samples
 
-```http
-POST /api/admin/orders/22/confirm
-Authorization: Bearer <accessToken>
-```
-
-Response:
+### OrderResponse after manager accepted preparing
 
 ```json
 {
   "id": 22,
-  "status": "CONFIRMED",
+  "status": "PREPARING",
   "paymentStatus": "PAID",
-  "allowedActions": ["CANCEL_ORDER", "VIEW_INVOICE"],
+  "confirmedByUserId": 5,
+  "confirmedByUserName": "Store Manager",
+  "confirmedByUserRole": "MANAGER",
+  "confirmedAt": "2026-03-30T10:18:00Z",
+  "preparingStaffId": 21,
+  "preparingStaffName": "Manager A",
+  "deliveringShipperId": null,
+  "deliveringShipperName": null,
   "invoiceAvailable": true,
   "invoiceNumber": "TM-INV-00000022",
-  "preparingStaffId": null,
-  "preparingStaffName": null
+  "allowedActions": ["MARK_READY", "VIEW_INVOICE"],
+  "statusSummary": "Quan ly Manager A dang xu ly don"
 }
 ```
 
-### 5.2 Admin mark paid
+### Employee scan request
 
-Request:
-
-```http
-POST /api/admin/orders/22/mark-paid
-Authorization: Bearer <accessToken>
-```
-
-Response:
-
-```json
-{
-  "id": 22,
-  "status": "PENDING",
-  "paymentStatus": "PAID",
-  "paidAt": "2026-03-30T10:15:00Z",
-  "invoiceAvailable": true,
-  "invoiceNumber": "TM-INV-00000022",
-  "allowedActions": ["CONFIRM_ORDER", "CANCEL_ORDER", "VIEW_INVOICE"]
-}
-```
-
-### 5.3 Admin generate invoice
-
-Request:
-
-```http
-POST /api/admin/orders/22/invoice/generate
-Authorization: Bearer <accessToken>
-```
-
-Response:
-
-```json
-{
-  "id": 22,
-  "invoiceAvailable": true,
-  "invoiceId": 22,
-  "invoiceNumber": "TM-INV-00000022",
-  "invoiceIssuedAt": "2026-03-30T10:15:00Z",
-  "invoicePreviewUrl": "/api/public/order-qr/qr_tok_abc",
-  "invoiceDownloadUrl": "/api/public/order-qr/qr_tok_abc?download=true",
-  "orderQrToken": "qr_tok_abc",
-  "allowedActions": ["CANCEL_ORDER", "VIEW_INVOICE"]
-}
-```
-
-### 5.4 Admin or user open invoice HTML
-
-Admin preview:
-
-```http
-GET /api/admin/orders/22/invoice
-Authorization: Bearer <accessToken>
-```
-
-User preview:
-
-```http
-GET /api/user/orders/22/invoice
-Authorization: Bearer <accessToken>
-```
-
-Public QR preview:
-
-```http
-GET /api/public/order-qr/qr_tok_abc
-```
-
-Download variant:
-
-```http
-GET /api/public/order-qr/qr_tok_abc?download=true
-```
-
-Response:
-- `Content-Type: text/html`
-- Body is printable invoice HTML
-
-### 5.5 Employee scan request
-
-Staff claim preparing:
+Manager claim preparing:
 
 ```json
 {
@@ -334,40 +161,32 @@ Shipper claim delivery:
 }
 ```
 
-### 5.6 Employee scan success response
+### Employee scan success response
 
 ```json
 {
   "success": true,
   "message": "Order claimed successfully",
   "claimedByUserId": 21,
-  "claimedByUserName": "Staff A",
-  "claimedByUserRole": "STAFF",
+  "claimedByUserName": "Manager A",
+  "claimedByUserRole": "MANAGER",
   "order": {
     "id": 22,
     "status": "PREPARING",
     "paymentStatus": "PAID",
     "preparingStaffId": 21,
-    "preparingStaffName": "Staff A",
-    "allowedActions": ["MARK_READY", "VIEW_INVOICE"],
-    "invoiceAvailable": true,
-    "invoiceNumber": "TM-INV-00000022"
+    "preparingStaffName": "Manager A",
+    "allowedActions": ["MARK_READY", "VIEW_INVOICE"]
   }
 }
 ```
 
-### 5.7 Employee scan failure response
-
-Important:
-- This endpoint may still return HTTP `200`
-- Frontend must check `success`
-
-Example invalid sequence:
+### Employee scan failure response
 
 ```json
 {
   "success": false,
-  "message": "Order must be prepared by staff before shipper can accept it",
+  "message": "Order must be prepared by manager before shipper can accept it",
   "claimedByUserId": null,
   "claimedByUserName": null,
   "claimedByUserRole": null,
@@ -380,67 +199,31 @@ Example invalid sequence:
 }
 ```
 
-Example invalid QR:
+### Admin scan history item
 
 ```json
 {
-  "success": false,
-  "message": "Invoice QR is invalid or expired",
-  "order": null,
-  "claimedByUserId": null,
-  "claimedByUserName": null,
-  "claimedByUserRole": null
+  "id": 5,
+  "orderId": 22,
+  "scannedByUserId": 21,
+  "scannedByUserName": "Manager A",
+  "role": "MANAGER",
+  "action": "ACCEPT_PREPARING",
+  "scannedAt": "2026-03-30T10:20:00Z",
+  "success": true,
+  "failureReason": null
 }
 ```
 
-### 5.8 Admin scan history response
+## 7. Frontend Rendering Rules
 
-```json
-[
-  {
-    "id": 5,
-    "orderId": 22,
-    "scannedByUserId": 21,
-    "scannedByUserName": "Staff A",
-    "role": "STAFF",
-    "action": "ACCEPT_PREPARING",
-    "scannedAt": "2026-03-30T10:20:00Z",
-    "success": true,
-    "failureReason": null
-  },
-  {
-    "id": 4,
-    "orderId": 22,
-    "scannedByUserId": 31,
-    "scannedByUserName": "Shipper B",
-    "role": "SHIPPER",
-    "action": "ACCEPT_DELIVERY",
-    "scannedAt": "2026-03-30T10:18:00Z",
-    "success": false,
-    "failureReason": "Order must be prepared by staff before shipper can accept it"
-  }
-]
-```
-
-## 6. Frontend Rendering Notes
-
-- Prefer `allowedActions.includes(...)` to decide which buttons to show.
-- For invoice open/print buttons, use `invoicePreviewUrl` or `invoiceDownloadUrl`.
-- For QR pages on mobile/web, `orderQrToken` can be converted into:
-  - preview: `/api/public/order-qr/{orderQrToken}`
-  - download: `/api/public/order-qr/{orderQrToken}?download=true`
-- `POST /api/employee/orders/scan` should show `response.message` even when HTTP status is `200`.
-- `GET /api/public/order-qr/{token}` is safe for end-user viewing and does not expose internal assignment actions.
-
-## 7. Recommended Frontend Button Mapping
-
-- `CONFIRM_ORDER` -> button: `Confirm order`
-- `CANCEL_ORDER` -> button: `Cancel order`
-- `MARK_PAID` -> button: `Mark paid`
-- `GENERATE_INVOICE` -> button: `Generate invoice`
-- `VIEW_INVOICE` -> button: `View invoice`
-- `ACCEPT_PREPARING` -> button: `Accept preparing`
-- `MARK_READY` -> button: `Mark ready for shipper`
-- `ACCEPT_DELIVERY` -> button: `Accept delivery`
-- `MARK_COMPLETED` -> button: `Mark completed`
-- `REFRESH_PAYMENT` -> button: `Create new PayOS payment`
+- Prefer `allowedActions.includes(...)` for buttons
+- Use `invoicePreviewUrl` and `invoiceDownloadUrl` to open invoice
+- Use `orderQrToken` only as data, not as visible text
+- For employee screens:
+  - `MANAGER` handles preparing
+  - `SHIPPER` handles delivery
+- For labels, show:
+  - `Manager preparing`
+  - `Shipper delivering`
+  instead of older `staff` wording

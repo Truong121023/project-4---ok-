@@ -4230,6 +4230,9 @@ export default function AdminPage({ forcedSection = "" }) {
           : "",
         item.discountTarget ? `Discount target: ${item.discountTarget}` : "",
         item.scope ? "Applies to signature items across all stores" : "",
+        item.minStoreBillAmount !== undefined && item.minStoreBillAmount !== null
+          ? `Minimum store bill: ${formatCurrency(item.minStoreBillAmount)}`
+          : "",
         Array.isArray(item.applicableDishIds) && item.applicableDishIds.length
           ? `Applicable signature dish IDs: ${item.applicableDishIds.join(", ")}`
           : Array.isArray(item.promotionDishIds) && item.promotionDishIds.length

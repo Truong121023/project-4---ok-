@@ -250,6 +250,11 @@ export default function LoginPage() {
             </p>
           </div>
 
+          <div className="rounded-[1.2rem] border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm leading-7 text-amber-900">
+            Tai khoan <strong>SHIPPER</strong> chi dang nhap tren ung dung mobile. Website nay
+            danh cho USER, STAFF, MANAGER va ADMIN.
+          </div>
+
           {infoMessage ? (
             <div className="rounded-2xl bg-matcha-500/12 px-4 py-3 text-sm text-matcha-700">
               {infoMessage}

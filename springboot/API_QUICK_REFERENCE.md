@@ -60,6 +60,8 @@ Detailed guides:
 | Method | Path | Request Example | Response Example |
 | --- | --- | --- | --- |
 | `POST` | `/api/ai/chat/query` | `aiChatQueryRequest` | `aiChatResponse` |
+| `GET` | `/api/ai/chat/threads` | `?page=0&size=20` | `aiChatThreadPageResponse` |
+| `GET` | `/api/ai/chat/threads/{threadId}` | `/api/ai/chat/threads/18` | `aiChatThreadDetailResponse` |
 
 ### Cart And Checkout
 
@@ -477,9 +479,12 @@ Detailed guides:
         "role": "user",
         "content": "Cho minh xem tin tuc moi"
       }
-    ]
+    ],
+    "threadId": 18
   },
   "aiChatResponse": {
+    "threadId": 18,
+    "threadTitle": "Cua hang nao o Quan 1 co matcha latte va voucher giam gia?",
     "answer": "Tea House Q1 dang co Matcha Latte va co the kiem tra them voucher MATCHA10 trong danh sach khuyen mai hien tai.",
     "references": [
       {
@@ -496,6 +501,18 @@ Detailed guides:
         "userApiPath": null
       }
     ],
+    "actions": [
+      {
+        "actionKey": "open:store:1",
+        "actionType": "OPEN_STORE",
+        "label": "Xem cua hang",
+        "description": "Tea House Q1",
+        "method": "GET",
+        "apiPath": "/api/public/stores/tea-house-q1",
+        "referenceKey": "store:1",
+        "payload": null
+      }
+    ],
     "currentUserStatus": {
       "id": 12,
       "fullName": "Nguyen Van A",
@@ -508,6 +525,76 @@ Detailed guides:
       "workingStoreName": null
     },
     "model": "gpt-5.4-nano"
+  },
+  "aiChatThreadPageResponse": {
+    "items": [
+      {
+        "threadId": 18,
+        "title": "Cua hang nao o Quan 1 co matcha latte va voucher giam gia?",
+        "messageCount": 6,
+        "lastMessageRole": "assistant",
+        "lastMessagePreview": "Tea House Q1 dang co Matcha Latte va co the kiem tra them voucher MATCHA10 trong danh sach khuyen mai hien tai.",
+        "lastMessageAt": "2026-04-11T04:15:10Z",
+        "updatedAt": "2026-04-11T04:15:10Z"
+      }
+    ],
+    "page": 0,
+    "size": 20,
+    "totalItems": 1,
+    "totalPages": 1,
+    "hasNext": false,
+    "hasPrevious": false
+  },
+  "aiChatThreadDetailResponse": {
+    "threadId": 18,
+    "title": "Cua hang nao o Quan 1 co matcha latte va voucher giam gia?",
+    "messages": [
+      {
+        "id": 101,
+        "role": "user",
+        "content": "Cho minh xem tin tuc moi",
+        "references": [],
+        "actions": [],
+        "model": null,
+        "createdAt": "2026-04-11T04:12:00Z"
+      },
+      {
+        "id": 102,
+        "role": "assistant",
+        "content": "Tea House Q1 dang co Matcha Latte va co the kiem tra them voucher MATCHA10 trong danh sach khuyen mai hien tai.",
+        "references": [
+          {
+            "referenceKey": "store:1",
+            "entityType": "STORE",
+            "tableName": "stores",
+            "id": 1,
+            "slug": "tea-house-q1",
+            "title": "Tea House Q1",
+            "subtitle": "District 1 - 12 Nguyen Trai, District 1",
+            "imagePath": "/uploads/stores/tea-house-q1.jpg",
+            "publicApiPath": "/api/public/stores/tea-house-q1",
+            "adminApiPath": "/api/admin/stores/1",
+            "userApiPath": null
+          }
+        ],
+        "actions": [
+          {
+            "actionKey": "open:store:1",
+            "actionType": "OPEN_STORE",
+            "label": "Xem cua hang",
+            "description": "Tea House Q1",
+            "method": "GET",
+            "apiPath": "/api/public/stores/tea-house-q1",
+            "referenceKey": "store:1",
+            "payload": null
+          }
+        ],
+        "model": "gpt-5.4-nano",
+        "createdAt": "2026-04-11T04:12:03Z"
+      }
+    ],
+    "createdAt": "2026-04-11T04:12:00Z",
+    "updatedAt": "2026-04-11T04:15:10Z"
   },
   "cartItemRequest": {
     "storeId": 1,
@@ -630,7 +717,7 @@ Detailed guides:
     "id": 91,
     "type": "ORDER_TASK",
     "title": "Don hang da thanh toan #701",
-    "message": "Don hang #701 tai Tea House Q1 da thanh toan. Nhan vien vui long nhan xu ly.",
+    "message": "Don hang #701 tai Tea House Q1 da thanh toan. Quan ly cua hang vui long nhan xu ly.",
     "relatedOrderId": 701,
     "orderId": 701,
     "relatedStoreId": 1,
@@ -715,20 +802,20 @@ Detailed guides:
     "hasNext": false,
     "hasPrevious": false
   },
-  "staffAcceptedOrderResponse": {
+  "managerAcceptedOrderResponse": {
     "id": 701,
     "status": "PREPARING",
     "paymentStatus": "PAID",
     "preparingStaffId": 15,
-    "preparingStaffName": "Barista A",
-    "statusSummary": "Nhan vien Barista A dang lam mon"
+    "preparingStaffName": "Manager A",
+    "statusSummary": "Quan ly Manager A dang xu ly don"
   },
-  "staffReadyOrderResponse": {
+  "managerReadyOrderResponse": {
     "id": 701,
     "status": "READY_FOR_SHIPPER",
     "paymentStatus": "PAID",
     "preparingStaffId": 15,
-    "preparingStaffName": "Barista A",
+    "preparingStaffName": "Manager A",
     "statusSummary": "Da lam xong - cho shipper"
   },
   "shipperAcceptedOrderResponse": {
@@ -834,10 +921,10 @@ Detailed guides:
 ```json
 {
   "adminUserRequest": {
-    "fullName": "Staff A",
-    "email": "staff@example.com",
+    "fullName": "Store Manager",
+    "email": "manager.q1@example.com",
     "password": "12345678",
-    "role": "STAFF",
+    "role": "MANAGER",
     "workingStoreId": 1,
     "enabled": true
   },
@@ -846,9 +933,9 @@ Detailed guides:
   },
   "adminUserResponse": {
     "id": 15,
-    "fullName": "Staff A",
-    "email": "staff@example.com",
-    "role": "STAFF",
+    "fullName": "Store Manager",
+    "email": "manager.q1@example.com",
+    "role": "MANAGER",
     "workingStoreId": 1,
     "workingStoreName": "Tea House Q1",
     "enabled": true,
@@ -1195,9 +1282,9 @@ Detailed guides:
     "items": [
       {
         "id": 15,
-        "fullName": "Staff A",
-        "email": "staff@example.com",
-        "role": "STAFF"
+        "fullName": "Store Manager",
+        "email": "manager.q1@example.com",
+        "role": "MANAGER"
       }
     ],
     "page": 0,

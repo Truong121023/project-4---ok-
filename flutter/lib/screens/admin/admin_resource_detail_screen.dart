@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../../app/app.dart';
 import '../../core/models/models.dart';
@@ -84,16 +84,16 @@ class _AdminResourceDetailScreenState extends State<AdminResourceDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Xoa ${widget.module.title}?'),
-        content: const Text('Thao tac nay khong the hoan tac.'),
+        title: Text('Delete ${widget.module.title}?'),
+        content: const Text('This action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Huy'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Xoa'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -191,7 +191,7 @@ class _AdminResourceDetailScreenState extends State<AdminResourceDetailScreen> {
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: () => Navigator.of(context).pop(textController.text.trim()),
-                  child: const Text('Luu reply'),
+                  child: const Text('Save reply'),
                 ),
               ),
             ],
@@ -213,7 +213,7 @@ class _AdminResourceDetailScreenState extends State<AdminResourceDetailScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Da luu reply cho feedback.')),
+        const SnackBar(content: Text('Reply saved for this feedback.')),
       );
       await _refresh();
     } on ApiException catch (error) {
@@ -258,8 +258,8 @@ class _AdminResourceDetailScreenState extends State<AdminResourceDetailScreen> {
       );
     }
     if (widget.module.id == 'feedbacks') {
-      items.add(const PopupMenuItem<String>(value: 'feedback-reply', child: Text('Sua reply')));
-      items.add(const PopupMenuItem<String>(value: 'feedback-reply-delete', child: Text('Xoa reply')));
+      items.add(const PopupMenuItem<String>(value: 'feedback-reply', child: Text('Edit reply')));
+      items.add(const PopupMenuItem<String>(value: 'feedback-reply-delete', child: Text('Delete reply')));
     }
     if (canDeleteAdminModule(
           role: currentRole,
@@ -270,7 +270,7 @@ class _AdminResourceDetailScreenState extends State<AdminResourceDetailScreen> {
       if (items.isNotEmpty) {
         items.add(const PopupMenuDivider());
       }
-      items.add(const PopupMenuItem<String>(value: 'delete', child: Text('Xoa record')));
+      items.add(const PopupMenuItem<String>(value: 'delete', child: Text('Delete record')));
     }
     return items;
   }
@@ -311,7 +311,7 @@ class _AdminResourceDetailScreenState extends State<AdminResourceDetailScreen> {
             IconButton(
               onPressed: _openEditor,
               icon: const Icon(Icons.edit_outlined),
-              tooltip: 'Sua',
+              tooltip: 'Edit',
             ),
           if (actions.isNotEmpty)
             PopupMenuButton<String>(
@@ -354,4 +354,3 @@ class _AdminResourceDetailScreenState extends State<AdminResourceDetailScreen> {
     );
   }
 }
-

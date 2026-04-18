@@ -8,6 +8,7 @@ Detailed guides:
 - `FRONTEND_ADMIN_API.md`
 - `FRONTEND_ADMIN_AI_DRAFT_NOTE.md`
 - `FRONTEND_AI_CHAT_NOTE.md`
+- `FRONTEND_SHIPPING_FEE_CONTRACT.md`
 
 ## Common Rules
 
@@ -60,6 +61,8 @@ Detailed guides:
 | Method | Path | Request Example | Response Example |
 | --- | --- | --- | --- |
 | `POST` | `/api/ai/chat/query` | `aiChatQueryRequest` | `aiChatResponse` |
+| `GET` | `/api/ai/chat/threads` | `?page=0&size=20` | `aiChatThreadPageResponse` |
+| `GET` | `/api/ai/chat/threads/{threadId}` | `/api/ai/chat/threads/18` | `aiChatThreadDetailResponse` |
 
 ### Cart And Checkout
 
@@ -477,9 +480,12 @@ Detailed guides:
         "role": "user",
         "content": "Cho minh xem tin tuc moi"
       }
-    ]
+    ],
+    "threadId": 18
   },
   "aiChatResponse": {
+    "threadId": 18,
+    "threadTitle": "Cua hang nao o Quan 1 co matcha latte va voucher giam gia?",
     "answer": "Tea House Q1 dang co Matcha Latte va co the kiem tra them voucher MATCHA10 trong danh sach khuyen mai hien tai.",
     "references": [
       {
@@ -496,6 +502,18 @@ Detailed guides:
         "userApiPath": null
       }
     ],
+    "actions": [
+      {
+        "actionKey": "open:store:1",
+        "actionType": "OPEN_STORE",
+        "label": "Xem cua hang",
+        "description": "Tea House Q1",
+        "method": "GET",
+        "apiPath": "/api/public/stores/tea-house-q1",
+        "referenceKey": "store:1",
+        "payload": null
+      }
+    ],
     "currentUserStatus": {
       "id": 12,
       "fullName": "Nguyen Van A",
@@ -508,6 +526,76 @@ Detailed guides:
       "workingStoreName": null
     },
     "model": "gpt-5.4-nano"
+  },
+  "aiChatThreadPageResponse": {
+    "items": [
+      {
+        "threadId": 18,
+        "title": "Cua hang nao o Quan 1 co matcha latte va voucher giam gia?",
+        "messageCount": 6,
+        "lastMessageRole": "assistant",
+        "lastMessagePreview": "Tea House Q1 dang co Matcha Latte va co the kiem tra them voucher MATCHA10 trong danh sach khuyen mai hien tai.",
+        "lastMessageAt": "2026-04-11T04:15:10Z",
+        "updatedAt": "2026-04-11T04:15:10Z"
+      }
+    ],
+    "page": 0,
+    "size": 20,
+    "totalItems": 1,
+    "totalPages": 1,
+    "hasNext": false,
+    "hasPrevious": false
+  },
+  "aiChatThreadDetailResponse": {
+    "threadId": 18,
+    "title": "Cua hang nao o Quan 1 co matcha latte va voucher giam gia?",
+    "messages": [
+      {
+        "id": 101,
+        "role": "user",
+        "content": "Cho minh xem tin tuc moi",
+        "references": [],
+        "actions": [],
+        "model": null,
+        "createdAt": "2026-04-11T04:12:00Z"
+      },
+      {
+        "id": 102,
+        "role": "assistant",
+        "content": "Tea House Q1 dang co Matcha Latte va co the kiem tra them voucher MATCHA10 trong danh sach khuyen mai hien tai.",
+        "references": [
+          {
+            "referenceKey": "store:1",
+            "entityType": "STORE",
+            "tableName": "stores",
+            "id": 1,
+            "slug": "tea-house-q1",
+            "title": "Tea House Q1",
+            "subtitle": "District 1 - 12 Nguyen Trai, District 1",
+            "imagePath": "/uploads/stores/tea-house-q1.jpg",
+            "publicApiPath": "/api/public/stores/tea-house-q1",
+            "adminApiPath": "/api/admin/stores/1",
+            "userApiPath": null
+          }
+        ],
+        "actions": [
+          {
+            "actionKey": "open:store:1",
+            "actionType": "OPEN_STORE",
+            "label": "Xem cua hang",
+            "description": "Tea House Q1",
+            "method": "GET",
+            "apiPath": "/api/public/stores/tea-house-q1",
+            "referenceKey": "store:1",
+            "payload": null
+          }
+        ],
+        "model": "gpt-5.4-nano",
+        "createdAt": "2026-04-11T04:12:03Z"
+      }
+    ],
+    "createdAt": "2026-04-11T04:12:00Z",
+    "updatedAt": "2026-04-11T04:15:10Z"
   },
   "cartItemRequest": {
     "storeId": 1,

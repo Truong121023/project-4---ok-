@@ -1,110 +1,60 @@
 # Frontend Role API Note
 
-Updated on 2026-03-30.
+Updated on 2026-04-11.
 
-Purpose: this file is a role-based note for frontend teams.
-If this file conflicts with older manager notes in `FRONTEND_ADMIN_API.md`, use this file as the newer rule.
+Purpose: this file is the current role handoff for frontend teams.
+If older docs conflict with this file, use this file as the source of truth.
 
-Full DTO details still live in:
+Related docs:
 - `FRONTEND_ADMIN_API.md`
 - `FRONTEND_USER_API.md`
-- `FRONTEND_USER_ROLE_NOTE.md`
 - `FRONTEND_ORDER_INVOICE_QR_NOTE.md`
-- `FRONTEND_FIX_HANDOFF_2026-04-04.md`
-- `FRONTEND_SESSION_SECURITY_NOTE.md`
-- `FRONTEND_ADMIN_AI_DRAFT_NOTE.md`
 - `FRONTEND_AI_CHAT_NOTE.md`
 - `MOBILE_ORDER_QR_NOTE.md`
 
-## 1. Shared Login Flow
+## 1. Active Roles
 
-All protected APIs still use the same session token flow.
+Only these roles are active in the backend now:
+
+| Role | Main UI | Main responsibility |
+| --- | --- | --- |
+| `ADMIN` | Admin dashboard | Full system management |
+| `MANAGER` | Store manager panel + store operations | Store-scoped admin work and preparing-step order handling |
+| `SHIPPER` | Delivery panel | Delivery-step order handling |
+| `USER` | Storefront app | Shopping, checkout, tracking, feedback, support |
+
+Important:
+- `STAFF` is removed from active backend roles.
+- Some legacy response fields still keep the name `preparingStaffId` and `preparingStaffName`.
+- Those two fields now represent the assigned `MANAGER` for the preparing step.
+
+## 2. Shared Login Flow
 
 1. `POST /api/auth/login`
 2. Save `accessToken`
-3. Send `Authorization: Bearer <accessToken>` on protected requests
+3. Send `Authorization: Bearer <accessToken>`
 4. Call `GET /api/auth/me`
-5. Read `user.role`
-6. Route UI by role
+5. Route UI by `user.role`
 
-All authenticated roles can also call:
-
+All authenticated roles can also use AI chat:
 - `POST /api/ai/chat/query`
-
-### Login request sample
-
-```json
-{
-  "email": "manager@example.com",
-  "password": "12345678"
-}
-```
-
-### Login response sample
-
-```json
-{
-  "message": "Login successful",
-  "tokenType": "Bearer",
-  "accessToken": "f8f8a9d0c2e1411b9f3d8d5f9e10c001",
-  "expiresAt": "2026-03-30T07:00:00Z",
-  "user": {
-    "id": 5,
-    "fullName": "Store Manager",
-    "email": "manager@example.com",
-    "role": "MANAGER",
-    "workingStoreId": 1,
-    "workingStoreName": "Tea House Q1",
-    "workingStoreAddress": "12 Nguyen Trai, District 1",
-    "verified": true,
-    "createdAt": "2026-03-23T06:00:00Z",
-    "verifiedAt": "2026-03-23T06:10:00Z"
-  }
-}
-```
-
-### `GET /api/auth/me` response sample
-
-```json
-{
-  "message": "Token is valid",
-  "expiresAt": "2026-03-30T07:00:00Z",
-  "user": {
-    "id": 5,
-    "fullName": "Store Manager",
-    "email": "manager@example.com",
-    "role": "MANAGER",
-    "workingStoreId": 1,
-    "workingStoreName": "Tea House Q1",
-    "workingStoreAddress": "12 Nguyen Trai, District 1"
-  }
-}
-```
-
-## 2. Role Matrix
-
-| Role | Main UI | Main permissions |
-| --- | --- | --- |
-| `ADMIN` | Admin dashboard | Full system access |
-| `MANAGER` | Store manager panel | Store-scoped admin access at `workingStoreId` |
-| `STAFF` | Employee kitchen panel | Receive `CONFIRMED` orders, prepare, complete kitchen step |
-| `SHIPPER` | Employee delivery panel | Receive `READY_FOR_SHIPPER` orders, deliver, complete delivery |
-| `USER` | Storefront app | Shop, checkout, review, feedback, support chat |
+- `GET /api/ai/chat/threads`
+- `GET /api/ai/chat/threads/{threadId}`
 
 ## 3. ADMIN
 
 ### Main functions
 
-- Full user management, including `ADMIN`, `MANAGER`, `STAFF`, `SHIPPER`, `USER`
+- Full user management for `ADMIN`, `MANAGER`, `SHIPPER`, `USER`
 - Full store CRUD
 - Full event/category/dish/news/store-dish CRUD
 - Full order management
 - Full review moderation
 - Full feedback moderation
-- Full promotions and user levels management
+- Full promotion and user-level management
 - Full support chat inbox across stores
-- Can view revenue and best-selling dish stats across all stores, or scope dashboard/summary to one store with `?storeId={id}`
-- Can use AI chat to ask about stores, dishes, events, news, promotions, and user/account status
+- Global dashboard, revenue, and top-selling dishes
+- AI form draft and AI chat
 
 ### Main API groups
 
@@ -115,7 +65,6 @@ All authenticated roles can also call:
 - Dashboard
   - `GET /api/admin/dashboard`
   - `GET /api/admin/summary`
-  - `ADMIN` may pass `storeId` to scope analytics to one store
   - `POST /api/admin/ai/form-drafts/{formType}`
 - User management
   - `GET /api/admin/users`
@@ -124,72 +73,37 @@ All authenticated roles can also call:
   - `PUT /api/admin/users/{id}`
   - `PUT /api/admin/users/{id}/verification`
   - `DELETE /api/admin/users/{id}`
-- Store management
-  - `GET /api/admin/stores`
-  - `GET /api/admin/stores/{id}`
-  - `POST /api/admin/stores`
-  - `PUT /api/admin/stores/{id}`
-  - `DELETE /api/admin/stores/{id}`
-- Catalog/content
+- Store and content management
+  - `GET|POST|PUT|DELETE /api/admin/stores`
   - `GET|POST|PUT|DELETE /api/admin/events`
   - `GET|POST|PUT|DELETE /api/admin/categories`
   - `GET|POST|PUT|DELETE /api/admin/dishes`
   - `GET|POST|PUT|DELETE /api/admin/news`
   - `GET|POST|PUT|DELETE /api/admin/store-dishes`
   - `POST /api/admin/uploads/images`
-- Orders/moderation
+- Orders and moderation
   - `GET /api/admin/orders`
   - `GET /api/admin/orders/{id}`
   - `PUT /api/admin/orders/{id}/status`
   - `GET /api/admin/reviews`
-  - `GET /api/admin/reviews/{id}`
   - `DELETE /api/admin/reviews/{id}`
   - `GET /api/admin/feedbacks`
-  - `GET /api/admin/feedbacks/{id}`
-  - `GET /api/admin/feedbacks/{id}/reply`
   - `PUT /api/admin/feedbacks/{id}/reply`
-  - `DELETE /api/admin/feedbacks/{id}/reply`
   - `DELETE /api/admin/feedbacks/{id}`
-- Advanced admin-only
+- Promotions and loyalty
   - `GET|POST|PUT|DELETE /api/admin/promotions`
   - `GET|POST|PUT|DELETE /api/admin/user-levels`
 
-### Admin user create sample
+### Admin sample create user
 
 ```json
 {
-  "fullName": "Staff A",
-  "email": "staff@example.com",
+  "fullName": "Store Manager",
+  "email": "manager.q1@example.com",
   "password": "12345678",
-  "role": "STAFF",
+  "role": "MANAGER",
   "workingStoreId": 1,
   "enabled": true
-}
-```
-
-### Admin store create sample
-
-```json
-{
-  "name": "Tea House Q1",
-  "description": "Fresh matcha drinks in District 1",
-  "address": "12 Nguyen Trai, District 1",
-  "contactEmail": "store@example.com",
-  "phoneNumber": "0909123456",
-  "slug": "tea-house-q1",
-  "imagePaths": ["/uploads/stores/tea-house-q1.jpg"],
-  "active": true
-}
-```
-
-### Admin order update sample
-
-```json
-{
-  "status": "PREPARING",
-  "paymentStatus": "PAID",
-  "preparingStaffId": 21,
-  "deliveringShipperId": null
 }
 ```
 
@@ -198,80 +112,72 @@ All authenticated roles can also call:
 ### Main functions
 
 - Login to admin area with role `MANAGER`
-- Can manage data only for their own `workingStoreId`
-- Can open dashboard and summary, but data is scoped to their own store
-- Dashboard now includes `revenue` plus `topSellingDishes` for the current store
-- Can manage employees in their own store, but only `STAFF` and `SHIPPER`
-- Cannot create/update/delete `ADMIN` or `MANAGER` users
-- Cannot create or delete store branches
-- Can monitor and moderate store-scoped orders, reviews, feedbacks, support chat
-- Receives notifications when a new order is created in their own store
-- Can use AI chat to ask about stores, dishes, events, news, promotions, and staff/shipper account status in scope
+- Access only their own `workingStoreId`
+- Read store-scoped dashboard, revenue, and top-selling dishes
+- Update their own store branch
+- Manage local categories, local dishes, events, news, and store dishes for their own branch
+- Read franchise-wide `SIGNATURE` category and system dishes in admin lists
+- Manage shipper accounts in their own store
+- Moderate store-scoped orders, reviews, feedbacks, and support chat
+- Receive new-order notifications in manager notification center
+- Use employee order APIs for preparing flow
+- Use AI form draft and AI chat
 
-### Manager allowed APIs
+### Important manager rules
 
-- Auth/session
-  - `POST /api/auth/login`
-  - `GET /api/auth/me`
-  - `POST /api/auth/logout`
-- Dashboard
+- `MANAGER` cannot create or delete store branches.
+- `MANAGER` cannot create or promote anyone to `ADMIN` or `MANAGER`.
+- `MANAGER` can only manage `SHIPPER` users in their own store.
+- `MANAGER` can create, update, and delete only local categories whose `storeId` matches their own store.
+- `MANAGER` can read the global `SIGNATURE` category but cannot modify it.
+- `MANAGER` can create, update, and delete only local dishes whose category belongs to their own store.
+- `MANAGER` can read franchise-wide system dishes in `SIGNATURE`, but cannot modify those dish records.
+- `MANAGER` can attach a `SIGNATURE` dish to their own store through `store_dishes`.
+- For `SIGNATURE` dishes, `MANAGER` should edit only `quantity` and `available` in `store_dishes`; keep `storeId`, `dishId`, and `priceOverride` unchanged.
+- `MANAGER` is the actor for the preparing step of an order.
+- QR scan for preparing flow is now manager-owned, not staff-owned.
+
+### Manager APIs
+
+- Admin/store-scoped APIs
   - `GET /api/admin/dashboard`
   - `GET /api/admin/summary`
-  - `MANAGER` should not send another store's `storeId`; backend always locks data to `workingStoreId`
-  - `POST /api/admin/ai/form-drafts/{formType}`
-- Employee management in own store only
   - `GET /api/admin/users`
   - `GET /api/admin/users/{id}`
   - `POST /api/admin/users`
   - `PUT /api/admin/users/{id}`
   - `PUT /api/admin/users/{id}/verification`
   - `DELETE /api/admin/users/{id}`
-- Own store only
   - `GET /api/admin/stores`
   - `GET /api/admin/stores/{id}`
   - `PUT /api/admin/stores/{id}`
-  - `PUT /api/admin/stores/{id}/highlights`
-- Own store resources only
   - `GET|POST|PUT|DELETE /api/admin/events`
   - `GET|POST|PUT|DELETE /api/admin/categories`
   - `GET|POST|PUT|DELETE /api/admin/dishes`
   - `GET|POST|PUT|DELETE /api/admin/news`
   - `GET|POST|PUT|DELETE /api/admin/store-dishes`
-  - `POST /api/admin/uploads/images`
-- Own store orders/moderation
   - `GET /api/admin/orders`
   - `GET /api/admin/orders/{id}`
   - `PUT /api/admin/orders/{id}/status`
-  - `GET /api/admin/reviews`
-  - `GET /api/admin/reviews/{id}`
-  - `DELETE /api/admin/reviews/{id}`
-  - `GET /api/admin/feedbacks`
-  - `GET /api/admin/feedbacks/{id}`
-  - `GET /api/admin/feedbacks/{id}/reply`
-  - `PUT /api/admin/feedbacks/{id}/reply`
-  - `DELETE /api/admin/feedbacks/{id}/reply`
-  - `DELETE /api/admin/feedbacks/{id}`
 - Manager notification center
   - `GET /api/admin/notifications`
   - `GET /api/admin/notifications/unread-count`
   - `PUT /api/admin/notifications/{id}/read`
   - `PUT /api/admin/notifications/{id}/unread`
   - `PUT /api/admin/notifications/read-all`
+- Employee operation APIs
+  - `GET /api/employee/orders`
+  - `GET /api/employee/orders/{id}`
+  - `POST /api/employee/orders/{id}/accept-preparing`
+  - `POST /api/employee/orders/{id}/mark-ready`
+  - `POST /api/employee/orders/{id}/complete-preparing`
+  - `GET /api/employee/notifications`
+  - `GET /api/employee/notifications/unread-count`
+  - `PUT /api/employee/notifications/{id}/read`
+  - `PUT /api/employee/notifications/{id}/unread`
+  - `PUT /api/employee/notifications/read-all`
 
-### Manager blocked APIs
-
-- `POST /api/admin/stores`
-- `DELETE /api/admin/stores/{id}`
-- `GET|POST|PUT|DELETE /api/admin/promotions`
-- `GET|POST|PUT|DELETE /api/admin/user-levels`
-
-### Manager employee create/update rule
-
-- `role` must be `STAFF` or `SHIPPER`
-- `workingStoreId` must equal manager `workingStoreId`
-- Frontend should hide `ADMIN` and `MANAGER` in manager role forms
-
-### Manager employee create sample
+### Manager create shipper sample
 
 ```json
 {
@@ -284,49 +190,18 @@ All authenticated roles can also call:
 }
 ```
 
-## 5. STAFF
+### Manager order workflow
 
-### Main functions
+1. Paid order is confirmed and enters `CONFIRMED`
+2. `MANAGER` calls `POST /api/employee/orders/{id}/accept-preparing`
+3. Backend stores the manager in legacy fields:
+   - `preparingStaffId`
+   - `preparingStaffName`
+4. Order moves to `PREPARING`
+5. `MANAGER` calls `POST /api/employee/orders/{id}/mark-ready`
+6. Order moves to `READY_FOR_SHIPPER`
 
-- See paid orders in own store that are waiting for kitchen
-- Accept a `CONFIRMED` order
-- Work on accepted order in `PREPARING`
-- Finish kitchen step and move order to `READY_FOR_SHIPPER`
-- Read employee notifications
-- Can use AI chat to ask about stores, dishes, events, news, promotions, and their own account status
-
-### Staff APIs
-
-- Orders
-  - `GET /api/employee/orders`
-  - `GET /api/employee/orders/{id}`
-  - `POST /api/employee/orders/{id}/accept-preparing`
-  - `POST /api/employee/orders/{id}/mark-ready`
-  - `POST /api/employee/orders/{id}/complete-preparing`
-- Notifications
-  - `GET /api/employee/notifications`
-  - `GET /api/employee/notifications/unread-count`
-  - `PUT /api/employee/notifications/{id}/read`
-  - `PUT /api/employee/notifications/{id}/unread`
-  - `PUT /api/employee/notifications/read-all`
-- AI chat
-  - `POST /api/ai/chat/query`
-
-### Staff order workflow
-
-1. Order is paid and backend moves it to `CONFIRMED`
-2. Staff calls `POST /api/employee/orders/{id}/accept-preparing`
-3. Backend assigns `preparingStaffId` to current staff and sets status `PREPARING`
-4. Staff calls `POST /api/employee/orders/{id}/mark-ready`
-5. Backend sets status `READY_FOR_SHIPPER`
-
-`POST /api/employee/orders/{id}/complete-preparing` is an alias of `mark-ready`
-
-### Staff accept order request
-
-- No body
-
-### Staff order response sample
+### Manager order response sample
 
 ```json
 {
@@ -336,48 +211,38 @@ All authenticated roles can also call:
   "status": "PREPARING",
   "paymentStatus": "PAID",
   "preparingStaffId": 21,
-  "preparingStaffName": "Staff A",
+  "preparingStaffName": "Manager A",
   "deliveringShipperId": null,
   "deliveringShipperName": null,
-  "statusSummary": "Nhan vien Staff A dang lam mon",
+  "statusSummary": "Quan ly Manager A dang xu ly don",
   "items": []
 }
 ```
 
-## 6. SHIPPER
+## 5. SHIPPER
 
 ### Main functions
 
-- See paid orders in own store waiting for shipper
+- See orders in own store waiting for shipper
 - Accept a `READY_FOR_SHIPPER` order
 - Deliver accepted order in `OUT_FOR_DELIVERY`
 - Complete delivery and move order to `COMPLETED`
+- Upload delivery proof
 - Read employee notifications
-- Can use AI chat to ask about stores, dishes, events, news, promotions, and their own account status
+- Use AI chat for their own account status and general content
 
 ### Shipper APIs
 
-- Orders
-  - `GET /api/employee/orders`
-  - `GET /api/employee/orders/{id}`
-  - `POST /api/employee/orders/{id}/accept-delivery`
-  - `POST /api/employee/orders/{id}/complete-delivery`
-- Notifications
-  - `GET /api/employee/notifications`
-  - `GET /api/employee/notifications/unread-count`
-  - `PUT /api/employee/notifications/{id}/read`
-  - `PUT /api/employee/notifications/{id}/unread`
-  - `PUT /api/employee/notifications/read-all`
-- AI chat
-  - `POST /api/ai/chat/query`
-
-### Shipper order workflow
-
-1. Kitchen finishes order and backend sets `READY_FOR_SHIPPER`
-2. Shipper calls `POST /api/employee/orders/{id}/accept-delivery`
-3. Backend assigns `deliveringShipperId` and sets `OUT_FOR_DELIVERY`
-4. Shipper calls `POST /api/employee/orders/{id}/complete-delivery`
-5. Backend sets `COMPLETED`
+- `GET /api/employee/orders`
+- `GET /api/employee/orders/{id}`
+- `POST /api/employee/orders/{id}/accept-delivery`
+- `POST /api/employee/orders/{id}/complete-delivery`
+- `POST /api/employee/orders/{id}/delivery-proof`
+- `GET /api/employee/notifications`
+- `GET /api/employee/notifications/unread-count`
+- `PUT /api/employee/notifications/{id}/read`
+- `PUT /api/employee/notifications/{id}/unread`
+- `PUT /api/employee/notifications/read-all`
 
 ### Shipper order response sample
 
@@ -389,7 +254,7 @@ All authenticated roles can also call:
   "status": "OUT_FOR_DELIVERY",
   "paymentStatus": "PAID",
   "preparingStaffId": 21,
-  "preparingStaffName": "Staff A",
+  "preparingStaffName": "Manager A",
   "deliveringShipperId": 30,
   "deliveringShipperName": "Shipper Q1",
   "statusSummary": "Shipper Q1 dang giao hang",
@@ -397,211 +262,54 @@ All authenticated roles can also call:
 }
 ```
 
-## 7. USER
+## 6. USER
 
 ### Main functions
 
 - Register / login / logout
-- Browse public catalog
+- Browse stores, dishes, events, news
 - Manage cart and checkout
-- Manage delivery addresses
-- See own orders and refresh payment
+- Refresh payment link for unpaid orders
+- View invoice and QR
+- Track own orders
 - Manage favorites
-- Create review
+- Create reviews
 - Create feedback
 - Read storefront notifications
-- Read loyalty levels
-- Open support chat with store
-- Can use AI chat to ask about stores, dishes, events, news, promotions, and their own account status
+- Open support chat
+- Use AI chat as shopping assistant
 
 ### User APIs
 
-- Auth/session
-  - `POST /api/auth/register`
-  - `POST /api/auth/verify-otp`
-  - `POST /api/auth/password/request-otp`
-  - `POST /api/auth/password/reset`
-  - `POST /api/auth/login`
-  - `POST /api/auth/google/login`
-  - `POST /api/auth/google/complete-profile`
-  - `GET /api/auth/me`
-  - `POST /api/auth/logout`
-- Public browse
-  - `GET /api/public/home`
-  - `GET /api/public/stores`
-  - `GET /api/public/stores/{storeKey}`
-  - `GET /api/public/dishes`
-  - `GET /api/public/dishes/{dishId}`
-  - `GET /api/public/events`
-  - `GET /api/public/events/{eventKey}`
-  - `GET /api/public/news`
-  - `GET /api/public/news/{newsKey}`
-  - `GET /api/public/reviews`
-- Cart / checkout
-  - `GET /api/user/cart`
-  - `POST /api/user/cart/items`
-  - `PUT /api/user/cart/items/{id}`
-  - `DELETE /api/user/cart/items/{id}`
-  - `DELETE /api/user/cart`
-  - `POST /api/user/cart/checkout`
-- Address / order / favorites / review / feedback / notification / levels
-  - `GET|POST|PUT|DELETE /api/user/delivery-addresses`
-  - `PUT /api/user/delivery-addresses/{id}/primary`
-  - `GET /api/user/orders`
-  - `GET /api/user/orders/{id}`
-  - `POST /api/user/orders/{id}/refresh-payment`
-  - `GET|POST|DELETE /api/user/favorites`
-  - `GET|POST|PUT|DELETE /api/user/reviews`
-  - `GET|POST|DELETE /api/user/feedbacks`
-  - `GET|PUT /api/user/notifications`
-  - `GET /api/user/levels/current`
-- Support chat
-  - `GET /api/support-chat/stores`
-  - Socket.IO connection to `http://localhost:8080` path `/socket.io`
-- AI chat
-  - `POST /api/ai/chat/query`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `GET /api/public/*`
+- `GET|POST|PUT|DELETE /api/user/cart/*`
+- `POST /api/user/orders/checkout`
+- `GET /api/user/orders`
+- `GET /api/user/orders/{id}`
+- `POST /api/user/orders/{id}/refresh-payment`
+- `GET /api/user/orders/{id}/invoice`
+- `GET|POST|DELETE /api/favorites/*`
+- `GET|POST|PUT|DELETE /api/reviews/*`
+- `GET|POST|PUT|DELETE /api/feedbacks/*`
+- `GET|PUT /api/notifications/*`
+- `GET /api/support-chat/stores`
 
-### User checkout request sample
+## 7. Frontend Rules To Keep
 
-```json
-{
-  "deliveryAddressId": 11,
-  "deliveryType": "IMMEDIATE",
-  "promotionCode": "MATCHA10",
-  "returnUrl": "http://localhost:3000/payment/success",
-  "cancelUrl": "http://localhost:3000/payment/cancel"
-}
-```
-
-### User feedback create sample
-
-```json
-{
-  "category": "DELIVERY",
-  "relatedStoreId": 1,
-  "relatedOrderId": 701,
-  "subject": "Don giao cham",
-  "message": "Em muon check tinh trang don hang 701."
-}
-```
-
-## 8. Support Chat Contract
-
-### REST
-
-`GET /api/support-chat/stores`
-
-Response sample:
-
-```json
-{
-  "items": [
-    { "id": 1, "name": "Tea House Q1" },
-    { "id": 2, "name": "Tea House Q3" }
-  ]
-}
-```
-
-### Socket handshake
-
-Connect to:
-
-- Host: `http://localhost:8080`
-- Path: `/socket.io`
-
-Auth payload:
-
-```json
-{
-  "token": "<accessToken>",
-  "tokenType": "Bearer"
-}
-```
-
-### User socket events
-
-Client emit `support:user_session:start`
-
-```json
-{
-  "storeId": 1
-}
-```
-
-Ack:
-
-```json
-{
-  "ok": true,
-  "message": "Support chat started."
-}
-```
-
-Client emit `support:message:send`
-
-```json
-{
-  "content": "Em can ho tro don hang 701"
-}
-```
-
-Server emit `support:user_state`
-
-```json
-{
-  "id": "chat_abc123",
-  "storeId": 1,
-  "storeName": "Tea House Q1",
-  "assignedAdminId": 15,
-  "assignedAdminName": "Nguyen Van B",
-  "messages": [
-    {
-      "id": "msg_1",
-      "senderId": 12,
-      "senderName": "Nguyen Van A",
-      "senderRole": "USER",
-      "content": "Em can ho tro",
-      "createdAt": "2026-03-30T10:15:00Z"
-    }
-  ]
-}
-```
-
-### Admin/manager socket events
-
-Client emit `support:message:send`
-
-```json
-{
-  "sessionId": "chat_abc123",
-  "content": "Anh chi dang ho tro em day."
-}
-```
-
-Server emit `support:admin_state`
-
-```json
-[
-  {
-    "id": "chat_abc123",
-    "storeId": 1,
-    "storeName": "Tea House Q1",
-    "userId": 12,
-    "userName": "Nguyen Van A",
-    "userEmail": "a@example.com",
-    "waitingForAdmin": true,
-    "assignedAdminId": null,
-    "assignedAdminName": null,
-    "messages": []
-  }
-]
-```
-
-### Support chat role rules
-
-- `USER` can start chat for one chosen store
-- `ADMIN` can see all sessions
-- `MANAGER` only sees sessions of `workingStoreId`
-- First admin/manager reply claims the session
-- If user disconnects, backend removes session from RAM
-- If claimed admin/manager disconnects while user is still online, session becomes waiting again
+- Route by the actual `role` from `GET /api/auth/me`
+- Do not show any `STAFF` option in role selectors anymore
+- Treat `preparingStaffId` and `preparingStaffName` as manager-preparing fields
+- Use `allowedActions` from `OrderResponse` to decide buttons
+- For manager-created employee forms, only allow `SHIPPER`
+- Detect a system dish by current response shape:
+  - `dish.storeId == null`
+  - `dish.categoryName == "SIGNATURE"`
+- Detect the global signature category by current response shape:
+  - `category.storeId == null`
+  - `category.name == "SIGNATURE"`
+- Storefront store detail will show both signature menu and store local menu when both dish types are attached to that store via `store_dishes`
+- For employee workflow screens:
+  - `MANAGER` owns preparing
+  - `SHIPPER` owns delivery

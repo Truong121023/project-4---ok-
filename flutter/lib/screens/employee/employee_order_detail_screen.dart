@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -461,8 +461,7 @@ class _EmployeeOrderDetailScreenState extends State<EmployeeOrderDetailScreen> {
                         const SizedBox(height: 12),
                         Text(serverProofNote),
                       ],
-                      if (asDateTime(_order['deliveryProofUploadedAt']) !=
-                          null) ...[
+                      if (asDateTime(_order['deliveryProofUploadedAt']) != null) ...[
                         const SizedBox(height: 8),
                         Text(
                           'Uploaded at ${Formatters.fullDateTime(asDateTime(_order['deliveryProofUploadedAt'])!)}',
@@ -602,14 +601,14 @@ class _EmployeeOrderDetailScreenState extends State<EmployeeOrderDetailScreen> {
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 12),
-                  if (totalAmount > 0) Text('Tong tien: ${Formatters.currency(totalAmount)}'),
+                  if (totalAmount > 0) Text('Total: ${Formatters.currency(totalAmount)}'),
                   if (asString(_order['deliveryFullName']).isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text('Recipient: ${asString(_order['deliveryFullName'])}'),
                   ],
                   if (asString(_order['deliveryPhoneNumber']).isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    Text('So dien thoai: ${asString(_order['deliveryPhoneNumber'])}'),
+                    Text('Phone: ${asString(_order['deliveryPhoneNumber'])}'),
                   ],
                   if (asString(_order['deliveryAddress']).isNotEmpty) ...[
                     const SizedBox(height: 8),
@@ -656,7 +655,7 @@ class _EmployeeOrderDetailScreenState extends State<EmployeeOrderDetailScreen> {
           ),
           if (showDeliveryAssignmentCard) ...[
             const SizedBox(height: 20),
-            SectionHeader(
+            const SectionHeader(
               title: 'Delivery assignment',
               subtitle: 'This assignment is synced directly from the latest employee order response.',
             ),
@@ -690,7 +689,7 @@ class _EmployeeOrderDetailScreenState extends State<EmployeeOrderDetailScreen> {
             ),
           ],
           const SizedBox(height: 20),
-          SectionHeader(
+          const SectionHeader(
             title: 'Available actions',
             subtitle: 'Only valid workflow steps for this order are shown here.',
           ),
@@ -720,7 +719,7 @@ class _EmployeeOrderDetailScreenState extends State<EmployeeOrderDetailScreen> {
           ],
           if (serverProofImagePath != null) ...[
             const SizedBox(height: 20),
-            SectionHeader(
+            const SectionHeader(
               title: 'Delivery proof from server',
               subtitle: 'The delivery proof image has been saved on the system.',
             ),
@@ -754,7 +753,7 @@ class _EmployeeOrderDetailScreenState extends State<EmployeeOrderDetailScreen> {
           ],
           if (proofRecord?.photoPath != null && File(proofRecord!.photoPath!).existsSync()) ...[
             const SizedBox(height: 20),
-            SectionHeader(
+            const SectionHeader(
               title: 'Successful delivery photo',
               subtitle: 'The image is stored on the device after the order is completed.',
             ),
@@ -1172,4 +1171,3 @@ class _ShipperOrderActionBar extends StatelessWidget {
     );
   }
 }
-

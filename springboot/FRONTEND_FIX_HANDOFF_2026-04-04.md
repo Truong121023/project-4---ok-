@@ -66,7 +66,7 @@ All roles can now scan invoice QR.
   - `targetScreen = USER_ORDER_STATUS`
 - user only views own order
 
-### `STAFF`
+### Preparing Actor (`MANAGER`)
 
 - app calls `GET /api/mobile/order-qr/{token}`
 - backend auto-claims preparing if valid
@@ -98,11 +98,11 @@ All roles can now scan invoice QR.
 
 - mobile/web must trust `order.allowedActions`
 - do not assume admin scan can do all admin actions
-- do not assume only `STAFF` and `SHIPPER` can open QR routes
+- do not assume only `MANAGER` and `SHIPPER` can open QR routes
 
 ## 3. Order Timeline Now Has Confirm Actor
 
-Backend now returns who confirmed the order before staff and shipper processing.
+Backend now returns who confirmed the order before manager and shipper processing.
 
 ### New `OrderResponse` fields
 
@@ -122,7 +122,7 @@ Backend now returns who confirmed the order before staff and shipper processing.
 
 Order processing timeline should render actors in this order:
 1. manager/admin confirmation actor from `confirmedByUserName`
-2. staff actor from `preparingStaffName`
+2. manager actor from `preparingStaffName`
 3. shipper actor from `deliveringShipperName`
 
 ### Example order snippet
@@ -136,7 +136,7 @@ Order processing timeline should render actors in this order:
   "confirmedByUserRole": "MANAGER",
   "confirmedAt": "2026-04-04T09:20:00Z",
   "preparingStaffId": 21,
-  "preparingStaffName": "Staff A",
+  "preparingStaffName": "Manager A",
   "deliveringShipperId": 31,
   "deliveringShipperName": "Shipper B",
   "statusSummary": "Shipper B dang giao hang"
@@ -195,10 +195,10 @@ Multipart fields:
   - keep rendering `preparingStaffName` and `deliveringShipperName`
 - processing timeline:
   - show confirmation actor first
-  - then staff
+  - then manager
   - then shipper
 - QR flow:
-  - support `USER`, `STAFF`, `SHIPPER`, `MANAGER`, `ADMIN`
+  - support `USER`, `SHIPPER`, `MANAGER`, `ADMIN`
   - trust `targetScreen` and `allowedActions`
 - shipper app:
   - upload proof through `/api/employee/orders/{id}/delivery-proof`

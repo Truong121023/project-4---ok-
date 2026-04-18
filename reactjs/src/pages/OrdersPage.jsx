@@ -103,6 +103,30 @@ export default function OrdersPage() {
   ]);
 
   useEffect(() => {
+    const normalizedPaymentStatus = String(orderDetail?.paymentStatus ?? "").toUpperCase();
+    const refreshKey = orderDetail?.id
+      ? `${orderDetail.id}:${orderDetail.paidAt ?? orderDetail.updatedAt ?? normalizedPaymentStatus}`
+      : "";
+
+    if (!auth.hasRole("USER") || normalizedPaymentStatus !== "PAID" || !refreshKey) {
+      return;
+    }
+
+    if (paidProfileRefreshRef.current === refreshKey) {
+      return;
+    }
+
+    paidProfileRefreshRef.current = refreshKey;
+    void auth.refreshMe().catch(() => {});
+  }, [
+    auth,
+    orderDetail?.id,
+    orderDetail?.paidAt,
+    orderDetail?.paymentStatus,
+    orderDetail?.updatedAt,
+  ]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadOrders() {
