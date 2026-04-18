@@ -3,11 +3,11 @@ package com.example.registrationotp.model;
 public enum Role {
 	ADMIN,
 	MANAGER,
-	SHIPPER,
 	STAFF,
+	SHIPPER,
 	USER;
 
 	public boolean requiresWorkingStore() {
-		return this == MANAGER || this == SHIPPER || this == STAFF;
+		return this == MANAGER || this == STAFF || this == SHIPPER;
 	}
 }

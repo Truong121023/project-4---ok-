@@ -26,10 +26,6 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _future ??= AppScope.of(context).loadDishDetail(widget.dishId);
-    final controller = AppScope.of(context);
-    if (controller.isLoggedIn && controller.favoriteItems.isEmpty) {
-      controller.loadFavorites();
-    }
   }
 
   Future<void> _reload() async {
@@ -59,7 +55,10 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(saved ? 'Da them mon vao yeu thich' : 'Da bo mon khoi yeu thich')),
+        SnackBar(
+            content: Text(saved
+                ? 'Added to favorites'
+                : 'Removed from favorites')),
       );
     } catch (error) {
       if (!mounted) {
@@ -87,15 +86,17 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
         final dish = detail?.dish;
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Chi tiet mon'),
+            title: const Text('Dish details'),
             actions: [
               if (dish != null && controller.isLoggedIn)
                 IconButton(
                   onPressed: _favoriteBusy ? null : () => _toggleFavorite(dish),
                   icon: Icon(
-                    controller.isFavorite('DISH', dish.id) ? Icons.favorite : Icons.favorite_border,
+                    controller.isFavorite('DISH', dish.id)
+                        ? Icons.favorite
+                        : Icons.favorite_border,
                   ),
-                  tooltip: 'Yeu thich',
+                  tooltip: 'Favorite',
                 ),
             ],
           ),
@@ -128,7 +129,10 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
                   const SizedBox(height: 18),
                   Text(
                     dish.name,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 8),
                   Text(dish.description),
@@ -138,7 +142,9 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
                     runSpacing: 8,
                     children: [
                       MetricChip(label: Formatters.currency(dish.price)),
-                      MetricChip(label: '${Formatters.rating(detail.stats.averageRating)} sao'),
+                      MetricChip(
+                          label:
+                              '${Formatters.rating(detail.stats.averageRating)} stars'),
                       MetricChip(label: '${detail.stats.totalStock} stock'),
                     ],
                   ),
@@ -158,14 +164,14 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
                         );
                       },
                       icon: const Icon(Icons.rate_review_outlined),
-                      label: const Text('Viet review'),
+                      label: const Text('Write review'),
                     ),
                   ],
                   if (dish.sections.isNotEmpty) ...[
                     const SizedBox(height: 18),
                     const SectionHeader(
-                      title: 'Noi dung mon',
-                      subtitle: 'Map tu dish.sections trong API.',
+                      title: 'Dish content',
+                      subtitle: 'Additional sections from the dish API.',
                     ),
                     const SizedBox(height: 12),
                     ...dish.sections.map(
@@ -179,7 +185,10 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
                               children: [
                                 Text(
                                   section.title,
-                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w800),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(section.content),
@@ -192,8 +201,8 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
                   ],
                   const SizedBox(height: 12),
                   const SectionHeader(
-                    title: 'Store co san',
-                    subtitle: 'Chon store de them dung gia va ton kho.',
+                    title: 'Available stores',
+                    subtitle: 'Choose a store to add the item with the correct price and stock.',
                   ),
                   const SizedBox(height: 12),
                   ...detail.stores.map(
@@ -206,7 +215,8 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
                             store.storeName,
                             style: const TextStyle(fontWeight: FontWeight.w800),
                           ),
-                          subtitle: Text('${store.address}\n${store.stock} stock - ${Formatters.distance(store.distanceKm)}'),
+                          subtitle: Text(
+                              '${store.address}\n${store.stock} stock - ${Formatters.distance(store.distanceKm)}'),
                           isThreeLine: true,
                           trailing: FilledButton.tonal(
                             onPressed: () async {
@@ -232,7 +242,9 @@ class _DishDetailScreenState extends State<DishDetailScreen> {
                                 return;
                               }
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('${dish.name} da duoc them vao gio hang')),
+                                SnackBar(
+                                    content: Text(
+                                        '${dish.name} was added to the cart')),
                               );
                             },
                             child: Text(Formatters.currency(store.price)),

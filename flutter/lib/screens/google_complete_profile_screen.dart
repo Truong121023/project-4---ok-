@@ -61,7 +61,7 @@ class _GoogleCompleteProfileScreenState extends State<GoogleCompleteProfileScree
     } on ApiException catch (error) {
       setState(() => _error = error.message);
     } catch (_) {
-      setState(() => _error = 'Khong the cap nhat ho so Google luc nay.');
+      setState(() => _error = 'Unable to update the Google profile right now.');
     }
   }
 
@@ -69,7 +69,7 @@ class _GoogleCompleteProfileScreenState extends State<GoogleCompleteProfileScree
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Bo sung ho so Google')),
+      appBar: AppBar(title: const Text('Complete Google profile')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -82,7 +82,7 @@ class _GoogleCompleteProfileScreenState extends State<GoogleCompleteProfileScree
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Tai khoan Google da dang nhap. Them ten va mat khau de ho so hoan chinh ngay trong app.',
+                      'Your Google account is signed in. Add your name and password to complete the profile inside the app.',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 16),
@@ -90,16 +90,16 @@ class _GoogleCompleteProfileScreenState extends State<GoogleCompleteProfileScree
                       initialValue: widget.email,
                       readOnly: true,
                       decoration: const InputDecoration(
-                        labelText: 'Email Google',
+                        labelText: 'Google email',
                       ),
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _fullNameController,
-                      decoration: const InputDecoration(labelText: 'Ho va ten'),
+                      decoration: const InputDecoration(labelText: 'Full name'),
                       validator: (value) {
                         if ((value ?? '').trim().length < 2) {
-                          return 'Nhap ho ten hop le';
+                          return 'Enter a valid full name';
                         }
                         return null;
                       },
@@ -109,11 +109,11 @@ class _GoogleCompleteProfileScreenState extends State<GoogleCompleteProfileScree
                       controller: _passwordController,
                       obscureText: true,
                       decoration: const InputDecoration(
-                        labelText: 'Mat khau moi',
+                        labelText: 'New password',
                       ),
                       validator: (value) {
                         if ((value ?? '').length < 6) {
-                          return 'Nhap toi thieu 6 ky tu';
+                          return 'Enter at least 6 characters';
                         }
                         return null;
                       },
@@ -123,11 +123,11 @@ class _GoogleCompleteProfileScreenState extends State<GoogleCompleteProfileScree
                       controller: _confirmPasswordController,
                       obscureText: true,
                       decoration: const InputDecoration(
-                        labelText: 'Nhap lai mat khau',
+                        labelText: 'Re-enter password',
                       ),
                       validator: (value) {
                         if (value != _passwordController.text) {
-                          return 'Mat khau nhap lai chua khop';
+                          return 'The confirmation password does not match';
                         }
                         return null;
                       },
@@ -143,7 +143,7 @@ class _GoogleCompleteProfileScreenState extends State<GoogleCompleteProfileScree
                     ElevatedButton(
                       onPressed: controller.authBusy ? null : _submit,
                       child: Text(
-                        controller.authBusy ? 'Dang luu...' : 'Hoan tat ho so',
+                        controller.authBusy ? 'Saving...' : 'Complete profile',
                       ),
                     ),
                   ],

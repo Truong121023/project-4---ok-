@@ -253,7 +253,7 @@ public class AdminAiDraftService {
 				Always fill every field in the draft with a realistic sample value.
 				Use only IDs that exist in the provided reference data.
 				Do not invent image upload paths. Leave imagePaths empty unless they are explicitly given.
-				Prefer concise, realistic content for Tea Matcha.
+				Prefer concise, realistic content for Kamatcha.
 				For optional text fields, prefer realistic sample text instead of null.
 				Use empty arrays for imagePaths when no uploaded image path is provided.
 				If a field is still unclear, choose a safe sample value and add a short warning instead of leaving the field blank.
@@ -411,8 +411,8 @@ public class AdminAiDraftService {
 	}
 
 	private void completeStoreDraft(ObjectNode draft, Set<String> filledFields) {
-		fillTextIfBlank(draft, "name", "Tea Matcha Signature Atelier", filledFields);
-		fillTextIfBlank(draft, "description", "Khong gian matcha hien dai voi menu signature, workshop cuoi tuan va goc ngoi am ap.", filledFields);
+		fillTextIfBlank(draft, "name", "Kamatcha Signature Atelier", filledFields);
+		fillTextIfBlank(draft, "description", "A modern matcha space with a signature menu, weekend workshops, and cozy seating.", filledFields);
 		fillTextIfBlank(draft, "address", "25 Nguyen Hue, District 1, Ho Chi Minh City", filledFields);
 		fillTextIfBlank(draft, "area", "District 1", filledFields);
 		fillTextIfBlank(draft, "positionLabel", "Ground floor corner", filledFields);
@@ -423,23 +423,23 @@ public class AdminAiDraftService {
 		fillTextIfBlank(draft, "designSignature", "Warm wood interior with matcha workshop bar", filledFields);
 		fillTextIfBlank(draft, "franchiseMood", "Premium, youthful, experience-led", filledFields);
 		fillTextIfBlank(draft, "specialty", "Signature matcha latte and hojicha float", filledFields);
-		fillTextIfBlank(draft, "highlightSummary", "Chi nhanh noi bat voi menu signature, workshop va khong gian chill ca ngay.", filledFields);
-		fillTextIfBlank(draft, "slug", slugify(draft.path("name").asText("tea-matcha-signature-atelier")), filledFields);
-		fillTextIfBlank(draft, "contactEmail", "hello@" + slugify(draft.path("name").asText("tea-matcha-signature-atelier")) + ".teamatcha.local", filledFields);
+		fillTextIfBlank(draft, "highlightSummary", "A standout branch with signature drinks, workshops, and an all-day relaxed atmosphere.", filledFields);
+		fillTextIfBlank(draft, "slug", slugify(draft.path("name").asText("kamatcha-signature-atelier")), filledFields);
+		fillTextIfBlank(draft, "contactEmail", "hello@" + slugify(draft.path("name").asText("kamatcha-signature-atelier")) + ".kamatcha.local", filledFields);
 		fillTextIfBlank(draft, "phoneNumber", "0901000014", filledFields);
 		fillNumberIfMissing(draft, "latitude", 10.7768, filledFields);
 		fillNumberIfMissing(draft, "longitude", 106.7009, filledFields);
 		fillStringArrayIfMissing(draft, "highlightTags", List.of("Matcha", "Workshop", "Signature"), filledFields);
 		fillStringArrayIfMissing(draft, "serviceTags", List.of("Dine-in", "Takeaway", "Delivery"), filledFields);
 		fillStringArrayIfMissing(draft, "imagePaths", List.of(), filledFields);
-		fillSectionsIfMissing(draft, "sections", "Store Story", "Khong gian duoc thiet ke cho trai nghiem matcha thu cong, workshop cuoi tuan va ngoi lai lau.", filledFields);
+		fillSectionsIfMissing(draft, "sections", "Store Story", "The space is designed for handcrafted matcha experiences, weekend workshops, and longer stays.", filledFields);
 		fillBooleanIfMissing(draft, "active", true, filledFields);
 	}
 
 	private void completeCategoryDraft(ObjectNode draft, FormScope scope, ObjectNode referenceData, Set<String> filledFields) {
 		fillLongIfMissing(draft, "storeId", firstLongReference(referenceData.path("stores")), scope.storeId(), filledFields);
 		fillTextIfBlank(draft, "name", "Signature Matcha", filledFields);
-		fillTextIfBlank(draft, "description", "Nhom mon matcha signature danh cho khach muon trai nghiem vi dam va can bang.", filledFields);
+		fillTextIfBlank(draft, "description", "A signature matcha category for guests who want a bold and balanced tasting experience.", filledFields);
 		fillStringArrayIfMissing(draft, "imagePaths", List.of(), filledFields);
 		fillIntegerIfMissing(draft, "sortOrder", 1, filledFields);
 		fillBooleanIfMissing(draft, "active", true, filledFields);
@@ -448,17 +448,17 @@ public class AdminAiDraftService {
 	private void completeDishDraft(ObjectNode draft, ObjectNode referenceData, Set<String> filledFields) {
 		fillLongIfMissing(draft, "categoryId", firstLongReference(referenceData.path("categories")), null, filledFields);
 		fillTextIfBlank(draft, "name", "Ceremonial Matcha Latte", filledFields);
-		fillTextIfBlank(draft, "description", "Latte matcha dam vi, beo nhe va can bang giua huong tra va sua.", filledFields);
-		fillTextIfBlank(draft, "note", "Goi y it duong de giu vi matcha tron ven.", filledFields);
+		fillTextIfBlank(draft, "description", "A bold matcha latte with light creaminess and a balanced tea-and-milk profile.", filledFields);
+		fillTextIfBlank(draft, "note", "Recommend less sugar to preserve the full matcha flavor.", filledFields);
 		fillNumberIfMissing(draft, "price", 89000, filledFields);
 		fillTextIfBlank(draft, "status", "ACTIVE", filledFields);
 		fillBooleanIfMissing(draft, "available", true, filledFields);
 		fillBooleanIfMissing(draft, "franchiseRequired", false, filledFields);
-		fillTextIfBlank(draft, "franchiseNote", "Khong co yeu cau franchise dac biet cho mon nay.", filledFields);
-		fillTextIfBlank(draft, "highlightSummary", "Mon signature phu hop cho khach moi va khach quay lai.", filledFields);
+		fillTextIfBlank(draft, "franchiseNote", "There are no special franchise requirements for this item.", filledFields);
+		fillTextIfBlank(draft, "highlightSummary", "A signature item that works well for both new and returning guests.", filledFields);
 		fillStringArrayIfMissing(draft, "highlightTags", List.of("Best seller", "Matcha", "Creamy"), filledFields);
 		fillStringArrayIfMissing(draft, "imagePaths", List.of(), filledFields);
-		fillSectionsIfMissing(draft, "sections", "Flavor Notes", "Vi matcha ro, hau sua nhe, phu hop khi dung nong hoac da.", filledFields);
+		fillSectionsIfMissing(draft, "sections", "Flavor Notes", "Clear matcha flavor with a light milky finish, suitable both hot and iced.", filledFields);
 		fillBooleanIfMissing(draft, "active", true, filledFields);
 	}
 
@@ -466,30 +466,30 @@ public class AdminAiDraftService {
 		fillLongIfMissing(draft, "storeId", firstLongReference(referenceData.path("stores")), scope.storeId(), filledFields);
 		fillTextIfBlank(draft, "name", "Weekend Matcha Tasting Session", filledFields);
 		fillTextIfBlank(draft, "slug", slugify(draft.path("name").asText("weekend-matcha-tasting-session")), filledFields);
-		fillTextIfBlank(draft, "description", "Buoi tasting cuoi tuan cho khach trai nghiem menu moi va giao luu cung barista.", filledFields);
-		fillTextIfBlank(draft, "location", scope.storeName() != null ? scope.storeName() : "Tea Matcha flagship store", filledFields);
+		fillTextIfBlank(draft, "description", "A weekend tasting session where guests can explore the new menu and meet the baristas.", filledFields);
+		fillTextIfBlank(draft, "location", scope.storeName() != null ? scope.storeName() : "Kamatcha flagship store", filledFields);
 		fillTextIfBlank(draft, "scheduleText", "10:00 - 14:00 every Saturday", filledFields);
-		fillTextIfBlank(draft, "highlightSummary", "Su kien thu hut khach moi, co sampling va combo uu dai tai cho.", filledFields);
+		fillTextIfBlank(draft, "highlightSummary", "An event designed to attract new guests with sampling and in-store combo offers.", filledFields);
 		fillStringArrayIfMissing(draft, "highlightTags", List.of("Weekend", "Tasting", "Community"), filledFields);
 		fillIntegerIfMissing(draft, "capacity", 80, filledFields);
 		fillIntegerIfMissing(draft, "bookedCount", 0, filledFields);
 		fillLongArrayIfMissing(draft, "featuredDishIds", firstLongReference(referenceData.path("featuredDishOptions")), filledFields);
 		fillStringArrayIfMissing(draft, "imagePaths", List.of(), filledFields);
-		fillSectionsIfMissing(draft, "sections", "Event Details", "Khach tham gia duoc thu menu moi, nhan voucher va giao luu voi doi ngu barista.", filledFields);
+		fillSectionsIfMissing(draft, "sections", "Event Details", "Guests can sample the new menu, receive vouchers, and meet the barista team.", filledFields);
 		fillTextIfBlank(draft, "startsAt", Instant.now().plusSeconds(7 * 24 * 3600).toString(), filledFields);
 		fillTextIfBlank(draft, "endsAt", Instant.now().plusSeconds(7 * 24 * 3600 + 4 * 3600).toString(), filledFields);
 		fillBooleanIfMissing(draft, "active", true, filledFields);
 	}
 
 	private void completeNewsDraft(ObjectNode draft, FormScope scope, ObjectNode referenceData, Set<String> filledFields) {
-		fillTextIfBlank(draft, "title", "Tea Matcha launches new seasonal signature lineup", filledFields);
-		fillTextIfBlank(draft, "slug", slugify(draft.path("title").asText("tea-matcha-launches-new-seasonal-signature-lineup")), filledFields);
-		fillTextIfBlank(draft, "summary", "Bo suu tap theo mua tap trung vao mon matcha signature va trai nghiem tai cua hang.", filledFields);
-		fillTextIfBlank(draft, "content", "Tea Matcha gioi thieu lineup theo mua voi diem nhan la mon signature, chuong trinh sampling va uu dai khai vi trong tuan dau.", filledFields);
+		fillTextIfBlank(draft, "title", "Kamatcha launches new seasonal signature lineup", filledFields);
+		fillTextIfBlank(draft, "slug", slugify(draft.path("title").asText("kamatcha-launches-new-seasonal-signature-lineup")), filledFields);
+		fillTextIfBlank(draft, "summary", "This seasonal collection focuses on signature matcha drinks and the in-store experience.", filledFields);
+		fillTextIfBlank(draft, "content", "Kamatcha is introducing a seasonal lineup built around signature drinks, sampling moments, and opening-week perks.", filledFields);
 		fillLongIfMissing(draft, "relatedStoreId", firstLongReference(referenceData.path("stores")), scope.storeId(), filledFields);
 		fillStringArrayIfMissing(draft, "tags", List.of("seasonal", "matcha", "launch"), filledFields);
 		fillStringArrayIfMissing(draft, "imagePaths", List.of(), filledFields);
-		fillSectionsIfMissing(draft, "sections", "Editorial Section", "Noi dung chi tiet ve bo suu tap moi, thong diep thuong hieu va diem nhan tai cua hang.", filledFields);
+		fillSectionsIfMissing(draft, "sections", "Editorial Section", "Detailed coverage of the new collection, brand message, and in-store highlights.", filledFields);
 		fillBooleanIfMissing(draft, "featured", false, filledFields);
 		fillBooleanIfMissing(draft, "published", false, filledFields);
 		fillTextIfBlank(draft, "publishedAt", Instant.now().toString(), filledFields);
@@ -713,12 +713,12 @@ public class AdminAiDraftService {
 
 	private String slugify(String value) {
 		if (!StringUtils.hasText(value)) {
-			return "tea-matcha-sample";
+			return "kamatcha-sample";
 		}
 		String slug = value.toLowerCase()
 				.replaceAll("[^a-z0-9]+", "-")
 				.replaceAll("(^-|-$)", "");
-		return StringUtils.hasText(slug) ? slug : "tea-matcha-sample";
+		return StringUtils.hasText(slug) ? slug : "kamatcha-sample";
 	}
 
 	private void ensureTextField(ObjectNode draft, String fieldName, List<String> missingFields) {

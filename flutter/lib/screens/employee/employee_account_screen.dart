@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../app/app.dart';
 import '../../widgets/app_widgets.dart';
@@ -19,7 +19,7 @@ class EmployeeAccountScreen extends StatelessWidget {
           if (session == null)
             const EmptyStateCard(
               title: 'Khong tim thay session',
-              message: 'Dang nhap lai de vao employee panel.',
+              message: 'Sign in again to open the employee panel.',
             )
           else ...[
             Card(
@@ -71,3 +71,4 @@ class EmployeeAccountScreen extends StatelessWidget {
     );
   }
 }
+

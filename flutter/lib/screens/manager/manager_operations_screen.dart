@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../app/app.dart';
 import '../../widgets/app_widgets.dart';
@@ -66,7 +66,7 @@ class ManagerOperationsScreen extends StatelessWidget {
           const SizedBox(height: 24),
           const SectionHeader(
             title: 'Store',
-            subtitle: 'Nhung gi can de dieu hanh cua hang hien tai.',
+            subtitle: 'Everything needed to operate the current store.',
           ),
           const SizedBox(height: 12),
           Card(
@@ -89,7 +89,7 @@ class ManagerOperationsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                      'Manager chi sua store cua minh, khong tao/xoa chi nhanh moi.'),
+                      'Managers can only edit their own store and cannot create or delete branches.'),
                   const SizedBox(height: 12),
                   FilledButton.tonal(
                     onPressed: storeId > 0
@@ -125,7 +125,7 @@ class ManagerOperationsScreen extends StatelessWidget {
           const SectionHeader(
             title: 'People',
             subtitle:
-                'Quan ly STAFF va SHIPPER trong dung cua hang duoc phan cong.',
+                'Manage STAFF and SHIPPER accounts inside the assigned store only.',
           ),
           const SizedBox(height: 12),
           AdminModuleCard(
@@ -139,7 +139,7 @@ class ManagerOperationsScreen extends StatelessWidget {
           const SizedBox(height: 24),
           const SectionHeader(
             title: 'Moderation',
-            subtitle: 'Don hang, review va feedback trong pham vi cua hang.',
+            subtitle: 'Orders, reviews, and feedback within the store scope.',
           ),
           const SizedBox(height: 12),
           AdminModuleCard(
@@ -173,3 +173,4 @@ class ManagerOperationsScreen extends StatelessWidget {
     );
   }
 }
+

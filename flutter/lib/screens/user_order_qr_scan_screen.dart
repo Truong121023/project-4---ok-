@@ -55,8 +55,8 @@ class UserOrderQrScanScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
     return OrderQrScannerScreen(
-      title: 'Quet QR don hang',
-      subtitle: 'Quet ma tren hoa don de xem thong tin don hang va mo dung man hinh theo role dang dang nhap.',
+      title: 'Scan order QR',
+      subtitle: 'Scan the code on the invoice to view order details and open the right screen for the current signed-in role.',
       header: Card(
         child: Padding(
           padding: const EdgeInsets.all(18),
@@ -64,21 +64,21 @@ class UserOrderQrScanScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Tra cuu don hang bang QR',
+                'Look up an order by QR',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 8),
               Text(
                 controller.isLoggedIn
-                    ? 'Ban dang dang nhap, scan xong app se mo thang trang thai don.'
-                    : 'Neu chua dang nhap, app se giu token va tiep tuc sau khi login.',
+                    ? 'You are signed in, so the app will open the order status screen right after scanning.'
+                    : 'If you are not signed in yet, the app will continue right after login.',
               ),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  MetricChip(label: controller.isLoggedIn ? 'Da dang nhap' : 'Can dang nhap'),
+                  MetricChip(label: controller.isLoggedIn ? 'Signed in' : 'Sign in required'),
                   MetricChip(label: controller.currentRole),
                 ],
               ),

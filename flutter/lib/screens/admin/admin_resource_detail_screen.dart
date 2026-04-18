@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../app/app.dart';
 import '../../core/models/models.dart';
@@ -139,109 +139,7 @@ class _AdminResourceDetailScreenState extends State<AdminResourceDetailScreen> {
       }
       setState(() => _resource = updated);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(!current ? 'Da verify tai khoan.' : 'Da bo verify tai khoan.')),
-      );
-      await _refresh();
-    } on ApiException catch (error) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
-    }
-  }
-
-  Future<void> _editOrderStatus() async {
-    final resource = _resource;
-    if (resource == null) {
-      return;
-    }
-    final statusController = TextEditingController(text: asString(resource['status']));
-    final paymentController = TextEditingController(text: asString(resource['paymentStatus']));
-    final preparingController = TextEditingController(
-      text: asNullableInt(resource['preparingStaffId'])?.toString() ?? '',
-    );
-    final shipperController = TextEditingController(
-      text: asNullableInt(resource['deliveringShipperId'])?.toString() ?? '',
-    );
-
-    final result = await showModalBottomSheet<JsonMap>(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) {
-        final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-        return SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(16, 20, 16, bottomInset + 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: statusController,
-                decoration: const InputDecoration(labelText: 'Status', hintText: 'PREPARING, COMPLETED...'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: paymentController,
-                decoration: const InputDecoration(labelText: 'Payment Status', hintText: 'PAID, PENDING...'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: preparingController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Preparing Staff ID'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: shipperController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Delivering Shipper ID'),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () {
-                    Navigator.of(context).pop({
-                      'status': statusController.text.trim(),
-                      'paymentStatus': paymentController.text.trim(),
-                      'preparingStaffId': preparingController.text.trim().isEmpty
-                          ? null
-                          : int.parse(preparingController.text.trim()),
-                      'deliveringShipperId': shipperController.text.trim().isEmpty
-                          ? null
-                          : int.parse(shipperController.text.trim()),
-                    });
-                  },
-                  child: const Text('Cap nhat'),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    statusController.dispose();
-    paymentController.dispose();
-    preparingController.dispose();
-    shipperController.dispose();
-
-    if (result == null || !mounted) {
-      return;
-    }
-
-    try {
-      final updated = await AppScope.of(context).updateAdminOrderStatus(
-        orderId: widget.resourceId,
-        body: result,
-      );
-      if (!mounted) {
-        return;
-      }
-      setState(() => _resource = updated);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Da cap nhat trang thai don hang.')),
+        SnackBar(content: Text(!current ? 'Account verified.' : 'Account verification removed.')),
       );
       await _refresh();
     } on ApiException catch (error) {
@@ -285,7 +183,7 @@ class _AdminResourceDetailScreenState extends State<AdminResourceDetailScreen> {
                 maxLines: 6,
                 decoration: const InputDecoration(
                   labelText: 'Reply Message',
-                  hintText: 'Tea Matcha da ghi nhan feedback...',
+                  hintText: 'Kamatcha has recorded this feedback...',
                 ),
               ),
               const SizedBox(height: 16),
@@ -355,12 +253,9 @@ class _AdminResourceDetailScreenState extends State<AdminResourceDetailScreen> {
       items.add(
         PopupMenuItem<String>(
           value: 'verify',
-          child: Text(asBool(_resource?['verified']) ? 'Bo verify' : 'Verify tai khoan'),
+          child: Text(asBool(_resource?['verified']) ? 'Remove verification' : 'Verify account'),
         ),
       );
-    }
-    if (widget.module.id == 'orders') {
-      items.add(const PopupMenuItem<String>(value: 'order-status', child: Text('Cap nhat status')));
     }
     if (widget.module.id == 'feedbacks') {
       items.add(const PopupMenuItem<String>(value: 'feedback-reply', child: Text('Sua reply')));
@@ -384,9 +279,6 @@ class _AdminResourceDetailScreenState extends State<AdminResourceDetailScreen> {
     switch (value) {
       case 'verify':
         await _toggleVerification();
-        break;
-      case 'order-status':
-        await _editOrderStatus();
         break;
       case 'feedback-reply':
         await _editFeedbackReply();
@@ -462,3 +354,4 @@ class _AdminResourceDetailScreenState extends State<AdminResourceDetailScreen> {
     );
   }
 }
+

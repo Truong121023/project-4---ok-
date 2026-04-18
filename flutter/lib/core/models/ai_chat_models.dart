@@ -68,6 +68,43 @@ class AiChatReference {
   final String? userApiPath;
 }
 
+class AiChatAction {
+  const AiChatAction({
+    required this.actionKey,
+    required this.actionType,
+    required this.label,
+    required this.description,
+    required this.method,
+    required this.apiPath,
+    required this.referenceKey,
+    required this.payload,
+  });
+
+  factory AiChatAction.fromJson(JsonMap json) {
+    return AiChatAction(
+      actionKey: asString(json['actionKey']),
+      actionType: asString(json['actionType']),
+      label: asString(json['label']),
+      description: asNullableString(json['description']),
+      method: asNullableString(json['method']),
+      apiPath: asNullableString(json['apiPath']),
+      referenceKey: asNullableString(json['referenceKey']),
+      payload: json['payload'] is Map
+          ? Map<String, dynamic>.from(json['payload'] as Map)
+          : null,
+    );
+  }
+
+  final String actionKey;
+  final String actionType;
+  final String label;
+  final String? description;
+  final String? method;
+  final String? apiPath;
+  final String? referenceKey;
+  final JsonMap? payload;
+}
+
 class AiChatCurrentUserStatus {
   const AiChatCurrentUserStatus({
     required this.id,
@@ -106,18 +143,114 @@ class AiChatCurrentUserStatus {
   final String? workingStoreName;
 }
 
+class AiChatStoredMessage {
+  const AiChatStoredMessage({
+    required this.id,
+    required this.role,
+    required this.content,
+    required this.references,
+    required this.actions,
+    required this.model,
+    required this.createdAt,
+  });
+
+  factory AiChatStoredMessage.fromJson(JsonMap json) {
+    return AiChatStoredMessage(
+      id: asNullableInt(json['id']),
+      role: asString(json['role']),
+      content: asString(json['content']),
+      references: asObjectList(json['references'], AiChatReference.fromJson),
+      actions: asObjectList(json['actions'], AiChatAction.fromJson),
+      model: asNullableString(json['model']),
+      createdAt: asDateTime(json['createdAt']),
+    );
+  }
+
+  final int? id;
+  final String role;
+  final String content;
+  final List<AiChatReference> references;
+  final List<AiChatAction> actions;
+  final String? model;
+  final DateTime? createdAt;
+}
+
+class AiChatThreadSummary {
+  const AiChatThreadSummary({
+    required this.threadId,
+    required this.title,
+    required this.messageCount,
+    required this.lastMessageRole,
+    required this.lastMessagePreview,
+    required this.lastMessageAt,
+    required this.updatedAt,
+  });
+
+  factory AiChatThreadSummary.fromJson(JsonMap json) {
+    return AiChatThreadSummary(
+      threadId: asInt(json['threadId']),
+      title: asString(json['title']),
+      messageCount: asInt(json['messageCount']),
+      lastMessageRole: asString(json['lastMessageRole']),
+      lastMessagePreview: asString(json['lastMessagePreview']),
+      lastMessageAt: asDateTime(json['lastMessageAt']),
+      updatedAt: asDateTime(json['updatedAt']),
+    );
+  }
+
+  final int threadId;
+  final String title;
+  final int messageCount;
+  final String lastMessageRole;
+  final String lastMessagePreview;
+  final DateTime? lastMessageAt;
+  final DateTime? updatedAt;
+}
+
+class AiChatThreadDetail {
+  const AiChatThreadDetail({
+    required this.threadId,
+    required this.title,
+    required this.messages,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory AiChatThreadDetail.fromJson(JsonMap json) {
+    return AiChatThreadDetail(
+      threadId: asInt(json['threadId']),
+      title: asString(json['title']),
+      messages: asObjectList(json['messages'], AiChatStoredMessage.fromJson),
+      createdAt: asDateTime(json['createdAt']),
+      updatedAt: asDateTime(json['updatedAt']),
+    );
+  }
+
+  final int threadId;
+  final String title;
+  final List<AiChatStoredMessage> messages;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+}
+
 class AiChatResponse {
   const AiChatResponse({
+    required this.threadId,
+    required this.threadTitle,
     required this.answer,
     required this.references,
+    required this.actions,
     required this.currentUserStatus,
     required this.model,
   });
 
   factory AiChatResponse.fromJson(JsonMap json) {
     return AiChatResponse(
+      threadId: asNullableInt(json['threadId']),
+      threadTitle: asNullableString(json['threadTitle']),
       answer: asString(json['answer']),
       references: asObjectList(json['references'], AiChatReference.fromJson),
+      actions: asObjectList(json['actions'], AiChatAction.fromJson),
       currentUserStatus: json['currentUserStatus'] is Map
           ? AiChatCurrentUserStatus.fromJson(
               Map<String, dynamic>.from(json['currentUserStatus'] as Map),
@@ -127,8 +260,11 @@ class AiChatResponse {
     );
   }
 
+  final int? threadId;
+  final String? threadTitle;
   final String answer;
   final List<AiChatReference> references;
+  final List<AiChatAction> actions;
   final AiChatCurrentUserStatus? currentUserStatus;
   final String? model;
 }

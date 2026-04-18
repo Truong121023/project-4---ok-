@@ -53,7 +53,7 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
     } on ApiException catch (error) {
       setState(() => _error = error.message);
     } catch (_) {
-      setState(() => _error = 'Khong gui duoc OTP luc nay.');
+      setState(() => _error = 'Unable to send the OTP right now.');
     }
   }
 
@@ -79,7 +79,7 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
     } on ApiException catch (error) {
       setState(() => _error = error.message);
     } catch (_) {
-      setState(() => _error = 'Dat lai mat khau that bai.');
+      setState(() => _error = 'Password reset failed.');
     }
   }
 
@@ -87,7 +87,7 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Quen mat khau')),
+      appBar: AppBar(title: const Text('Forgot password')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -106,14 +106,14 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                     width: double.infinity,
                     child: OutlinedButton(
                       onPressed: controller.authBusy ? null : _requestOtp,
-                      child: const Text('Gui OTP reset'),
+                      child: const Text('Send reset OTP'),
                     ),
                   ),
                   if (_expiresAt != null) ...[
                     const SizedBox(height: 8),
                     Align(
                       alignment: Alignment.centerLeft,
-                      child: Text('OTP het han: ${Formatters.fullDateTime(_expiresAt)}'),
+                      child: Text('OTP expires at: ${Formatters.fullDateTime(_expiresAt)}'),
                     ),
                   ],
                   const SizedBox(height: 16),
@@ -125,7 +125,7 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                   TextField(
                     controller: _newPasswordController,
                     obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Mat khau moi'),
+                    decoration: const InputDecoration(labelText: 'New password'),
                   ),
                   if (_message != null) ...[
                     const SizedBox(height: 12),
@@ -152,7 +152,7 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: controller.authBusy ? null : _resetPassword,
-                      child: Text(controller.authBusy ? 'Dang xu ly...' : 'Dat lai mat khau'),
+                      child: Text(controller.authBusy ? 'Processing...' : 'Reset password'),
                     ),
                   ),
                 ],

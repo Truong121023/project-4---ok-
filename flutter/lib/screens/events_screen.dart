@@ -17,10 +17,10 @@ class EventsScreen extends StatefulWidget {
 
 class _EventsScreenState extends State<EventsScreen> {
   static const List<(String, String)> _sortOptions = [
-    ('date_asc', 'Gan nhat'),
-    ('date_desc', 'Moi nhat'),
-    ('rating_desc', 'Danh gia cao'),
-    ('rating_asc', 'Danh gia thap'),
+    ('date_asc', 'Nearest first'),
+    ('date_desc', 'Newest first'),
+    ('rating_desc', 'Highest rated'),
+    ('rating_asc', 'Lowest rated'),
   ];
 
   final TextEditingController _searchController = TextEditingController();
@@ -69,14 +69,14 @@ class _EventsScreenState extends State<EventsScreen> {
                   textInputAction: TextInputAction.search,
                   decoration: const InputDecoration(
                     prefixIcon: Icon(Icons.search),
-                    hintText: 'Tim event theo ten, store, dia diem',
+                    hintText: 'Search events by name, store, or location',
                   ),
                   onSubmitted: (_) => _refresh(),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: _sort,
-                  decoration: const InputDecoration(labelText: 'Sap xep'),
+                  decoration: const InputDecoration(labelText: 'Sort'),
                   items: _sortOptions
                       .map(
                         (item) => DropdownMenuItem<String>(
@@ -121,8 +121,8 @@ class _EventsScreenState extends State<EventsScreen> {
                   return const Padding(
                     padding: EdgeInsets.all(16),
                     child: EmptyStateCard(
-                      title: 'Chua co event phu hop',
-                      message: 'Thu doi tu khoa hoac sort de xem them su kien.',
+                      title: 'No matching events',
+                      message: 'Try a different keyword or sort option to see more events.',
                     ),
                   );
                 }
@@ -150,7 +150,8 @@ class _EventsScreenState extends State<EventsScreen> {
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute<void>(
-                                builder: (_) => EventDetailScreen(eventKey: event.slug),
+                                builder: (_) =>
+                                    EventDetailScreen(eventKey: event.slug),
                               ),
                             );
                           },
@@ -188,10 +189,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _future ??= _load();
-    final controller = AppScope.of(context);
-    if (controller.isLoggedIn && controller.favoriteItems.isEmpty) {
-      controller.loadFavorites();
-    }
   }
 
   Future<EventDetail> _load() {
@@ -225,7 +222,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(saved ? 'Da them event vao yeu thich' : 'Da bo event khoi yeu thich')),
+        SnackBar(
+            content: Text(saved
+                ? 'Added to favorites'
+                : 'Removed from favorites')),
       );
     } catch (error) {
       if (!mounted) {
@@ -252,15 +252,18 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         final event = snapshot.data;
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Chi tiet event'),
+            title: const Text('Event details'),
             actions: [
               if (event != null && controller.isLoggedIn)
                 IconButton(
-                  onPressed: _favoriteBusy ? null : () => _toggleFavorite(event),
+                  onPressed:
+                      _favoriteBusy ? null : () => _toggleFavorite(event),
                   icon: Icon(
-                    controller.isFavorite('EVENT', event.id) ? Icons.favorite : Icons.favorite_border,
+                    controller.isFavorite('EVENT', event.id)
+                        ? Icons.favorite
+                        : Icons.favorite_border,
                   ),
-                  tooltip: 'Yeu thich',
+                  tooltip: 'Favorite',
                 ),
             ],
           ),
@@ -292,17 +295,22 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   const SizedBox(height: 18),
                   Text(
                     event.name,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 8),
-                  Text(event.description.isEmpty ? event.highlightSummary : event.description),
+                  Text(event.description.isEmpty
+                      ? event.highlightSummary
+                      : event.description),
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
                       MetricChip(label: event.storeName),
-                      MetricChip(label: '${event.remainingSlots} cho trong'),
+                      MetricChip(label: '${event.remainingSlots} slots left'),
                       MetricChip(label: Formatters.shortDate(event.startsAt)),
                     ],
                   ),
@@ -314,20 +322,24 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Thong tin nhanh',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                            'Quick information',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w800),
                           ),
                           const SizedBox(height: 10),
-                          Text('Dia diem: ${event.location}'),
+                          Text('Location: ${event.location}'),
                           const SizedBox(height: 6),
-                          Text('Lich: ${event.scheduleText}'),
+                          Text('Schedule: ${event.scheduleText}'),
                           if (event.storeAddress.isNotEmpty) ...[
                             const SizedBox(height: 6),
                             Text('Store: ${event.storeAddress}'),
                           ],
                           if (event.capacity > 0) ...[
                             const SizedBox(height: 6),
-                            Text('Suc chua: ${event.bookedCount}/${event.capacity}'),
+                            Text(
+                                'Capacity: ${event.bookedCount}/${event.capacity}'),
                           ],
                         ],
                       ),
@@ -343,13 +355,15 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                           Navigator.of(context).push(
                             MaterialPageRoute<void>(
                               builder: (_) => StoreDetailScreen(
-                                storeKey: event.storeSlug.isEmpty ? event.storeId.toString() : event.storeSlug,
+                                storeKey: event.storeSlug.isEmpty
+                                    ? event.storeId.toString()
+                                    : event.storeSlug,
                               ),
                             ),
                           );
                         },
                         icon: const Icon(Icons.storefront_outlined),
-                        label: const Text('Mo store'),
+                        label: const Text('Open store'),
                       ),
                       if (controller.isLoggedIn)
                         OutlinedButton.icon(
@@ -366,15 +380,15 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                             );
                           },
                           icon: const Icon(Icons.rate_review_outlined),
-                          label: const Text('Viet review'),
+                          label: const Text('Write review'),
                         ),
                     ],
                   ),
                   if (event.sections.isNotEmpty) ...[
                     const SizedBox(height: 24),
                     const SectionHeader(
-                      title: 'Noi dung su kien',
-                      subtitle: 'Sections dai hon de doc tren mobile.',
+                      title: 'Event content',
+                      subtitle: 'Longer event sections optimized for mobile reading.',
                     ),
                     const SizedBox(height: 12),
                     ...event.sections.map(
@@ -388,7 +402,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               children: [
                                 if (section.imagePath != null) ...[
                                   NetworkOrFallbackImage(
-                                    imageUrl: controller.config.resolveImageUrl(section.imagePath),
+                                    imageUrl: controller.config
+                                        .resolveImageUrl(section.imagePath),
                                     height: 150,
                                     label: section.title,
                                   ),
@@ -396,7 +411,10 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                                 ],
                                 Text(
                                   section.title,
-                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w800),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(section.content),
@@ -410,8 +428,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   if (event.featuredDishes.isNotEmpty) ...[
                     const SizedBox(height: 24),
                     const SectionHeader(
-                      title: 'Mon lien quan',
-                      subtitle: 'Cac mon noi bat duoc event de xuat.',
+                      title: 'Related dishes',
+                      subtitle: 'Featured dishes recommended for this event.',
                     ),
                     const SizedBox(height: 12),
                     ...event.featuredDishes.map(
@@ -422,14 +440,16 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                             contentPadding: const EdgeInsets.all(16),
                             title: Text(
                               dish.name,
-                              style: const TextStyle(fontWeight: FontWeight.w800),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w800),
                             ),
                             subtitle: Text(Formatters.currency(dish.price)),
                             trailing: const Icon(Icons.chevron_right),
                             onTap: () {
                               Navigator.of(context).push(
                                 MaterialPageRoute<void>(
-                                  builder: (_) => DishDetailScreen(dishId: dish.id),
+                                  builder: (_) =>
+                                      DishDetailScreen(dishId: dish.id),
                                 ),
                               );
                             },

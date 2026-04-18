@@ -1,4 +1,167 @@
 import 'common_models.dart';
+import '../utils/ui_text.dart';
+
+bool isDeliveryOrderType(String deliveryType) {
+  final normalized = deliveryType.trim().toUpperCase();
+  return normalized == 'DELIVERY' || normalized == 'SCHEDULED' || normalized == 'IMMEDIATE';
+}
+
+String deliveryTypeLabel(String deliveryType) {
+  final normalized = deliveryType.trim().toUpperCase();
+  return switch (normalized) {
+    'DELIVERY' || 'IMMEDIATE' => 'Delivery',
+    'SCHEDULED' => 'Scheduled',
+    'PICKUP' => 'Pickup',
+    _ => normalized.isEmpty ? 'Updating' : normalized,
+  };
+}
+
+class ShippingFeeBreakdownItem {
+  const ShippingFeeBreakdownItem({
+    required this.storeId,
+    required this.storeName,
+    required this.distanceKm,
+    required this.shippingFeeAmount,
+  });
+
+  factory ShippingFeeBreakdownItem.fromJson(JsonMap json) {
+    return ShippingFeeBreakdownItem(
+      storeId: asInt(json['storeId']),
+      storeName: asString(json['storeName']),
+      distanceKm: json['distanceKm'] == null ? null : asDouble(json['distanceKm']),
+      shippingFeeAmount: asDouble(json['shippingFeeAmount']),
+    );
+  }
+
+  final int storeId;
+  final String storeName;
+  final double? distanceKm;
+  final double shippingFeeAmount;
+}
+
+class CheckoutPreview {
+  const CheckoutPreview({
+    required this.subtotalAmount,
+    required this.discountAmount,
+    required this.shippingFeeAmount,
+    required this.shippingFeeBreakdown,
+    required this.totalAmount,
+    required this.promotionCode,
+    required this.statusSummary,
+    this.shippingDistanceKm,
+  });
+
+  factory CheckoutPreview.fromJson(JsonMap json) {
+    return CheckoutPreview(
+      subtotalAmount: asDouble(json['subtotalAmount']),
+      discountAmount: asDouble(json['discountAmount']),
+      shippingDistanceKm:
+          json['shippingDistanceKm'] == null ? null : asDouble(json['shippingDistanceKm']),
+      shippingFeeAmount: asDouble(json['shippingFeeAmount']),
+      shippingFeeBreakdown:
+          asObjectList(json['shippingFeeBreakdown'], ShippingFeeBreakdownItem.fromJson),
+      totalAmount: asDouble(json['totalAmount']),
+      promotionCode: asString(json['promotionCode']),
+      statusSummary: UiText.translate(asString(json['statusSummary'])),
+    );
+  }
+
+  final double subtotalAmount;
+  final double discountAmount;
+  final double? shippingDistanceKm;
+  final double shippingFeeAmount;
+  final List<ShippingFeeBreakdownItem> shippingFeeBreakdown;
+  final double totalAmount;
+  final String promotionCode;
+  final String statusSummary;
+
+  bool get hasShippingSummary =>
+      shippingDistanceKm != null || shippingFeeAmount > 0 || shippingFeeBreakdown.isNotEmpty;
+}
+
+class CheckoutPromotionSuggestion {
+  const CheckoutPromotionSuggestion({
+    required this.id,
+    required this.code,
+    required this.name,
+    required this.description,
+    required this.scope,
+    required this.discountType,
+    required this.discountValue,
+    required this.minOrderAmount,
+    required this.maxDiscountAmount,
+    required this.estimatedDiscountAmount,
+    required this.eligibleAmount,
+    required this.matchedDishIds,
+    required this.storeId,
+    required this.storeName,
+    this.discountTarget = 'ITEMS',
+    this.startsAt,
+    this.endsAt,
+  });
+
+  factory CheckoutPromotionSuggestion.fromJson(JsonMap json) {
+    return CheckoutPromotionSuggestion(
+      id: asInt(json['id']),
+      code: asString(json['code']),
+      name: asString(json['name']),
+      description: asString(json['description']),
+      scope: asString(json['scope']),
+      discountType: asString(json['discountType']),
+      discountTarget: asString(json['discountTarget'], 'ITEMS'),
+      discountValue: asDouble(json['discountValue']),
+      minOrderAmount: json['minOrderAmount'] == null ? null : asDouble(json['minOrderAmount']),
+      maxDiscountAmount:
+          json['maxDiscountAmount'] == null ? null : asDouble(json['maxDiscountAmount']),
+      estimatedDiscountAmount: asDouble(json['estimatedDiscountAmount']),
+      eligibleAmount: asDouble(json['eligibleAmount']),
+      matchedDishIds: (json['matchedDishIds'] is List)
+          ? (json['matchedDishIds'] as List)
+              .map((item) => asInt(item))
+              .where((item) => item > 0)
+              .toList()
+          : const [],
+      storeId: asNullableInt(json['storeId']),
+      storeName: asNullableString(json['storeName']),
+      startsAt: asDateTime(json['startsAt']),
+      endsAt: asDateTime(json['endsAt']),
+    );
+  }
+
+  final int id;
+  final String code;
+  final String name;
+  final String description;
+  final String scope;
+  final String discountType;
+  final String discountTarget;
+  final double discountValue;
+  final double? minOrderAmount;
+  final double? maxDiscountAmount;
+  final double estimatedDiscountAmount;
+  final double eligibleAmount;
+  final List<int> matchedDishIds;
+  final int? storeId;
+  final String? storeName;
+  final DateTime? startsAt;
+  final DateTime? endsAt;
+
+  String get displayName => name.trim().isEmpty ? code : name;
+  bool get isPercentageDiscount => discountType.trim().toUpperCase() == 'PERCENT';
+
+  String get normalizedDiscountTarget {
+    final normalized = discountTarget.trim().toUpperCase();
+    return normalized.isEmpty ? 'ITEMS' : normalized;
+  }
+
+  bool get discountsItems =>
+      normalizedDiscountTarget == 'ITEMS' ||
+      normalizedDiscountTarget == 'BOTH';
+
+  bool get discountsShipping =>
+      normalizedDiscountTarget == 'SHIPPING' ||
+      normalizedDiscountTarget == 'BOTH';
+}
 
 class CartItem {
   const CartItem({
@@ -14,6 +177,8 @@ class CartItem {
     required this.available,
     required this.disabled,
     required this.schedulable,
+    this.storeLatitude,
+    this.storeLongitude,
   });
 
   factory CartItem.fromJson(JsonMap json) {
@@ -30,6 +195,8 @@ class CartItem {
       available: asBool(json['available'], true),
       disabled: asBool(json['disabled']),
       schedulable: asBool(json['schedulable'], true),
+      storeLatitude: json['storeLatitude'] == null ? null : asDouble(json['storeLatitude']),
+      storeLongitude: json['storeLongitude'] == null ? null : asDouble(json['storeLongitude']),
     );
   }
 
@@ -45,6 +212,8 @@ class CartItem {
   final bool available;
   final bool disabled;
   final bool schedulable;
+  final double? storeLatitude;
+  final double? storeLongitude;
 
   CartItem copyWith({
     int? id,
@@ -59,6 +228,8 @@ class CartItem {
     bool? available,
     bool? disabled,
     bool? schedulable,
+    double? storeLatitude,
+    double? storeLongitude,
   }) {
     final nextQuantity = quantity ?? this.quantity;
     final nextUnitPrice = unitPrice ?? this.unitPrice;
@@ -75,6 +246,8 @@ class CartItem {
       available: available ?? this.available,
       disabled: disabled ?? this.disabled,
       schedulable: schedulable ?? this.schedulable,
+      storeLatitude: storeLatitude ?? this.storeLatitude,
+      storeLongitude: storeLongitude ?? this.storeLongitude,
     );
   }
 
@@ -92,6 +265,8 @@ class CartItem {
       'available': available,
       'disabled': disabled,
       'schedulable': schedulable,
+      'storeLatitude': storeLatitude,
+      'storeLongitude': storeLongitude,
     };
   }
 }
@@ -182,11 +357,16 @@ class OrderSummary {
     required this.totalAmount,
     required this.statusSummary,
     required this.createdAt,
+    this.creditPointsAwarded = 0,
+    this.promotionCode,
+    this.promotionEligibleAmount,
     this.confirmedByUserName,
     this.confirmedAt,
     this.preparingStaffName,
     this.deliveringShipperName,
     this.deliveryProofImagePath,
+    this.shippingDistanceKm,
+    this.shippingFeeAmount = 0,
   });
 
   factory OrderSummary.fromJson(JsonMap json) {
@@ -196,13 +376,19 @@ class OrderSummary {
       status: asString(json['status']),
       paymentStatus: asString(json['paymentStatus']),
       totalAmount: asDouble(json['totalAmount']),
-      statusSummary: asString(json['statusSummary']),
+      statusSummary: UiText.translate(asString(json['statusSummary'])),
       createdAt: asDateTime(json['createdAt']),
+      creditPointsAwarded: asInt(json['creditPointsAwarded']),
+      promotionCode: asNullableString(json['promotionCode']),
+      promotionEligibleAmount:
+          json['promotionEligibleAmount'] == null ? null : asDouble(json['promotionEligibleAmount']),
       confirmedByUserName: asNullableString(json['confirmedByUserName']),
       confirmedAt: asDateTime(json['confirmedAt']),
       preparingStaffName: asNullableString(json['preparingStaffName']),
       deliveringShipperName: asNullableString(json['deliveringShipperName']),
       deliveryProofImagePath: asNullableString(json['deliveryProofImagePath']),
+      shippingDistanceKm: json['shippingDistanceKm'] == null ? null : asDouble(json['shippingDistanceKm']),
+      shippingFeeAmount: asDouble(json['shippingFeeAmount']),
     );
   }
 
@@ -213,11 +399,18 @@ class OrderSummary {
   final double totalAmount;
   final String statusSummary;
   final DateTime? createdAt;
+  final int creditPointsAwarded;
+  final String? promotionCode;
+  final double? promotionEligibleAmount;
   final String? confirmedByUserName;
   final DateTime? confirmedAt;
   final String? preparingStaffName;
   final String? deliveringShipperName;
   final String? deliveryProofImagePath;
+  final double? shippingDistanceKm;
+  final double shippingFeeAmount;
+
+  bool get hasShippingSummary => shippingDistanceKm != null || shippingFeeAmount > 0;
 }
 
 class DeliveryAddress {
@@ -229,6 +422,8 @@ class DeliveryAddress {
     required this.deliveryAddress,
     required this.primary,
     required this.verified,
+    this.latitude,
+    this.longitude,
     this.verifiedAt,
     this.lastUsedAt,
     this.createdAt,
@@ -244,6 +439,8 @@ class DeliveryAddress {
       deliveryAddress: asString(json['deliveryAddress']),
       primary: asBool(json['primary']),
       verified: asBool(json['verified']),
+      latitude: json['latitude'] == null ? null : asDouble(json['latitude']),
+      longitude: json['longitude'] == null ? null : asDouble(json['longitude']),
       verifiedAt: asDateTime(json['verifiedAt']),
       lastUsedAt: asDateTime(json['lastUsedAt']),
       createdAt: asDateTime(json['createdAt']),
@@ -258,10 +455,14 @@ class DeliveryAddress {
   final String deliveryAddress;
   final bool primary;
   final bool verified;
+  final double? latitude;
+  final double? longitude;
   final DateTime? verifiedAt;
   final DateTime? lastUsedAt;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+
+  bool get hasCoordinates => latitude != null && longitude != null;
 
   DeliveryAddress copyWith({
     int? id,
@@ -271,6 +472,8 @@ class DeliveryAddress {
     String? deliveryAddress,
     bool? primary,
     bool? verified,
+    double? latitude,
+    double? longitude,
     DateTime? verifiedAt,
     DateTime? lastUsedAt,
     DateTime? createdAt,
@@ -284,6 +487,8 @@ class DeliveryAddress {
       deliveryAddress: deliveryAddress ?? this.deliveryAddress,
       primary: primary ?? this.primary,
       verified: verified ?? this.verified,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
       verifiedAt: verifiedAt ?? this.verifiedAt,
       lastUsedAt: lastUsedAt ?? this.lastUsedAt,
       createdAt: createdAt ?? this.createdAt,
@@ -311,6 +516,9 @@ class CheckoutResult {
     required this.deliveryAddress,
     required this.statusSummary,
     required this.orders,
+    this.shippingDistanceKm,
+    this.shippingFeeAmount = 0,
+    this.shippingFeeBreakdown = const [],
     this.scheduledDeliveryAt,
     this.paymentExpiresAt,
     this.paidAt,
@@ -327,13 +535,16 @@ class CheckoutResult {
       paymentQrCode: asString(json['paymentQrCode']),
       subtotalAmount: asDouble(json['subtotalAmount']),
       discountAmount: asDouble(json['discountAmount']),
+      shippingDistanceKm: json['shippingDistanceKm'] == null ? null : asDouble(json['shippingDistanceKm']),
+      shippingFeeAmount: asDouble(json['shippingFeeAmount']),
+      shippingFeeBreakdown: asObjectList(json['shippingFeeBreakdown'], ShippingFeeBreakdownItem.fromJson),
       totalAmount: asDouble(json['totalAmount']),
       promotionCode: asString(json['promotionCode']),
       deliveryType: asString(json['deliveryType']),
       deliveryFullName: asString(json['deliveryFullName']),
       deliveryPhoneNumber: asString(json['deliveryPhoneNumber']),
       deliveryAddress: asString(json['deliveryAddress']),
-      statusSummary: asString(json['statusSummary']),
+      statusSummary: UiText.translate(asString(json['statusSummary'])),
       orders: asObjectList(json['orders'], OrderSummary.fromJson),
       scheduledDeliveryAt: asDateTime(json['scheduledDeliveryAt']),
       paymentExpiresAt: asDateTime(json['paymentExpiresAt']),
@@ -350,6 +561,9 @@ class CheckoutResult {
   final String paymentQrCode;
   final double subtotalAmount;
   final double discountAmount;
+  final double? shippingDistanceKm;
+  final double shippingFeeAmount;
+  final List<ShippingFeeBreakdownItem> shippingFeeBreakdown;
   final double totalAmount;
   final String promotionCode;
   final String deliveryType;
@@ -361,4 +575,7 @@ class CheckoutResult {
   final DateTime? scheduledDeliveryAt;
   final DateTime? paymentExpiresAt;
   final DateTime? paidAt;
+
+  bool get hasShippingSummary =>
+      shippingDistanceKm != null || shippingFeeAmount > 0 || shippingFeeBreakdown.isNotEmpty;
 }

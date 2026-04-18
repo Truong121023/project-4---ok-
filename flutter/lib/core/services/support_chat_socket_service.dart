@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import '../config/app_config.dart';
@@ -37,12 +37,12 @@ class SupportChatSocketService extends ChangeNotifier {
       return 'Demo mode';
     }
     if (connected) {
-      return 'Da ket noi';
+      return 'Connected';
     }
     if (connecting) {
-      return 'Dang ket noi';
+      return 'Connecting';
     }
-    return 'Chua ket noi';
+    return 'Offline';
   }
 
   AdminSupportChatSession? findAdminSession(String sessionId) {
@@ -114,7 +114,7 @@ class SupportChatSocketService extends ChangeNotifier {
       return;
     }
     if (!connected) {
-      errorMessage = 'Chua ket noi den ho tro truc tiep.';
+      errorMessage = 'Offline den ho tro truc tiep.';
       notifyListeners();
       return;
     }
@@ -162,7 +162,7 @@ class SupportChatSocketService extends ChangeNotifier {
       return;
     }
     if (!connected) {
-      errorMessage = 'Chua ket noi den ho tro truc tiep.';
+      errorMessage = 'Offline den ho tro truc tiep.';
       notifyListeners();
       return;
     }
@@ -192,14 +192,14 @@ class SupportChatSocketService extends ChangeNotifier {
       storeId: storeId,
       storeName: storeName,
       assignedAdminId: 1,
-      assignedAdminName: 'Tea Matcha Support',
+      assignedAdminName: 'Kamatcha Support',
       messages: const [
         SupportChatMessage(
           id: 'demo-welcome',
           senderId: 1,
-          senderName: 'Tea Matcha Support',
+          senderName: 'Kamatcha Support',
           senderRole: 'ADMIN',
-          content: 'Xin chao, ben minh dang online. Ban can ho tro gi cho don hang nay?',
+          content: 'Hello, we are online. What do you need help with for this order?',
           createdAt: null,
         ),
       ],
@@ -349,7 +349,7 @@ class SupportChatSocketService extends ChangeNotifier {
     if (text.isNotEmpty) {
       return text;
     }
-    return 'Khong ket noi duoc den support chat.';
+    return 'Unable to connect to support chat.';
   }
 
   @override
@@ -359,3 +359,4 @@ class SupportChatSocketService extends ChangeNotifier {
     super.dispose();
   }
 }
+

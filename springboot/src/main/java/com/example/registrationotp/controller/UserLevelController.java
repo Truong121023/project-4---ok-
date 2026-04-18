@@ -29,4 +29,11 @@ public class UserLevelController {
 	) {
 		return ResponseEntity.ok(userLevelService.listCurrentLevels(authorizationHeader, storeId));
 	}
+
+	@GetMapping("/definitions")
+	public ResponseEntity<List<com.example.registrationotp.dto.UserLevelDefinitionResponse>> listActiveDefinitions(
+			@RequestHeader("Authorization") String authorizationHeader
+	) {
+		return ResponseEntity.ok(userLevelService.listActiveDefinitionsForUser(authorizationHeader));
+	}
 }

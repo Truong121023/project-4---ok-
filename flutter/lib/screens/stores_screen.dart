@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../app/app.dart';
@@ -15,11 +17,13 @@ class StoresScreen extends StatefulWidget {
 class _StoresScreenState extends State<StoresScreen> {
   final _searchController = TextEditingController();
   Future<List<StoreCard>>? _future;
+  String? _lastSessionKey;
+  String? _lastPrimaryAddressKey;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _future ??= AppScope.of(context).browseStores();
+    _ensureFutureSynced();
   }
 
   @override
@@ -28,8 +32,85 @@ class _StoresScreenState extends State<StoresScreen> {
     super.dispose();
   }
 
+  void _ensureFutureSynced() {
+    final controller = AppScope.of(context);
+    final nextSessionKey = controller.session?.accessToken;
+    final nextPrimaryAddressKey = _primaryAddressKey(controller.primaryDeliveryAddress);
+    if (_future != null &&
+        _lastSessionKey == nextSessionKey &&
+        _lastPrimaryAddressKey == nextPrimaryAddressKey) {
+      return;
+    }
+    _lastSessionKey = nextSessionKey;
+    _lastPrimaryAddressKey = nextPrimaryAddressKey;
+    _future = _loadStores();
+  }
+
+  Future<List<StoreCard>> _loadStores() {
+    final controller = AppScope.of(context);
+    final primaryAddress = controller.primaryDeliveryAddress;
+    return controller.browseStores(
+      search: _searchController.text.trim(),
+      sort: primaryAddress?.hasCoordinates == true
+          ? 'distance_asc'
+          : 'rating_desc',
+      latitude: primaryAddress?.latitude,
+      longitude: primaryAddress?.longitude,
+    );
+  }
+
+  String _primaryAddressKey(DeliveryAddress? address) {
+    if (address == null) {
+      return 'guest';
+    }
+    return [
+      address.id,
+      address.deliveryAddress.trim(),
+      address.latitude?.toStringAsFixed(6) ?? 'na',
+      address.longitude?.toStringAsFixed(6) ?? 'na',
+      address.primary,
+    ].join('|');
+  }
+
+  double? _resolveStoreDistanceKm(
+    StoreCard store,
+    DeliveryAddress? address,
+  ) {
+    if (address != null &&
+        address.hasCoordinates &&
+        store.latitude != null &&
+        store.longitude != null) {
+      return _haversineKm(
+        address.latitude!,
+        address.longitude!,
+        store.latitude!,
+        store.longitude!,
+      );
+    }
+    return store.distanceKm;
+  }
+
+  double _haversineKm(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
+    const radius = 6371.0;
+    final dLat = _toRadians(lat2 - lat1);
+    final dLon = _toRadians(lon2 - lon1);
+    final a = (math.sin(dLat / 2) * math.sin(dLat / 2)) +
+        math.cos(_toRadians(lat1)) *
+            math.cos(_toRadians(lat2)) *
+            (math.sin(dLon / 2) * math.sin(dLon / 2));
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return radius * c;
+  }
+
+  double _toRadians(double value) => value * math.pi / 180;
+
   Future<void> _search() async {
-    final future = AppScope.of(context).browseStores(search: _searchController.text.trim());
+    final future = _loadStores();
     setState(() {
       _future = future;
     });
@@ -38,6 +119,7 @@ class _StoresScreenState extends State<StoresScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final controller = AppScope.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Stores')),
       body: Column(
@@ -49,7 +131,7 @@ class _StoresScreenState extends State<StoresScreen> {
               textInputAction: TextInputAction.search,
               onSubmitted: (_) => _search(),
               decoration: InputDecoration(
-                hintText: 'Tim theo ten store hoac khu vuc',
+                hintText: 'Search by store name or area',
                 suffixIcon: IconButton(
                   onPressed: _search,
                   icon: const Icon(Icons.search),
@@ -78,8 +160,8 @@ class _StoresScreenState extends State<StoresScreen> {
                   return const Padding(
                     padding: EdgeInsets.all(16),
                     child: EmptyStateCard(
-                      title: 'Khong tim thay store',
-                      message: 'Thu doi tu khoa de xem danh sach phu hop hon.',
+                      title: 'No stores found',
+                      message: 'Try a different keyword to get more relevant results.',
                     ),
                   );
                 }
@@ -93,6 +175,8 @@ class _StoresScreenState extends State<StoresScreen> {
                       final store = stores[index];
                       return StoreCardTile(
                         store: store,
+                        distanceKmOverride:
+                            _resolveStoreDistanceKm(store, controller.primaryDeliveryAddress),
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute<void>(

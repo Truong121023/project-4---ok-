@@ -647,13 +647,13 @@ class RegistrationOtpApplicationTests {
 								  "fullName": "Reviewer Updated",
 								  "email": "reviewer@example.com",
 								  "password": "",
-								  "role": "STAFF",
+								  "role": "MANAGER",
 								  "workingStoreId": %d,
 								  "enabled": true
 								}
 								""".formatted(storeId)))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.role").value("STAFF"))
+				.andExpect(jsonPath("$.role").value("MANAGER"))
 				.andExpect(jsonPath("$.workingStoreId").value(storeId))
 				.andExpect(jsonPath("$.workingStoreName").value("Downtown Matcha House"));
 
@@ -725,7 +725,7 @@ class RegistrationOtpApplicationTests {
 								  "fullName": "Store Staff",
 								  "email": "staff@example.com",
 								  "password": "Password123",
-								  "role": "STAFF",
+								  "role": "MANAGER",
 								  "enabled": true
 								}
 								"""))
@@ -737,12 +737,12 @@ class RegistrationOtpApplicationTests {
 	void onlyUserCanCreateReviewAndManagerCanModerateReviews() throws Exception {
 		User managerUser = saveUser("Store Manager", "manager@example.com", Role.MANAGER, true);
 		String managerToken = createSession(managerUser);
-		User staffUser = saveUser("Store Staff", "staff@example.com", Role.STAFF, true);
+		User staffUser = saveUser("Store Staff", "staff@example.com", Role.MANAGER, true);
 		String staffToken = createSession(staffUser);
 		User buyerUser = saveUser("Buyer User", "buyer@example.com", Role.USER, true);
 		String buyerToken = createSession(buyerUser);
 		Store store = saveStore("Downtown Matcha House", "12 Nguyen Hue", "store@example.com", "0900000000");
-		Category category = saveCategory("Latte", store);
+		Category category = saveSignatureCategory();
 		Dish dish = saveDish("Iced Matcha Latte", category, new BigDecimal("65000"));
 		saveOrderWithItem(buyerUser, store, dish, 1, new BigDecimal("65000"));
 		saveOrderWithItem(buyerUser, store, dish, 2, new BigDecimal("65000"));
@@ -805,7 +805,7 @@ class RegistrationOtpApplicationTests {
 		String buyerToken = createSession(buyerUser);
 		String otherBuyerToken = createSession(otherBuyer);
 		Store store = saveStore("Downtown Matcha House", "12 Nguyen Hue", "store@example.com", "0900000000");
-		Category category = saveCategory("Latte", store);
+		Category category = saveSignatureCategory();
 		Dish dish = saveDish("Iced Matcha Latte", category, new BigDecimal("65000"));
 		saveOrderWithItem(buyerUser, store, dish, 1, new BigDecimal("65000"));
 
@@ -900,7 +900,7 @@ class RegistrationOtpApplicationTests {
 		}
 
 		User buyerUser = saveUser("Dynamic Search Buyer", "buyer@example.com", Role.USER, true);
-		User staffUser = saveUser("Store Staff", "staff@example.com", Role.STAFF, true);
+		User staffUser = saveUser("Store Staff", "staff@example.com", Role.MANAGER, true);
 		staffUser.setWorkingStore(searchableStore);
 		userRepository.save(staffUser);
 
@@ -983,7 +983,7 @@ class RegistrationOtpApplicationTests {
 		store.setLongitude(106.7009);
 		storeRepository.save(store);
 
-		Category category = saveCategory("Latte", store);
+		Category category = saveSignatureCategory();
 		Dish dish = saveDish("Iced Matcha Latte", category, new BigDecimal("65000"));
 
 		mockMvc.perform(post("/api/admin/store-dishes")
@@ -1024,7 +1024,7 @@ class RegistrationOtpApplicationTests {
 						.param("lng", "106.701"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.items", hasSize(1)))
-				.andExpect(jsonPath("$.items[0].priceDisplay").value("70.000 đ"))
+				.andExpect(jsonPath("$.items[0].priceDisplay").value("70.000 Ä‘"))
 				.andExpect(jsonPath("$.items[0].stock").value(8))
 				.andExpect(jsonPath("$.items[0].storeId").value(store.getId()))
 				.andExpect(jsonPath("$.items[0].storeName").value(store.getName()))
@@ -1065,7 +1065,7 @@ class RegistrationOtpApplicationTests {
 		User buyerUser = saveUser("Buyer User", "buyer@example.com", Role.USER, true);
 		String buyerToken = createSession(buyerUser);
 		Store store = saveStore("Downtown Matcha House", "12 Nguyen Hue", "store@example.com", "0900000000");
-		Category category = saveCategory("Latte", store);
+		Category category = saveSignatureCategory();
 		Dish dish = saveDish("Iced Matcha Latte", category, new BigDecimal("65000"));
 		EventItem eventItem = saveEvent("Spring Matcha Day", store, "12 Nguyen Hue");
 		saveStoreDish(store, dish, 10, true, new BigDecimal("68000"));
@@ -1150,7 +1150,7 @@ class RegistrationOtpApplicationTests {
 		User buyerUser = saveUser("Buyer User", "buyer@example.com", Role.USER, true);
 		String buyerToken = createSession(buyerUser);
 		Store store = saveStore("Downtown Matcha House", "12 Nguyen Hue", "store@example.com", "0900000000");
-		Category category = saveCategory("Latte", store);
+		Category category = saveSignatureCategory();
 		Dish dish = saveDish("Iced Matcha Latte", category, new BigDecimal("65000"));
 		saveOrderWithItem(buyerUser, store, dish, 1, new BigDecimal("65000"));
 		saveReview(buyerUser, ReviewTargetType.CATEGORY, category.getId(), "Legacy", "Legacy category review");
@@ -1531,7 +1531,7 @@ class RegistrationOtpApplicationTests {
 								{
 								  "title": "Khai truong Downtown Matcha House",
 								  "summary": "Chi nhanh moi da san sang don khach ngay trung tam.",
-								  "content": "Tea Matcha chinh thuc khai truong chi nhanh Downtown Matcha House voi tasting bar moi.",
+								  "content": "Kamatcha chinh thuc khai truong chi nhanh Downtown Matcha House voi tasting bar moi.",
 								  "relatedStoreId": %d,
 								  "tags": ["khai-truong", "chi-nhanh-moi", "downtown"],
 								  "imagePaths": ["/uploads/news/downtown-opening.jpg"],
@@ -1894,13 +1894,17 @@ class RegistrationOtpApplicationTests {
 								{
 								  "fullName": "Nguyen Quang Truong",
 								  "phoneNumber": "0901234567",
-								  "deliveryAddress": "12 Nguyen Hue, Quan 1, TP HCM"
+								  "deliveryAddress": "12 Nguyen Hue, Quan 1, TP HCM",
+								  "latitude": 10.776889,
+								  "longitude": 106.700806
 								}
 								"""))
 				.andExpect(status().isCreated())
 				.andExpect(jsonPath("$.fullName").value("Nguyen Quang Truong"))
 				.andExpect(jsonPath("$.phoneNumber").value("0901234567"))
 				.andExpect(jsonPath("$.deliveryAddress").value("12 Nguyen Hue, Quan 1, TP HCM"))
+				.andExpect(jsonPath("$.latitude").value(10.776889))
+				.andExpect(jsonPath("$.longitude").value(106.700806))
 				.andExpect(jsonPath("$.primary").value(true))
 				.andExpect(jsonPath("$.verified").value(false))
 				.andReturn();
@@ -1912,6 +1916,8 @@ class RegistrationOtpApplicationTests {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$", hasSize(1)))
 				.andExpect(jsonPath("$[0].id").value(addressId))
+				.andExpect(jsonPath("$[0].latitude").value(10.776889))
+				.andExpect(jsonPath("$[0].longitude").value(106.700806))
 				.andExpect(jsonPath("$[0].primary").value(true))
 				.andExpect(jsonPath("$[0].verified").value(false));
 
@@ -1919,6 +1925,8 @@ class RegistrationOtpApplicationTests {
 						.header("Authorization", "Bearer " + buyerToken))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.id").value(addressId))
+				.andExpect(jsonPath("$.latitude").value(10.776889))
+				.andExpect(jsonPath("$.longitude").value(106.700806))
 				.andExpect(jsonPath("$.primary").value(true))
 				.andExpect(jsonPath("$.verified").value(false));
 
@@ -1926,6 +1934,8 @@ class RegistrationOtpApplicationTests {
 						.header("Authorization", "Bearer " + buyerToken))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.fullName").value("Nguyen Quang Truong"))
+				.andExpect(jsonPath("$.latitude").value(10.776889))
+				.andExpect(jsonPath("$.longitude").value(106.700806))
 				.andExpect(jsonPath("$.verified").value(false));
 
 		mockMvc.perform(put("/api/user/delivery-addresses/{id}", addressId)
@@ -1935,13 +1945,17 @@ class RegistrationOtpApplicationTests {
 								{
 								  "fullName": "Nguyen Quang Truong Updated",
 								  "phoneNumber": "0911111111",
-								  "deliveryAddress": "88 Le Loi, Quan 1, TP HCM"
+								  "deliveryAddress": "88 Le Loi, Quan 1, TP HCM",
+								  "latitude": 10.773200,
+								  "longitude": 106.703700
 								}
 								"""))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.fullName").value("Nguyen Quang Truong Updated"))
 				.andExpect(jsonPath("$.phoneNumber").value("0911111111"))
-				.andExpect(jsonPath("$.deliveryAddress").value("88 Le Loi, Quan 1, TP HCM"));
+				.andExpect(jsonPath("$.deliveryAddress").value("88 Le Loi, Quan 1, TP HCM"))
+				.andExpect(jsonPath("$.latitude").value(10.7732))
+				.andExpect(jsonPath("$.longitude").value(106.7037));
 
 		mockMvc.perform(delete("/api/user/delivery-addresses/{id}", addressId)
 						.header("Authorization", "Bearer " + buyerToken))
@@ -2053,7 +2067,7 @@ class RegistrationOtpApplicationTests {
 						.contentType(APPLICATION_JSON)
 						.content("""
 								{
-								  "replyMessage": "Tea Matcha da ghi nhan va cam on ban."
+								  "replyMessage": "Kamatcha da ghi nhan va cam on ban."
 								}
 								"""))
 				.andExpect(status().isOk())
@@ -2064,7 +2078,7 @@ class RegistrationOtpApplicationTests {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.relatedStoreId").value(store.getId()))
 				.andExpect(jsonPath("$.relatedOrderId").value(order.getId()))
-				.andExpect(jsonPath("$.replyMessage").value("Tea Matcha da ghi nhan va cam on ban."));
+				.andExpect(jsonPath("$.replyMessage").value("Kamatcha da ghi nhan va cam on ban."));
 	}
 
 	@Test
@@ -2201,11 +2215,11 @@ class RegistrationOtpApplicationTests {
 						.contentType(APPLICATION_JSON)
 						.content("""
 								{
-								  "replyMessage": "Tea Matcha da ghi nhan va se ra soat lai chat luong mon."
+								  "replyMessage": "Kamatcha da ghi nhan va se ra soat lai chat luong mon."
 								}
 								"""))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.replyMessage").value("Tea Matcha da ghi nhan va se ra soat lai chat luong mon."))
+				.andExpect(jsonPath("$.replyMessage").value("Kamatcha da ghi nhan va se ra soat lai chat luong mon."))
 				.andExpect(jsonPath("$.repliedByUserId").value(adminUser.getId()))
 				.andExpect(jsonPath("$.repliedByUserName").value("Admin Reply"))
 				.andExpect(jsonPath("$.repliedByUserRole").value("ADMIN"));
@@ -2235,7 +2249,7 @@ class RegistrationOtpApplicationTests {
 		User buyerUser = saveUser("Checkout Buyer", "checkout@example.com", Role.USER, true);
 		String buyerToken = createSession(buyerUser);
 		Store store = saveStore("Downtown Matcha House", "12 Nguyen Hue", "store@example.com", "0900000000");
-		Category category = saveCategory("Latte", store);
+		Category category = saveSignatureCategory();
 		Dish dish = saveDish("Iced Matcha Latte", category, new BigDecimal("65000"));
 		saveStoreDish(store, dish, 10, true, new BigDecimal("68000"));
 		com.example.registrationotp.model.UserDeliveryAddress deliveryAddress = saveDeliveryAddress(
@@ -2282,7 +2296,7 @@ class RegistrationOtpApplicationTests {
 				.andExpect(jsonPath("$.deliveryType").value("IMMEDIATE"))
 				.andExpect(jsonPath("$.paymentProvider").value("PAYOS"))
 				.andExpect(jsonPath("$.paymentStatus").value("PENDING"))
-				.andExpect(jsonPath("$.statusSummary").value("Khach chua thanh toan"))
+				.andExpect(jsonPath("$.statusSummary").value("Cho thanh toan"))
 				.andExpect(jsonPath("$.promotionCode").value("MATCHA10"))
 				.andExpect(jsonPath("$.orders", hasSize(1)))
 				.andExpect(jsonPath("$.orders[0].promotionScope").value("ORDER"))
@@ -2291,6 +2305,7 @@ class RegistrationOtpApplicationTests {
 				.andExpect(jsonPath("$.subtotalAmount").value(136000))
 				.andExpect(jsonPath("$.discountAmount").value(13600))
 				.andExpect(jsonPath("$.totalAmount").value(122400))
+				.andExpect(jsonPath("$.paymentReference").value("plink-123"))
 				.andExpect(jsonPath("$.paymentCheckoutUrl").value("https://pay.payos.vn/web/plink-123"))
 				.andExpect(jsonPath("$.paymentQrCode").value("qr-123"))
 				.andReturn();
@@ -2311,12 +2326,252 @@ class RegistrationOtpApplicationTests {
 						.header("Authorization", "Bearer " + buyerToken))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.storeSlug").value(store.getSlug()))
-				.andExpect(jsonPath("$.statusSummary").value("Khach chua thanh toan"))
+				.andExpect(jsonPath("$.statusSummary").value("Cho thanh toan"))
+				.andExpect(jsonPath("$.paymentReference").value("plink-123"))
+				.andExpect(jsonPath("$.paymentCheckoutUrl").value("https://pay.payos.vn/web/plink-123"))
+				.andExpect(jsonPath("$.paymentQrCode").value("qr-123"))
 				.andExpect(jsonPath("$.deliveryFullName").value("Nguyen Quang Truong"))
 				.andExpect(jsonPath("$.deliveryPhoneNumber").value("0901234567"))
 				.andExpect(jsonPath("$.deliveryAddress").value("12 Nguyen Hue, Quan 1, TP HCM"));
 
 		assertThat(promotionRepository.findById(promotion.getId()).orElseThrow().getUsedCount()).isEqualTo(1);
+	}
+
+	@Test
+	void checkoutRetriesWhenPayOsReportsExistingPaymentRequest() throws Exception {
+		User buyerUser = saveUser("Retry Buyer", "retry-checkout@example.com", Role.USER, true);
+		String buyerToken = createSession(buyerUser);
+		Store store = saveStore("Retry Store", "12 Nguyen Hue", "retry-store@example.com", "0900001111");
+		Category category = saveSignatureCategory();
+		Dish dish = saveDish("Retry Matcha", category, new BigDecimal("65000"));
+		saveStoreDish(store, dish, 10, true, new BigDecimal("65000"));
+		com.example.registrationotp.model.UserDeliveryAddress deliveryAddress = saveDeliveryAddress(
+				buyerUser,
+				"Retry Buyer",
+				"0901234567",
+				"12 Nguyen Hue, Quan 1, TP HCM"
+		);
+
+		mockMvc.perform(post("/api/user/cart/items")
+						.header("Authorization", "Bearer " + buyerToken)
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "storeId": %d,
+								  "dishId": %d,
+								  "quantity": 1
+								}
+								""".formatted(store.getId(), dish.getId())))
+				.andExpect(status().isOk());
+
+		when(payOsClient.createPaymentLink(any()))
+				.thenThrow(new com.example.registrationotp.exception.BadRequestException("payOS payment request already exists"))
+				.thenReturn(new com.example.registrationotp.dto.PayOsPaymentLinkData(
+						"plink-retry",
+						"https://pay.payos.vn/web/plink-retry",
+						"qr-retry",
+						"PENDING",
+						99L,
+						65000
+				));
+
+		mockMvc.perform(post("/api/user/cart/checkout")
+						.header("Authorization", "Bearer " + buyerToken)
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "deliveryAddressId": %d,
+								  "returnUrl": "http://localhost:5173/payment/success",
+								  "cancelUrl": "http://localhost:5173/payment/cancel"
+								}
+								""".formatted(deliveryAddress.getId())))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.paymentReference").value("plink-retry"))
+				.andExpect(jsonPath("$.paymentCheckoutUrl").value("https://pay.payos.vn/web/plink-retry"))
+				.andExpect(jsonPath("$.paymentQrCode").value("qr-retry"));
+
+		verify(payOsClient, org.mockito.Mockito.times(2)).createPaymentLink(any());
+	}
+
+	@Test
+	void checkoutRetriesWhenPayOsReportsExistingPaymentRequestInVietnamese() throws Exception {
+		User buyerUser = saveUser("Retry Buyer Vi", "retry-checkout-vi@example.com", Role.USER, true);
+		String buyerToken = createSession(buyerUser);
+		Store store = saveStore("Retry Store Vi", "12 Nguyen Hue", "retry-store-vi@example.com", "0900001122");
+		Category category = saveSignatureCategory();
+		Dish dish = saveDish("Retry Matcha Vi", category, new BigDecimal("65000"));
+		saveStoreDish(store, dish, 10, true, new BigDecimal("65000"));
+		com.example.registrationotp.model.UserDeliveryAddress deliveryAddress = saveDeliveryAddress(
+				buyerUser,
+				"Retry Buyer Vi",
+				"0901234567",
+				"12 Nguyen Hue, Quan 1, TP HCM"
+		);
+
+		mockMvc.perform(post("/api/user/cart/items")
+						.header("Authorization", "Bearer " + buyerToken)
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "storeId": %d,
+								  "dishId": %d,
+								  "quantity": 1
+								}
+								""".formatted(store.getId(), dish.getId())))
+				.andExpect(status().isOk());
+
+		when(payOsClient.createPaymentLink(any()))
+				.thenThrow(new com.example.registrationotp.exception.BadRequestException("payOS error 231: Đơn thanh toán đã tồn tại"))
+				.thenReturn(new com.example.registrationotp.dto.PayOsPaymentLinkData(
+						"plink-retry-vi",
+						"https://pay.payos.vn/web/plink-retry-vi",
+						"qr-retry-vi",
+						"PENDING",
+						199L,
+						65000
+				));
+
+		mockMvc.perform(post("/api/user/cart/checkout")
+						.header("Authorization", "Bearer " + buyerToken)
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "deliveryAddressId": %d,
+								  "returnUrl": "http://localhost:5173/payment/success",
+								  "cancelUrl": "http://localhost:5173/payment/cancel"
+								}
+								""".formatted(deliveryAddress.getId())))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.paymentReference").value("plink-retry-vi"))
+				.andExpect(jsonPath("$.paymentCheckoutUrl").value("https://pay.payos.vn/web/plink-retry-vi"))
+				.andExpect(jsonPath("$.paymentQrCode").value("qr-retry-vi"));
+
+		verify(payOsClient, org.mockito.Mockito.times(2)).createPaymentLink(any());
+	}
+
+	@Test
+	void checkoutPreviewCheckoutAndOrderDetailExposeShippingFeeContract() throws Exception {
+		User buyerUser = saveUser("Shipping Buyer", "shipping@example.com", Role.USER, true);
+		String buyerToken = createSession(buyerUser);
+		Store store = saveStore(
+				"Shipping Store",
+				"12 Nguyen Hue",
+				"shipping-store@example.com",
+				"0900007777",
+				10.781020,
+				106.698340
+		);
+		Category category = saveSignatureCategory();
+		Dish dish = saveDish("Matcha Coconut", category, new BigDecimal("50000"));
+		saveStoreDish(store, dish, 10, true, new BigDecimal("52000"));
+		com.example.registrationotp.model.UserDeliveryAddress deliveryAddress = saveDeliveryAddress(
+				buyerUser,
+				"Shipping Buyer",
+				"0901234567",
+				"1 Le Loi, Quan 1, TP HCM",
+				10.776889,
+				106.700806
+		);
+
+		mockMvc.perform(post("/api/user/cart/items")
+						.header("Authorization", "Bearer " + buyerToken)
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "storeId": %d,
+								  "dishId": %d,
+								  "quantity": 1
+								}
+								""".formatted(store.getId(), dish.getId())))
+				.andExpect(status().isOk());
+
+		mockMvc.perform(get("/api/user/cart")
+						.header("Authorization", "Bearer " + buyerToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items[0].storeId").value(store.getId()))
+				.andExpect(jsonPath("$.items[0].storeLatitude").value(10.78102))
+				.andExpect(jsonPath("$.items[0].storeLongitude").value(106.69834));
+
+		BigDecimal expectedDistanceKm = haversineKm(
+				store.getLatitude(),
+				store.getLongitude(),
+				deliveryAddress.getLatitude(),
+				deliveryAddress.getLongitude()
+		);
+		BigDecimal expectedShippingDistanceKm = expectedDistanceKm.setScale(3, java.math.RoundingMode.HALF_UP);
+		BigDecimal expectedShippingFeeAmount = BigDecimal.valueOf(Math.round(expectedDistanceKm.doubleValue() * 4000));
+		BigDecimal expectedSubtotalAmount = new BigDecimal("52000");
+		BigDecimal expectedTotalAmount = expectedSubtotalAmount.add(expectedShippingFeeAmount);
+
+		MvcResult previewResult = mockMvc.perform(post("/api/user/cart/checkout-preview")
+						.header("Authorization", "Bearer " + buyerToken)
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "deliveryAddressId": %d,
+								  "deliveryType": "DELIVERY"
+								}
+								""".formatted(deliveryAddress.getId())))
+				.andExpect(status().isOk())
+				.andReturn();
+
+		var previewJson = objectMapper.readTree(previewResult.getResponse().getContentAsString());
+		assertThat(previewJson.path("subtotalAmount").decimalValue()).isEqualByComparingTo(expectedSubtotalAmount);
+		assertThat(previewJson.path("discountAmount").decimalValue()).isEqualByComparingTo(BigDecimal.ZERO);
+		assertThat(previewJson.path("shippingDistanceKm").decimalValue()).isEqualByComparingTo(expectedShippingDistanceKm);
+		assertThat(previewJson.path("shippingFeeAmount").decimalValue()).isEqualByComparingTo(expectedShippingFeeAmount);
+		assertThat(previewJson.path("totalAmount").decimalValue()).isEqualByComparingTo(expectedTotalAmount);
+		assertThat(previewJson.path("statusSummary").asText()).isEqualTo("Preview ready");
+		assertThat(previewJson.path("shippingFeeBreakdown")).hasSize(1);
+		assertThat(previewJson.path("shippingFeeBreakdown").get(0).path("storeId").asLong()).isEqualTo(store.getId());
+		assertThat(previewJson.path("shippingFeeBreakdown").get(0).path("distanceKm").decimalValue()).isEqualByComparingTo(expectedShippingDistanceKm);
+		assertThat(previewJson.path("shippingFeeBreakdown").get(0).path("shippingFeeAmount").decimalValue()).isEqualByComparingTo(expectedShippingFeeAmount);
+
+		when(payOsClient.createPaymentLink(any())).thenReturn(new com.example.registrationotp.dto.PayOsPaymentLinkData(
+				"plink-shipping",
+				"https://pay.payos.vn/web/plink-shipping",
+				"qr-shipping",
+				"PENDING",
+				1L,
+				expectedTotalAmount.intValueExact()
+		));
+
+		MvcResult checkoutResult = mockMvc.perform(post("/api/user/cart/checkout")
+						.header("Authorization", "Bearer " + buyerToken)
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "deliveryAddressId": %d,
+								  "deliveryType": "DELIVERY",
+								  "returnUrl": "http://localhost:5173/payment/success",
+								  "cancelUrl": "http://localhost:5173/payment/cancel"
+								}
+								""".formatted(deliveryAddress.getId())))
+				.andExpect(status().isOk())
+				.andReturn();
+
+		var checkoutJson = objectMapper.readTree(checkoutResult.getResponse().getContentAsString());
+		assertThat(checkoutJson.path("shippingDistanceKm").decimalValue()).isEqualByComparingTo(expectedShippingDistanceKm);
+		assertThat(checkoutJson.path("shippingFeeAmount").decimalValue()).isEqualByComparingTo(expectedShippingFeeAmount);
+		assertThat(checkoutJson.path("totalAmount").decimalValue()).isEqualByComparingTo(expectedTotalAmount);
+		assertThat(checkoutJson.path("paymentCheckoutUrl").asText()).isEqualTo("https://pay.payos.vn/web/plink-shipping");
+		assertThat(checkoutJson.path("paymentQrCode").asText()).isEqualTo("qr-shipping");
+		assertThat(checkoutJson.path("orders")).hasSize(1);
+		assertThat(checkoutJson.path("orders").get(0).path("shippingDistanceKm").decimalValue()).isEqualByComparingTo(expectedShippingDistanceKm);
+		assertThat(checkoutJson.path("orders").get(0).path("shippingFeeAmount").decimalValue()).isEqualByComparingTo(expectedShippingFeeAmount);
+
+		Long orderId = extractId(checkoutResult);
+
+		MvcResult orderDetailResult = mockMvc.perform(get("/api/user/orders/{id}", orderId)
+						.header("Authorization", "Bearer " + buyerToken))
+				.andExpect(status().isOk())
+				.andReturn();
+
+		var orderDetailJson = objectMapper.readTree(orderDetailResult.getResponse().getContentAsString());
+		assertThat(orderDetailJson.path("shippingDistanceKm").decimalValue()).isEqualByComparingTo(expectedShippingDistanceKm);
+		assertThat(orderDetailJson.path("shippingFeeAmount").decimalValue()).isEqualByComparingTo(expectedShippingFeeAmount);
+		assertThat(orderDetailJson.path("shippingFeeBreakdown")).hasSize(1);
+		assertThat(orderDetailJson.path("shippingFeeBreakdown").get(0).path("storeName").asText()).isEqualTo(store.getName());
 	}
 
 	@Test
@@ -2427,7 +2682,7 @@ class RegistrationOtpApplicationTests {
 		User adminUser = saveUser("Promo Admin", "promo-admin@example.com", Role.ADMIN, true);
 		String adminToken = createSession(adminUser);
 		Store store = saveStore("Promo Store", "12 Nguyen Hue", "promo-store@example.com", "0900001234");
-		Category category = saveCategory("Latte", store);
+		Category category = saveSignatureCategory();
 		Dish dish = saveDish("Ceremonial Matcha Latte", category, new BigDecimal("79000"));
 		UserLevelDefinition level = saveUserLevelDefinition(store, "VIP", "VIP", new BigDecimal("100000"));
 
@@ -2445,7 +2700,6 @@ class RegistrationOtpApplicationTests {
 								  "minimumOrderAmount": 120000,
 								  "maximumDiscountAmount": 30000,
 								  "minStoreBillAmount": 140000,
-								  "minCrossStoreBillAmount": 280000,
 								  "promotionDishIds": [%d],
 								  "eligibleStoreIds": [%d],
 								  "eligibleUserLevelIds": [%d],
@@ -2460,7 +2714,7 @@ class RegistrationOtpApplicationTests {
 				.andExpect(jsonPath("$.maximumDiscountAmount").value(30000))
 				.andExpect(jsonPath("$.maxDiscountAmount").value(30000))
 				.andExpect(jsonPath("$.minStoreBillAmount").value(140000))
-				.andExpect(jsonPath("$.minCrossStoreBillAmount").value(280000))
+				.andExpect(jsonPath("$.minCrossStoreBillAmount").value(nullValue()))
 				.andExpect(jsonPath("$.promotionDishIds[0]").value(dish.getId()))
 				.andExpect(jsonPath("$.applicableDishIds[0]").value(dish.getId()))
 				.andExpect(jsonPath("$.eligibleStoreIds[0]").value(store.getId()))
@@ -2477,7 +2731,7 @@ class RegistrationOtpApplicationTests {
 				.andExpect(jsonPath("$.minimumOrderAmount").value(120000))
 				.andExpect(jsonPath("$.maximumDiscountAmount").value(30000))
 				.andExpect(jsonPath("$.minStoreBillAmount").value(140000))
-				.andExpect(jsonPath("$.minCrossStoreBillAmount").value(280000))
+				.andExpect(jsonPath("$.minCrossStoreBillAmount").value(nullValue()))
 				.andExpect(jsonPath("$.promotionDishIds[0]").value(dish.getId()));
 
 		mockMvc.perform(put("/api/admin/promotions/{id}", promotionId)
@@ -2494,7 +2748,6 @@ class RegistrationOtpApplicationTests {
 								  "minOrderAmount": 150000,
 								  "maxDiscountAmount": 40000,
 								  "minStoreBillAmount": 180000,
-								  "minCrossStoreBillAmount": 360000,
 								  "applicableDishIds": [%d],
 								  "eligibleStoreIds": [%d],
 								  "eligibleUserLevelIds": [%d],
@@ -2508,7 +2761,7 @@ class RegistrationOtpApplicationTests {
 				.andExpect(jsonPath("$.maximumDiscountAmount").value(40000))
 				.andExpect(jsonPath("$.maxDiscountAmount").value(40000))
 				.andExpect(jsonPath("$.minStoreBillAmount").value(180000))
-				.andExpect(jsonPath("$.minCrossStoreBillAmount").value(360000))
+				.andExpect(jsonPath("$.minCrossStoreBillAmount").value(nullValue()))
 				.andExpect(jsonPath("$.promotionDishIds[0]").value(dish.getId()))
 				.andExpect(jsonPath("$.applicableDishIds[0]").value(dish.getId()))
 				.andExpect(jsonPath("$.eligibleStoreIds[0]").value(store.getId()))
@@ -2530,7 +2783,7 @@ class RegistrationOtpApplicationTests {
 		User buyerUser = saveUser("Dish Promo Buyer", "dish-promo@example.com", Role.USER, true);
 		String buyerToken = createSession(buyerUser);
 		Store store = saveStore("Downtown Matcha House", "12 Nguyen Hue", "store@example.com", "0900000000");
-		Category category = saveCategory("Latte", store);
+		Category category = saveSignatureCategory();
 		Dish matchaDish = saveDish("Iced Matcha Latte", category, new BigDecimal("65000"));
 		Dish hojichaDish = saveDish("Hojicha Latte", category, new BigDecimal("55000"));
 		saveStoreDish(store, matchaDish, 10, true, new BigDecimal("68000"));
@@ -2608,15 +2861,14 @@ class RegistrationOtpApplicationTests {
 	}
 
 	@Test
-	void checkoutSplitsSharedPaymentIntoStoreBillsAndAppliesPromotionByStoreLevelAndCrossStoreTotal() throws Exception {
+	void checkoutRejectsPromotionWhenCartContainsMultipleStores() throws Exception {
 		User buyerUser = saveUser("Split Buyer", "split@example.com", Role.USER, true);
 		String buyerToken = createSession(buyerUser);
 		Store firstStore = saveStore("Downtown Matcha House", "12 Nguyen Hue", "store1@example.com", "0900000000");
 		Store secondStore = saveStore("Riverside Matcha House", "88 Le Loi", "store2@example.com", "0911111111");
-		Category firstCategory = saveCategory("Latte", firstStore);
-		Category secondCategory = saveCategory("Tea", secondStore);
-		Dish firstDish = saveDish("Iced Matcha Latte", firstCategory, new BigDecimal("65000"));
-		Dish secondDish = saveDish("Hojicha Latte", secondCategory, new BigDecimal("55000"));
+		Category signatureCategory = saveSignatureCategory();
+		Dish firstDish = saveDish("Iced Matcha Latte", signatureCategory, new BigDecimal("65000"));
+		Dish secondDish = saveDish("Hojicha Latte", signatureCategory, new BigDecimal("55000"));
 		saveStoreDish(firstStore, firstDish, 10, true, new BigDecimal("68000"));
 		saveStoreDish(secondStore, secondDish, 10, true, new BigDecimal("57000"));
 		com.example.registrationotp.model.UserDeliveryAddress deliveryAddress = saveDeliveryAddress(
@@ -2625,16 +2877,8 @@ class RegistrationOtpApplicationTests {
 				"0901234567",
 				"12 Nguyen Hue, Quan 1, TP HCM"
 		);
-		UserLevelDefinition firstLevel = saveUserLevelDefinition(firstStore, "FIRST_GOLD", "First Gold", new BigDecimal("50000"));
-		UserLevelDefinition secondLevel = saveUserLevelDefinition(secondStore, "SECOND_GOLD", "Second Gold", new BigDecimal("50000"));
-		Instant previousQuarterPaidAt = instantInPreviousQuarter();
-		savePaidOrderWithItemAt(buyerUser, firstStore, firstDish, 1, new BigDecimal("100000"), OrderStatus.COMPLETED, previousQuarterPaidAt);
-		savePaidOrderWithItemAt(buyerUser, secondStore, secondDish, 1, new BigDecimal("100000"), OrderStatus.COMPLETED, previousQuarterPaidAt.plusSeconds(86400));
 		Promotion promotion = savePromotion("MATCHA10", PromotionScope.ORDER, PromotionDiscountType.PERCENT, new BigDecimal("10"));
 		promotion.setEligibleStoreIds(List.of(firstStore.getId(), secondStore.getId()));
-		promotion.setEligibleUserLevelIds(List.of(firstLevel.getId(), secondLevel.getId()));
-		promotion.setMinStoreBillAmount(new BigDecimal("50000"));
-		promotion.setMinCrossStoreBillAmount(new BigDecimal("120000"));
 		promotion = promotionRepository.save(promotion);
 
 		mockMvc.perform(post("/api/user/cart/items")
@@ -2661,14 +2905,66 @@ class RegistrationOtpApplicationTests {
 								""".formatted(secondStore.getId(), secondDish.getId())))
 				.andExpect(status().isOk());
 
-		when(payOsClient.createPaymentLink(any())).thenReturn(new com.example.registrationotp.dto.PayOsPaymentLinkData(
-				"plink-shared-group",
-				"https://pay.payos.vn/web/plink-shared-group",
-				"qr-shared-group",
-				"PENDING",
-				1L,
-				112500
-		));
+		mockMvc.perform(post("/api/user/cart/checkout")
+						.header("Authorization", "Bearer " + buyerToken)
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "deliveryAddressId": %d,
+								  "promotionCode": "MATCHA10",
+								  "returnUrl": "http://localhost:5173/payment/success",
+								  "cancelUrl": "http://localhost:5173/payment/cancel"
+								}
+								""".formatted(deliveryAddress.getId())))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value("Promotion code can only be applied to one store bill per checkout"));
+
+		assertThat(orderRepository.findAllByUserId(buyerUser.getId())).isEmpty();
+		assertThat(promotionRepository.findById(promotion.getId()).orElseThrow().getUsedCount()).isZero();
+	}
+
+	@Test
+	void checkoutRejectsPromotionWhenOrderContainsStoreSpecialtyDish() throws Exception {
+		User buyerUser = saveUser("Mixed Promo Buyer", "mixed-promo@example.com", Role.USER, true);
+		String buyerToken = createSession(buyerUser);
+		Store store = saveStore("Promo Guard Store", "45 Nguyen Hue", "promo-guard@example.com", "0900005678");
+		Category signatureCategory = saveSignatureCategory();
+		Category localCategory = saveCategory("Local Special", store);
+		Dish signatureDish = saveDish("Cloud Matcha", signatureCategory, new BigDecimal("65000"));
+		Dish localDish = saveDish("Store Coconut Matcha", localCategory, new BigDecimal("55000"));
+		saveStoreDish(store, signatureDish, 10, true, new BigDecimal("68000"));
+		saveStoreDish(store, localDish, 10, true, new BigDecimal("57000"));
+		com.example.registrationotp.model.UserDeliveryAddress deliveryAddress = saveDeliveryAddress(
+				buyerUser,
+				"Nguyen Quang Truong",
+				"0901234567",
+				"12 Nguyen Hue, Quan 1, TP HCM"
+		);
+		savePromotion("MATCHA10", PromotionScope.ORDER, PromotionDiscountType.PERCENT, new BigDecimal("10"));
+
+		mockMvc.perform(post("/api/user/cart/items")
+						.header("Authorization", "Bearer " + buyerToken)
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "storeId": %d,
+								  "dishId": %d,
+								  "quantity": 1
+								}
+								""".formatted(store.getId(), signatureDish.getId())))
+				.andExpect(status().isOk());
+
+		mockMvc.perform(post("/api/user/cart/items")
+						.header("Authorization", "Bearer " + buyerToken)
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "storeId": %d,
+								  "dishId": %d,
+								  "quantity": 1
+								}
+								""".formatted(store.getId(), localDish.getId())))
+				.andExpect(status().isOk());
 
 		mockMvc.perform(post("/api/user/cart/checkout")
 						.header("Authorization", "Bearer " + buyerToken)
@@ -2681,24 +2977,8 @@ class RegistrationOtpApplicationTests {
 								  "cancelUrl": "http://localhost:5173/payment/cancel"
 								}
 								""".formatted(deliveryAddress.getId())))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.orders", hasSize(2)))
-				.andExpect(jsonPath("$.subtotalAmount").value(125000))
-				.andExpect(jsonPath("$.discountAmount").value(12500))
-				.andExpect(jsonPath("$.totalAmount").value(112500))
-				.andExpect(jsonPath("$.orders[0].storeName").value("Downtown Matcha House"))
-				.andExpect(jsonPath("$.orders[0].subtotalAmount").value(68000))
-				.andExpect(jsonPath("$.orders[0].discountAmount").value(6800))
-				.andExpect(jsonPath("$.orders[0].totalAmount").value(61200))
-				.andExpect(jsonPath("$.orders[1].storeName").value("Riverside Matcha House"))
-				.andExpect(jsonPath("$.orders[1].subtotalAmount").value(57000))
-				.andExpect(jsonPath("$.orders[1].discountAmount").value(5700))
-				.andExpect(jsonPath("$.orders[1].totalAmount").value(51300));
-
-		assertThat(orderRepository.findAllByUserId(buyerUser.getId()).stream()
-				.filter(order -> order.getPayosOrderCode() != null)
-				.toList()).hasSize(2);
-		assertThat(promotionRepository.findById(promotion.getId()).orElseThrow().getUsedCount()).isEqualTo(2);
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value("Promotion code only applies to SIGNATURE dishes and cannot be used with store specialty dishes"));
 	}
 
 	@Test
@@ -2904,7 +3184,7 @@ class RegistrationOtpApplicationTests {
 		User buyerUser = saveUser("Refresh Buyer", "refresh@example.com", Role.USER, true);
 		String buyerToken = createSession(buyerUser);
 		Store store = saveStore("Downtown Matcha House", "12 Nguyen Hue", "store@example.com", "0900000000");
-		Category category = saveCategory("Latte", store);
+		Category category = saveSignatureCategory();
 		Dish dish = saveDish("Iced Matcha Latte", category, new BigDecimal("65000"));
 		saveStoreDish(store, dish, 10, true, new BigDecimal("68000"));
 		com.example.registrationotp.model.UserDeliveryAddress deliveryAddress = saveDeliveryAddress(
@@ -2963,8 +3243,12 @@ class RegistrationOtpApplicationTests {
 						.header("Authorization", "Bearer " + buyerToken))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.paymentStatus").value("PAID"))
-				.andExpect(jsonPath("$.status").value("CONFIRMED"))
-				.andExpect(jsonPath("$.statusSummary").value("Khach da thanh toan"));
+				.andExpect(jsonPath("$.status").value("PENDING"))
+				.andExpect(jsonPath("$.paymentReference").value("plink-456"))
+				.andExpect(jsonPath("$.paymentCheckoutUrl").value(nullValue()))
+				.andExpect(jsonPath("$.paymentQrCode").value(nullValue()))
+				.andExpect(jsonPath("$.paymentExpiresAt").value(nullValue()))
+				.andExpect(jsonPath("$.statusSummary").value("Cho cua hang xac nhan"));
 
 		verify(emailSender).sendPaymentSuccessEmail(
 				eq("refresh@example.com"),
@@ -2972,6 +3256,34 @@ class RegistrationOtpApplicationTests {
 				eq(orderId),
 				any(BigDecimal.class)
 		);
+		assertThat(userRepository.findById(buyerUser.getId()).orElseThrow().getCreditPoints()).isEqualTo(68);
+	}
+
+	@Test
+	void orderDetailHidesExpiredPaymentLinkAndQrData() throws Exception {
+		User buyerUser = saveUser("Expired Buyer", "expired@example.com", Role.USER, true);
+		String buyerToken = createSession(buyerUser);
+		Store store = saveStore("Downtown Matcha House", "12 Nguyen Hue", "store@example.com", "0900000000");
+		Category category = saveCategory("Latte", store);
+		Dish dish = saveDish("Iced Matcha Latte", category, new BigDecimal("65000"));
+
+		Order order = savePendingOrderWithItem(buyerUser, store, dish, 1, new BigDecimal("65000"));
+		order.setPayosOrderCode(order.getId());
+		order.setPaymentLinkId("plink-expired");
+		order.setPaymentReference("plink-expired");
+		order.setPaymentCheckoutUrl("https://pay.payos.vn/web/plink-expired");
+		order.setPaymentQrCode("qr-expired");
+		order.setPaymentExpiresAt(Instant.now().minusSeconds(60));
+		orderRepository.save(order);
+
+		mockMvc.perform(get("/api/user/orders/{id}", order.getId())
+						.header("Authorization", "Bearer " + buyerToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.paymentStatus").value("PENDING"))
+				.andExpect(jsonPath("$.paymentReference").value("plink-expired"))
+				.andExpect(jsonPath("$.paymentCheckoutUrl").value(nullValue()))
+				.andExpect(jsonPath("$.paymentQrCode").value(nullValue()))
+				.andExpect(jsonPath("$.paymentExpiresAt").value(nullValue()));
 	}
 
 	@Test
@@ -2988,13 +3300,15 @@ class RegistrationOtpApplicationTests {
 		userRepository.save(managerUser);
 		String managerToken = createSession(managerUser);
 
-		User staffUser = saveUser("Barista A", "staff@example.com", Role.STAFF, true);
+		User staffUser = saveUser("Barista A", "staff@example.com", Role.MANAGER, true);
 		staffUser.setWorkingStore(store);
 		userRepository.save(staffUser);
+		String staffToken = createSession(staffUser);
 
 		User shipperUser = saveUser("Shipper B", "shipper@example.com", Role.SHIPPER, true);
 		shipperUser.setWorkingStore(store);
 		userRepository.save(shipperUser);
+		String shipperToken = createSession(shipperUser);
 
 		User buyerUser = saveUser("Buyer User", "buyer@example.com", Role.USER, true);
 		Order visibleOrder = savePendingOrderWithItem(buyerUser, store, dish, 1, new BigDecimal("65000"));
@@ -3007,7 +3321,7 @@ class RegistrationOtpApplicationTests {
 				.andExpect(jsonPath("$.items[0].id").value(visibleOrder.getId()))
 				.andExpect(jsonPath("$.items[0].paymentStatus").value("PENDING"))
 				.andExpect(jsonPath("$.items[0].status").value("PENDING"))
-				.andExpect(jsonPath("$.items[0].statusSummary").value("Khach chua thanh toan"));
+				.andExpect(jsonPath("$.items[0].statusSummary").value("Cho thanh toan"));
 
 		mockMvc.perform(get("/api/admin/orders")
 						.header("Authorization", "Bearer " + managerToken)
@@ -3032,8 +3346,8 @@ class RegistrationOtpApplicationTests {
 								"""))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.paymentStatus").value("PAID"))
-				.andExpect(jsonPath("$.status").value("CONFIRMED"))
-				.andExpect(jsonPath("$.statusSummary").value("Khach da thanh toan"));
+				.andExpect(jsonPath("$.status").value("PENDING"))
+				.andExpect(jsonPath("$.statusSummary").value("Cho cua hang xac nhan"));
 
 		mockMvc.perform(put("/api/admin/orders/{id}/status", visibleOrder.getId())
 						.header("Authorization", "Bearer " + managerToken)
@@ -3046,7 +3360,7 @@ class RegistrationOtpApplicationTests {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.paymentStatus").value("PENDING"))
 				.andExpect(jsonPath("$.status").value("PENDING"))
-				.andExpect(jsonPath("$.statusSummary").value("Khach chua thanh toan"));
+				.andExpect(jsonPath("$.statusSummary").value("Cho thanh toan"));
 
 		mockMvc.perform(put("/api/admin/orders/{id}/status", visibleOrder.getId())
 						.header("Authorization", "Bearer " + managerToken)
@@ -3058,66 +3372,50 @@ class RegistrationOtpApplicationTests {
 								"""))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.paymentStatus").value("PAID"))
-				.andExpect(jsonPath("$.status").value("CONFIRMED"))
-				.andExpect(jsonPath("$.statusSummary").value("Khach da thanh toan"));
+				.andExpect(jsonPath("$.status").value("PENDING"))
+				.andExpect(jsonPath("$.statusSummary").value("Cho cua hang xac nhan"));
 
-		mockMvc.perform(put("/api/admin/orders/{id}/status", visibleOrder.getId())
-						.header("Authorization", "Bearer " + managerToken)
-						.contentType(APPLICATION_JSON)
-						.content("""
-								{
-								  "status": "PREPARING",
-								  "preparingStaffId": %d
-								}
-								""".formatted(staffUser.getId())))
+		mockMvc.perform(post("/api/admin/orders/{id}/confirm", visibleOrder.getId())
+						.header("Authorization", "Bearer " + managerToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.status").value("CONFIRMED"))
+				.andExpect(jsonPath("$.confirmedByUserId").value(managerUser.getId()))
+				.andExpect(jsonPath("$.confirmedByUserName").value("Store Manager"))
+				.andExpect(jsonPath("$.statusSummary").value("Store Manager da xac nhan don - cho quan ly nhan don"));
+
+		mockMvc.perform(post("/api/employee/orders/{id}/accept-preparing", visibleOrder.getId())
+						.header("Authorization", "Bearer " + staffToken))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.status").value("PREPARING"))
 				.andExpect(jsonPath("$.preparingStaffId").value(staffUser.getId()))
 				.andExpect(jsonPath("$.preparingStaffName").value("Barista A"))
-				.andExpect(jsonPath("$.statusSummary").value("Nhan vien Barista A dang lam mon"));
+				.andExpect(jsonPath("$.statusSummary").value("Quan ly Barista A dang xu ly don"));
 
-		mockMvc.perform(put("/api/admin/orders/{id}/status", visibleOrder.getId())
-						.header("Authorization", "Bearer " + managerToken)
-						.contentType(APPLICATION_JSON)
-						.content("""
-								{
-								  "status": "READY_FOR_SHIPPER"
-								}
-								"""))
+		mockMvc.perform(post("/api/employee/orders/{id}/mark-ready", visibleOrder.getId())
+						.header("Authorization", "Bearer " + staffToken))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.status").value("READY_FOR_SHIPPER"))
-				.andExpect(jsonPath("$.statusSummary").value("Da lam xong - cho shipper"));
+				.andExpect(jsonPath("$.deliveringShipperId").value(shipperUser.getId()))
+				.andExpect(jsonPath("$.deliveringShipperName").value("Shipper B"))
+				.andExpect(jsonPath("$.statusSummary").value("Barista A da lam xong - cho shipper"));
 
-		mockMvc.perform(put("/api/admin/orders/{id}/status", visibleOrder.getId())
-						.header("Authorization", "Bearer " + managerToken)
-						.contentType(APPLICATION_JSON)
-						.content("""
-								{
-								  "status": "OUT_FOR_DELIVERY",
-								  "deliveringShipperId": %d
-								}
-								""".formatted(shipperUser.getId())))
+		mockMvc.perform(post("/api/employee/orders/{id}/accept-delivery", visibleOrder.getId())
+						.header("Authorization", "Bearer " + shipperToken))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.status").value("OUT_FOR_DELIVERY"))
 				.andExpect(jsonPath("$.deliveringShipperId").value(shipperUser.getId()))
 				.andExpect(jsonPath("$.deliveringShipperName").value("Shipper B"))
 				.andExpect(jsonPath("$.statusSummary").value("Shipper B dang giao hang"));
 
-		mockMvc.perform(put("/api/admin/orders/{id}/status", visibleOrder.getId())
-						.header("Authorization", "Bearer " + managerToken)
-						.contentType(APPLICATION_JSON)
-						.content("""
-								{
-								  "status": "COMPLETED"
-								}
-								"""))
+		mockMvc.perform(post("/api/employee/orders/{id}/complete-delivery", visibleOrder.getId())
+						.header("Authorization", "Bearer " + shipperToken))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.status").value("COMPLETED"))
 				.andExpect(jsonPath("$.statusSummary").value("Shipper B da giao hang thanh cong"));
 	}
 
 	@Test
-	void managerCanUpdateOrderStatusWithoutPaymentOrAssignments() throws Exception {
+	void managerCannotDirectlyUpdateOperationalStatusOutsideEmployeeWorkflow() throws Exception {
 		Store store = saveStore("Downtown Matcha House", "12 Nguyen Hue", "store@example.com", "0900000000");
 		Category category = saveCategory("Latte", store);
 		Dish dish = saveDish("Iced Matcha Latte", category, new BigDecimal("65000"));
@@ -3138,8 +3436,8 @@ class RegistrationOtpApplicationTests {
 								  "status": "PREPARING"
 								}
 								"""))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.status").value("PREPARING"));
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value("Admin or Manager can only confirm or cancel orders directly"));
 
 		mockMvc.perform(put("/api/admin/orders/{id}/status", order.getId())
 						.header("Authorization", "Bearer " + managerToken)
@@ -3149,8 +3447,8 @@ class RegistrationOtpApplicationTests {
 								  "status": "OUT_FOR_DELIVERY"
 								}
 								"""))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.status").value("OUT_FOR_DELIVERY"));
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value("Admin or Manager can only confirm or cancel orders directly"));
 	}
 
 	@Test
@@ -3160,11 +3458,11 @@ class RegistrationOtpApplicationTests {
 		User buyerUser = saveUser("Employee Flow Buyer", "employee-order-buyer@example.com", Role.USER, true);
 		String buyerToken = createSession(buyerUser);
 
-		Store store = saveStore("District 1 Tea Matcha", "12 Nguyen Hue", "store@example.com", "0900000000");
+		Store store = saveStore("District 1 Kamatcha", "12 Nguyen Hue", "store@example.com", "0900000000");
 		Category category = saveCategory("Signature Latte", store);
 		Dish dish = saveDish("Iced Matcha Latte", category, new BigDecimal("65000"));
 
-		User staffUser = saveUser("Barista A", "employee-flow-staff@example.com", Role.STAFF, true);
+		User staffUser = saveUser("Barista A", "employee-flow-staff@example.com", Role.MANAGER, true);
 		staffUser.setWorkingStore(store);
 		userRepository.save(staffUser);
 		String staffToken = createSession(staffUser);
@@ -3186,6 +3484,11 @@ class RegistrationOtpApplicationTests {
 								"""))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.paymentStatus").value("PAID"))
+				.andExpect(jsonPath("$.status").value("PENDING"));
+
+		mockMvc.perform(post("/api/admin/orders/{id}/confirm", order.getId())
+						.header("Authorization", "Bearer " + adminToken))
+				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.status").value("CONFIRMED"));
 
 		mockMvc.perform(get("/api/employee/notifications/unread-count")
@@ -3227,7 +3530,9 @@ class RegistrationOtpApplicationTests {
 		mockMvc.perform(post("/api/employee/orders/{id}/mark-ready", order.getId())
 						.header("Authorization", "Bearer " + staffToken))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.status").value("READY_FOR_SHIPPER"));
+				.andExpect(jsonPath("$.status").value("READY_FOR_SHIPPER"))
+				.andExpect(jsonPath("$.deliveringShipperId").value(shipperUser.getId()))
+				.andExpect(jsonPath("$.deliveringShipperName").value("Shipper B"));
 
 		mockMvc.perform(get("/api/employee/notifications/unread-count")
 						.header("Authorization", "Bearer " + shipperToken))
@@ -3241,7 +3546,8 @@ class RegistrationOtpApplicationTests {
 				.andExpect(jsonPath("$.items", hasSize(1)))
 				.andExpect(jsonPath("$.items[0].type").value("ORDER_TASK"))
 				.andExpect(jsonPath("$.items[0].relatedOrderId").value(order.getId()))
-				.andExpect(jsonPath("$.items[0].actionUrl").value("/employee/orders/" + order.getId()));
+				.andExpect(jsonPath("$.items[0].actionUrl").value("/employee/orders/" + order.getId()))
+				.andExpect(jsonPath("$.items[0].message").value(containsString("den quay nhan don")));
 
 		mockMvc.perform(get("/api/employee/orders")
 						.header("Authorization", "Bearer " + shipperToken))
@@ -3267,6 +3573,87 @@ class RegistrationOtpApplicationTests {
 						.param("read", "false"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.items[*].relatedOrderId", hasItems(order.getId().intValue())));
+	}
+
+	@Test
+	void readyOrderAutoAssignsIdleShipperAndNotifiesOnlyThatShipper() throws Exception {
+		User adminUser = saveUser("System Admin", "auto-shipper-admin@example.com", Role.ADMIN, true);
+		String adminToken = createSession(adminUser);
+		User buyerUser = saveUser("Auto Shipper Buyer", "auto-shipper-buyer@example.com", Role.USER, true);
+
+		Store store = saveStore("District 3 Kamatcha", "45 Vo Van Tan", "district3@example.com", "0900001111");
+		Category category = saveCategory("Latte", store);
+		Dish dish = saveDish("Hot Matcha Latte", category, new BigDecimal("70000"));
+
+		User managerUser = saveUser("Manager Auto", "auto-manager@example.com", Role.MANAGER, true);
+		managerUser.setWorkingStore(store);
+		managerUser = userRepository.save(managerUser);
+		String managerToken = createSession(managerUser);
+
+		User busyShipper = saveUser("Busy Shipper", "busy-shipper@example.com", Role.SHIPPER, true);
+		busyShipper.setWorkingStore(store);
+		busyShipper = userRepository.save(busyShipper);
+		String busyShipperToken = createSession(busyShipper);
+
+		User idleShipper = saveUser("Idle Shipper", "idle-shipper@example.com", Role.SHIPPER, true);
+		idleShipper.setWorkingStore(store);
+		idleShipper = userRepository.save(idleShipper);
+		String idleShipperToken = createSession(idleShipper);
+
+		Order busyOrder = savePendingOrderWithItem(buyerUser, store, dish, 1, new BigDecimal("70000"));
+		busyOrder.setPaymentStatus(PaymentStatus.PAID);
+		busyOrder.setPaidAt(Instant.now());
+		busyOrder.setStatus(OrderStatus.OUT_FOR_DELIVERY);
+		busyOrder.setDeliveringShipper(busyShipper);
+		orderRepository.save(busyOrder);
+
+		Order targetOrder = savePendingOrderWithItem(buyerUser, store, dish, 1, new BigDecimal("70000"));
+
+		mockMvc.perform(put("/api/admin/orders/{id}/status", targetOrder.getId())
+						.header("Authorization", "Bearer " + adminToken)
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "paymentStatus": "PAID"
+								}
+								"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.paymentStatus").value("PAID"));
+
+		mockMvc.perform(post("/api/admin/orders/{id}/confirm", targetOrder.getId())
+						.header("Authorization", "Bearer " + adminToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.status").value("CONFIRMED"));
+
+		mockMvc.perform(post("/api/employee/orders/{id}/accept-preparing", targetOrder.getId())
+						.header("Authorization", "Bearer " + managerToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.status").value("PREPARING"));
+
+		mockMvc.perform(post("/api/employee/orders/{id}/mark-ready", targetOrder.getId())
+						.header("Authorization", "Bearer " + managerToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.status").value("READY_FOR_SHIPPER"))
+				.andExpect(jsonPath("$.deliveringShipperId").value(idleShipper.getId()))
+				.andExpect(jsonPath("$.deliveringShipperName").value("Idle Shipper"));
+
+		mockMvc.perform(get("/api/employee/notifications/unread-count")
+						.header("Authorization", "Bearer " + busyShipperToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.unreadCount").value(0));
+
+		mockMvc.perform(get("/api/employee/notifications/unread-count")
+						.header("Authorization", "Bearer " + idleShipperToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.unreadCount").value(1));
+
+		mockMvc.perform(get("/api/employee/notifications")
+						.header("Authorization", "Bearer " + idleShipperToken)
+						.param("read", "false"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.items", hasSize(1)))
+				.andExpect(jsonPath("$.items[0].relatedOrderId").value(targetOrder.getId()))
+				.andExpect(jsonPath("$.items[0].message").value(containsString("den quay nhan don")));
 	}
 
 	@Test
@@ -3353,7 +3740,7 @@ class RegistrationOtpApplicationTests {
 								"""))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.paymentStatus").value("PAID"))
-				.andExpect(jsonPath("$.status").value("CONFIRMED"));
+				.andExpect(jsonPath("$.status").value("PENDING"));
 
 		mockMvc.perform(get("/api/user/notifications")
 						.header("Authorization", "Bearer " + buyerToken)
@@ -3513,7 +3900,7 @@ class RegistrationOtpApplicationTests {
 		User adminUser = saveUser("Admin User", "admin-schedule@example.com", Role.ADMIN, true);
 		String adminToken = createSession(adminUser);
 
-		User staffUser = saveUser("Store Staff", "staff-attendance@example.com", Role.STAFF, true);
+		User staffUser = saveUser("Store Staff", "staff-attendance@example.com", Role.MANAGER, true);
 		staffUser.setWorkingStore(store);
 		staffUser = userRepository.save(staffUser);
 		String staffToken = createSession(staffUser);
@@ -3589,7 +3976,7 @@ class RegistrationOtpApplicationTests {
 						.header("Authorization", "Bearer " + staffToken))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.userId").value(staffUser.getId()))
-				.andExpect(jsonPath("$.role").value("STAFF"))
+				.andExpect(jsonPath("$.role").value("MANAGER"))
 				.andExpect(jsonPath("$.workDate").value(today.toString()))
 				.andExpect(jsonPath("$.scheduledStartTime").value("08:00:00"))
 				.andExpect(jsonPath("$.scheduledEndTime").value("17:00:00"))
@@ -3621,7 +4008,7 @@ class RegistrationOtpApplicationTests {
 		User adminUser = saveUser("Admin User", "admin-attendance@example.com", Role.ADMIN, true);
 		String adminToken = createSession(adminUser);
 
-		User staffUser = saveUser("Store Staff", "staff-attendance@example.com", Role.STAFF, true);
+		User staffUser = saveUser("Store Staff", "staff-attendance@example.com", Role.MANAGER, true);
 		staffUser.setWorkingStore(store);
 		staffUser = userRepository.save(staffUser);
 		String staffToken = createSession(staffUser);
@@ -3693,13 +4080,13 @@ class RegistrationOtpApplicationTests {
 		mockMvc.perform(post("/api/employee/attendance/check-in")
 						.header("Authorization", "Bearer " + staffToken))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.role").value("STAFF"))
+				.andExpect(jsonPath("$.role").value("MANAGER"))
 				.andExpect(jsonPath("$.storeId").value(store.getId()))
 				.andExpect(jsonPath("$.workDate").value(today.toString()))
 				.andExpect(jsonPath("$.scheduledStartTime").value("08:00:00"))
 				.andExpect(jsonPath("$.scheduledEndTime").value("17:00:00"))
 				.andExpect(jsonPath("$.workScheduleId").isNumber())
-				.andExpect(jsonPath("$.role").value("STAFF"))
+				.andExpect(jsonPath("$.role").value("MANAGER"))
 				.andExpect(jsonPath("$.checkedIn").value(true))
 				.andExpect(jsonPath("$.checkedOut").value(false))
 				.andExpect(jsonPath("$.currentlyWorking").value(true));
@@ -3712,7 +4099,7 @@ class RegistrationOtpApplicationTests {
 		mockMvc.perform(get("/api/employee/attendance/today")
 						.header("Authorization", "Bearer " + staffToken))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.role").value("STAFF"))
+				.andExpect(jsonPath("$.role").value("MANAGER"))
 				.andExpect(jsonPath("$.scheduledStartTime").value("08:00:00"))
 				.andExpect(jsonPath("$.currentlyWorking").value(true));
 
@@ -3732,7 +4119,7 @@ class RegistrationOtpApplicationTests {
 						.header("Authorization", "Bearer " + staffToken))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.items", hasSize(1)))
-				.andExpect(jsonPath("$.items[0].role").value("STAFF"))
+				.andExpect(jsonPath("$.items[0].role").value("MANAGER"))
 				.andExpect(jsonPath("$.items[0].storeId").value(store.getId()))
 				.andExpect(jsonPath("$.items[0].scheduledStartTime").value("08:00:00"))
 				.andExpect(jsonPath("$.items[0].checkedOut").value(true));
@@ -3763,7 +4150,7 @@ class RegistrationOtpApplicationTests {
 		managerUser = userRepository.save(managerUser);
 		String managerToken = createSession(managerUser);
 
-		User staffUser = saveUser("Managed Staff", "managed-staff@example.com", Role.STAFF, true);
+		User staffUser = saveUser("Managed Staff", "managed-staff@example.com", Role.MANAGER, true);
 		staffUser.setWorkingStore(managedStore);
 		staffUser = userRepository.save(staffUser);
 
@@ -3771,7 +4158,7 @@ class RegistrationOtpApplicationTests {
 		shipperUser.setWorkingStore(managedStore);
 		shipperUser = userRepository.save(shipperUser);
 
-		User otherStaffUser = saveUser("Other Staff", "other-staff@example.com", Role.STAFF, true);
+		User otherStaffUser = saveUser("Other Staff", "other-staff@example.com", Role.MANAGER, true);
 		otherStaffUser.setWorkingStore(otherStore);
 		otherStaffUser = userRepository.save(otherStaffUser);
 
@@ -3800,9 +4187,9 @@ class RegistrationOtpApplicationTests {
 				"Ca store khac"
 		);
 
-		saveAttendance(staffUser, managedStore, Role.STAFF, today, now.minusSeconds(3600), now.minusSeconds(1800), staffSchedule);
+		saveAttendance(staffUser, managedStore, Role.MANAGER, today, now.minusSeconds(3600), now.minusSeconds(1800), staffSchedule);
 		saveAttendance(shipperUser, managedStore, Role.SHIPPER, today, now.minusSeconds(2400), null, shipperSchedule);
-		saveAttendance(otherStaffUser, otherStore, Role.STAFF, today, now.minusSeconds(1200), null, otherStaffSchedule);
+		saveAttendance(otherStaffUser, otherStore, Role.MANAGER, today, now.minusSeconds(1200), null, otherStaffSchedule);
 
 		mockMvc.perform(get("/api/admin/attendances")
 						.header("Authorization", "Bearer " + managerToken)
@@ -3810,7 +4197,7 @@ class RegistrationOtpApplicationTests {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.items", hasSize(2)))
 				.andExpect(jsonPath("$.items[*].storeId", hasItems(managedStore.getId().intValue())))
-				.andExpect(jsonPath("$.items[*].role", hasItems("STAFF", "SHIPPER")));
+				.andExpect(jsonPath("$.items[*].role", hasItems("MANAGER", "SHIPPER")));
 
 		mockMvc.perform(get("/api/admin/attendances/summary")
 						.header("Authorization", "Bearer " + managerToken)
@@ -3857,6 +4244,17 @@ class RegistrationOtpApplicationTests {
 	}
 
 	private Store saveStore(String name, String address, String contactEmail, String phoneNumber) {
+		return saveStore(name, address, contactEmail, phoneNumber, 10.776889, 106.700806);
+	}
+
+	private Store saveStore(
+			String name,
+			String address,
+			String contactEmail,
+			String phoneNumber,
+			Double latitude,
+			Double longitude
+	) {
 		Store store = new Store();
 		store.setName(name);
 		store.setSlug(StoreSlugNormalizer.normalize(name));
@@ -3864,6 +4262,8 @@ class RegistrationOtpApplicationTests {
 		store.setAddress(address);
 		store.setContactEmail(contactEmail);
 		store.setPhoneNumber(phoneNumber);
+		store.setLatitude(latitude);
+		store.setLongitude(longitude);
 		store.setImagePaths(List.of());
 		store.setActive(true);
 		return storeRepository.save(store);
@@ -3888,6 +4288,16 @@ class RegistrationOtpApplicationTests {
 		category.setStore(store);
 		category.setName(name);
 		category.setDescription(name + " description");
+		category.setImagePaths(List.of());
+		category.setActive(true);
+		return categoryRepository.save(category);
+	}
+
+	private Category saveSignatureCategory() {
+		Category category = new Category();
+		category.setStore(null);
+		category.setName("SIGNATURE");
+		category.setDescription("Signature category");
 		category.setImagePaths(List.of());
 		category.setActive(true);
 		return categoryRepository.save(category);
@@ -3968,12 +4378,36 @@ class RegistrationOtpApplicationTests {
 			String phoneNumber,
 			String deliveryAddress
 	) {
+		return saveDeliveryAddress(user, fullName, phoneNumber, deliveryAddress, 10.776889, 106.700806);
+	}
+
+	private com.example.registrationotp.model.UserDeliveryAddress saveDeliveryAddress(
+			User user,
+			String fullName,
+			String phoneNumber,
+			String deliveryAddress,
+			Double latitude,
+			Double longitude
+	) {
 		com.example.registrationotp.model.UserDeliveryAddress address = new com.example.registrationotp.model.UserDeliveryAddress();
 		address.setUser(user);
 		address.setFullName(fullName);
 		address.setPhoneNumber(phoneNumber);
 		address.setDeliveryAddress(deliveryAddress);
+		address.setLatitude(latitude);
+		address.setLongitude(longitude);
 		return userDeliveryAddressRepository.save(address);
+	}
+
+	private BigDecimal haversineKm(Double startLat, Double startLng, Double endLat, Double endLng) {
+		double dLat = Math.toRadians(endLat - startLat);
+		double dLng = Math.toRadians(endLng - startLng);
+		double startLatRad = Math.toRadians(startLat);
+		double endLatRad = Math.toRadians(endLat);
+		double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+				+ Math.cos(startLatRad) * Math.cos(endLatRad) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+		double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+		return BigDecimal.valueOf(6371.0 * c);
 	}
 
 	private EmployeeAttendance saveAttendance(
@@ -4173,3 +4607,4 @@ class RegistrationOtpApplicationTests {
 		}
 	}
 }
+

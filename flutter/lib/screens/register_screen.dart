@@ -61,7 +61,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } on ApiException catch (error) {
       setState(() => _error = error.message);
     } catch (_) {
-      setState(() => _error = 'Dang ky chua thanh cong.');
+      setState(() => _error = 'Registration was not successful.');
     }
   }
 
@@ -69,7 +69,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Dang ky')),
+      appBar: AppBar(title: const Text('Register')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -82,8 +82,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   children: [
                     TextFormField(
                       controller: _fullNameController,
-                      decoration: const InputDecoration(labelText: 'Ho ten'),
-                      validator: (value) => (value ?? '').trim().isEmpty ? 'Nhap ho ten' : null,
+                      decoration: const InputDecoration(labelText: 'Full name'),
+                      validator: (value) => (value ?? '').trim().isEmpty ? 'Enter your full name' : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -93,7 +93,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       validator: (value) {
                         final text = value?.trim() ?? '';
                         if (text.isEmpty || !text.contains('@')) {
-                          return 'Nhap email hop le';
+                          return 'Enter a valid email address';
                         }
                         return null;
                       },
@@ -103,15 +103,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       controller: _passwordController,
                       obscureText: true,
                       decoration: const InputDecoration(labelText: 'Password'),
-                      validator: (value) => (value ?? '').length < 6 ? 'Nhap toi thieu 6 ky tu' : null,
+                      validator: (value) => (value ?? '').length < 6 ? 'Enter at least 6 characters' : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _confirmController,
                       obscureText: true,
-                      decoration: const InputDecoration(labelText: 'Nhap lai password'),
+                      decoration: const InputDecoration(labelText: 'Re-enter password'),
                       validator: (value) =>
-                          value != _passwordController.text ? 'Password khong khop' : null,
+                          value != _passwordController.text ? 'Passwords do not match' : null,
                     ),
                     if (_error != null) ...[
                       const SizedBox(height: 12),
@@ -130,12 +130,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: controller.authBusy ? null : _submit,
-                        child: const Text('Tao tai khoan'),
+                        child: const Text('Create account'),
                       ),
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'Sau khi dang ky, app se chuyen sang man hinh nhap OTP va dang nhap ngay sau khi xac thuc.',
+                      'After registration, the app will move to the OTP screen and sign you in right after verification.',
                     ),
                   ],
                 ),

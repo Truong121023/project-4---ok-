@@ -48,38 +48,76 @@ class EmployeeScanScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
     return OrderQrScannerScreen(
-      title: 'Camera QR',
+      title: 'QR scanner',
       subtitle: kind == EmployeeRoleKind.staff
-          ? 'Quet ma tren hoa don de nhan don vao bep va mo ngay thong tin can xu ly.'
-          : 'Quet ma tren hoa don de nhan don giao va mo ngay thong tin giao hang.',
+          ? 'Scan the invoice QR to open the assigned store task.'
+          : 'Scan the invoice QR to confirm pickup and open the delivery task.',
       requireManualCameraOpen: true,
-      openCameraLabel: kind == EmployeeRoleKind.staff ? 'Mo camera bep' : 'Mo camera giao hang',
-      cameraIntroTitle: kind == EmployeeRoleKind.staff ? 'San sang nhan don vao bep' : 'San sang nhan don giao',
+      openCameraLabel: kind == EmployeeRoleKind.staff ? 'Open store camera' : 'Open delivery camera',
+      cameraIntroTitle: kind == EmployeeRoleKind.staff ? 'Ready to scan store tasks' : 'Ready to scan pickup QR',
       cameraIntroMessage: kind == EmployeeRoleKind.staff
-          ? 'Camera chi bat khi ban bam mo camera. Sau do dua ma QR vao khung de nhan don cho bep.'
-          : 'Camera chi bat khi ban bam mo camera. Sau do dua ma QR vao khung de nhan don giao hang.',
+          ? 'Turn on the camera when you are ready, then place the invoice QR inside the frame.'
+          : 'Turn on the camera at the store, then place the invoice QR inside the frame to confirm pickup.',
       header: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(18),
+        clipBehavior: Clip.antiAlias,
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: kind == EmployeeRoleKind.shipper
+                  ? const [Color(0xFF17332A), Color(0xFF365B4A)]
+                  : const [Color(0xFF17332A), Color(0xFF4A7253)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                employeePanelTitle(kind),
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 8),
-              Text(employeePanelSubtitle(kind)),
-              const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  MetricChip(label: employeeRoleLabel(kind)),
+                  MetricChip(
+                    label: employeeRoleLabel(kind),
+                    backgroundColor: Colors.white.withValues(alpha: 0.14),
+                    foregroundColor: Colors.white,
+                  ),
                   if (controller.session?.user.workingStoreName != null)
-                    MetricChip(label: controller.session!.user.workingStoreName!),
-                  const MetricChip(label: 'Quet va nhan don'),
+                    MetricChip(
+                      label: controller.session!.user.workingStoreName!,
+                      backgroundColor: Colors.white.withValues(alpha: 0.14),
+                      foregroundColor: Colors.white,
+                    ),
                 ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                employeePanelTitle(kind),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                employeePanelSubtitle(kind),
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              const SizedBox(height: 14),
+              MetricChip(
+                label: kind == EmployeeRoleKind.shipper
+                    ? 'Scan to confirm pickup'
+                    : 'Scan to open task',
+                backgroundColor: Colors.white.withValues(alpha: 0.14),
+                foregroundColor: Colors.white,
+                icon: kind == EmployeeRoleKind.shipper
+                    ? Icons.local_shipping_outlined
+                    : Icons.qr_code_scanner_outlined,
+                maxWidth: 220,
               ),
             ],
           ),

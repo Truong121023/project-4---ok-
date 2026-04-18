@@ -8,7 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app.mobile")
 public class AppMobileProperties {
 
-	private String orderQrDeepLinkBase = "teamatcha://order-qr/";
+	private String orderQrDeepLinkBase = "kamatcha://order-qr/";
 	private String publicBaseUrl;
 	private String androidPackageName;
 	private List<String> assetLinkSha256Fingerprints = new ArrayList<>();

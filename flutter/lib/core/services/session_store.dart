@@ -9,10 +9,10 @@ class SessionStore {
 
   final SharedPreferences _prefs;
 
-  static const _sessionKey = 'tea_matcha.session';
-  static const _mockCartKey = 'tea_matcha.mock_cart';
-  static const _pendingOrderQrTokenKey = 'tea_matcha.pending_order_qr_token';
-  static const _orderProofRecordsKey = 'tea_matcha.order_proof_records';
+  static const _sessionKey = 'kamatcha.session';
+  static const _mockCartKey = 'kamatcha.mock_cart';
+  static const _pendingOrderQrTokenKey = 'kamatcha.pending_order_qr_token';
+  static const _orderProofRecordsKey = 'kamatcha.order_proof_records';
 
   UserSession? loadSession() {
     final raw = _prefs.getString(_sessionKey);

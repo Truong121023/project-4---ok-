@@ -110,10 +110,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   return;
                 }
                 messenger.showSnackBar(
-                  const SnackBar(content: Text('Da danh dau da doc tat ca')),
+                  const SnackBar(content: Text('All notifications were marked as read.')),
                 );
               },
-              child: const Text('Doc het'),
+              child: const Text('Read all'),
             ),
         ],
       ),
@@ -127,7 +127,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     runSpacing: 8,
                     children: [
                       ChoiceChip(
-                        label: Text('Tat ca (${controller.userNotificationUnreadCount})'),
+                        label: Text('All (${controller.userNotificationUnreadCount})'),
                         selected: _filterRead == null,
                         onSelected: (_) {
                           setState(() {
@@ -137,7 +137,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         },
                       ),
                       ChoiceChip(
-                        label: const Text('Chua doc'),
+                        label: const Text('Unread'),
                         selected: _filterRead == false,
                         onSelected: (_) {
                           setState(() {
@@ -147,7 +147,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         },
                       ),
                       ChoiceChip(
-                        label: const Text('Da doc'),
+                        label: const Text('Read'),
                         selected: _filterRead == true,
                         onSelected: (_) {
                           setState(() {
@@ -184,8 +184,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             padding: const EdgeInsets.all(16),
                             children: const [
                               EmptyStateCard(
-                                title: 'Chua co thong bao',
-                                message: 'Thong bao don hang, event va news se hien thi o day.',
+                                title: 'No notifications yet',
+                                message: 'Order, event, and news notifications will appear here.',
                               ),
                             ],
                           ),
@@ -217,7 +217,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 trailing: IconButton(
                                   onPressed: () => _toggleRead(item),
                                   icon: Icon(item.read ? Icons.mark_email_unread_outlined : Icons.mark_email_read_outlined),
-                                  tooltip: item.read ? 'Danh dau chua doc' : 'Danh dau da doc',
+                                  tooltip: item.read ? 'Mark unread' : 'Mark read',
                                 ),
                                 onTap: () => _openNotification(item),
                               ),
@@ -233,9 +233,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           : Padding(
               padding: const EdgeInsets.all(16),
               child: EmptyStateCard(
-                title: 'Can dang nhap',
-                message: 'Dang nhap de nhan cap nhat don hang, event va news theo tai khoan cua ban.',
-                actionLabel: 'Dang nhap',
+                title: 'Sign in required',
+                message: 'Sign in to receive order, event, and news updates for your account.',
+                actionLabel: 'Sign in',
                 onAction: () {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(builder: (_) => const LoginScreen()),

@@ -39,8 +39,8 @@ public class NotificationService {
 	private static final int DEFAULT_PAGE_SIZE = 10;
 	private static final int MAX_PAGE_SIZE = 100;
 	private static final Sort DEFAULT_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
-	private static final String BRAND_NAME = "Tea Matcha";
-	private static final Set<Role> EMPLOYEE_NOTIFICATION_ROLES = EnumSet.of(Role.MANAGER, Role.STAFF, Role.SHIPPER);
+	private static final String BRAND_NAME = "Kamatcha";
+	private static final Set<Role> EMPLOYEE_NOTIFICATION_ROLES = EnumSet.of(Role.STAFF, Role.SHIPPER);
 
 	private final SessionAuthService sessionAuthService;
 	private final UserNotificationRepository userNotificationRepository;
@@ -170,15 +170,15 @@ public class NotificationService {
 
 		String storeName = eventItem.getStore() != null ? eventItem.getStore().getName() : null;
 		String message = storeName == null
-				? "%s vua co su kien moi \"%s\".".formatted(BRAND_NAME, eventItem.getName())
-				: "%s vua co su kien moi \"%s\" tai %s.".formatted(BRAND_NAME, eventItem.getName(), storeName);
+				? "%s has a new event: \"%s\".".formatted(BRAND_NAME, eventItem.getName())
+				: "%s has a new event: \"%s\" at %s.".formatted(BRAND_NAME, eventItem.getName(), storeName);
 
 		List<UserNotification> notifications = new ArrayList<>();
 		for (User user : users) {
 			UserNotification notification = new UserNotification();
 			notification.setUser(user);
 			notification.setType(UserNotificationType.BRAND_EVENT);
-			notification.setTitle("Su kien moi cua %s".formatted(BRAND_NAME));
+			notification.setTitle("New event from %s".formatted(BRAND_NAME));
 			notification.setMessage(message);
 			notification.setRelatedEventId(eventItem.getId());
 			notification.setRelatedEventSlug(eventItem.getSlug());
@@ -207,8 +207,8 @@ public class NotificationService {
 
 		String storeName = newsArticle.getRelatedStore() != null ? newsArticle.getRelatedStore().getName() : null;
 		String message = storeName == null
-				? "%s vua dang bai viet moi \"%s\".".formatted(BRAND_NAME, newsArticle.getTitle())
-				: "%s vua dang bai viet moi \"%s\" lien quan den %s.".formatted(BRAND_NAME, newsArticle.getTitle(), storeName);
+				? "%s has published a new article: \"%s\".".formatted(BRAND_NAME, newsArticle.getTitle())
+				: "%s has published a new article: \"%s\" related to %s.".formatted(BRAND_NAME, newsArticle.getTitle(), storeName);
 		String actionUrl = newsArticle.getSlug() == null || newsArticle.getSlug().isBlank()
 				? null
 				: "/news/" + newsArticle.getSlug();
@@ -218,7 +218,7 @@ public class NotificationService {
 			UserNotification notification = new UserNotification();
 			notification.setUser(user);
 			notification.setType(UserNotificationType.NEWS_ARTICLE);
-			notification.setTitle("Tin moi tu %s".formatted(BRAND_NAME));
+			notification.setTitle("Latest news from %s".formatted(BRAND_NAME));
 			notification.setMessage(message);
 			notification.setRelatedNewsId(newsArticle.getId());
 			notification.setRelatedNewsSlug(newsArticle.getSlug());
@@ -239,8 +239,8 @@ public class NotificationService {
 		}
 		createOrderNotification(
 				order,
-				"Don hang moi #%d".formatted(order.getId()),
-				"Don hang #%d da duoc tao. Vui long hoan tat thanh toan de cua hang xu ly.".formatted(order.getId())
+				"New order #%d".formatted(order.getId()),
+				"Order #%d has been created. Please complete payment so the store can process it.".formatted(order.getId())
 		);
 	}
 
@@ -264,11 +264,11 @@ public class NotificationService {
 			return;
 		}
 
-		String title = "Don hang moi tai %s".formatted(orderStore.storeName());
+		String title = "New order at %s".formatted(orderStore.storeName());
 		String message = order.getPaymentStatus() == PaymentStatus.PAID
-				? "Khach vua tao don hang #%d tai %s. Don hang da thanh toan va dang cho cua hang xu ly."
+				? "A customer just placed order #%d at %s. The order has been paid and is waiting for store processing."
 						.formatted(order.getId(), orderStore.storeName())
-				: "Khach vua tao don hang #%d tai %s. Don hang dang cho thanh toan."
+				: "A customer just placed order #%d at %s. The order is awaiting payment."
 						.formatted(order.getId(), orderStore.storeName());
 
 		List<UserNotification> notifications = new ArrayList<>();
@@ -297,27 +297,26 @@ public class NotificationService {
 		}
 		createOrderNotification(
 				order,
-				"Cap nhat don hang #%d".formatted(order.getId()),
+				"Order update #%d".formatted(order.getId()),
 				buildOrderStatusMessage(order)
 		);
 	}
 
 	@Transactional
-	public void notifyPaidOrderWaitingForStaff(Order order) {
+	public void notifyPaidOrderWaitingForManager(Order order) {
 		if (!isEmployeeTaskOrder(order)) {
 			return;
 		}
 
-		List<User> recipients = resolveTaskRecipients(order, Role.STAFF, order.getPreparingStaff());
+		List<User> recipients = resolveTaskRecipients(order, Role.MANAGER, null);
 		if (recipients.isEmpty()) {
 			return;
 		}
 
-		String title = "Don hang da thanh toan #%d".formatted(order.getId());
-		String message = order.getPreparingStaff() != null
-				? "Ban duoc giao xu ly don hang #%d tai %s.".formatted(order.getId(), resolveOrderStoreName(order))
-				: "Don hang #%d tai %s da thanh toan. Nhan vien vui long nhan xu ly.".formatted(order.getId(), resolveOrderStoreName(order));
-		createOrderTaskNotifications(recipients, order, title, message);
+		String title = "Paid order #%d".formatted(order.getId());
+		String message = "Order #%d at %s has been paid. The manager should confirm it and move it into processing."
+				.formatted(order.getId(), resolveOrderStoreName(order));
+		createOrderTaskNotifications(recipients, order, title, message, "/admin/orders/" + order.getId());
 	}
 
 	@Transactional
@@ -331,11 +330,13 @@ public class NotificationService {
 			return;
 		}
 
-		String title = "Don hang san sang giao #%d".formatted(order.getId());
+		String title = "Pickup ready for order #%d".formatted(order.getId());
 		String message = order.getDeliveringShipper() != null
-				? "Ban duoc giao giao don hang #%d tai %s.".formatted(order.getId(), resolveOrderStoreName(order))
-				: "Don hang #%d tai %s da san sang ban giao. Shipper vui long nhan viec.".formatted(order.getId(), resolveOrderStoreName(order));
-		createOrderTaskNotifications(recipients, order, title, message);
+				? "The manager assigned you to order #%d at %s. Go to the store and scan the invoice QR to confirm pickup before delivery."
+						.formatted(order.getId(), resolveOrderStoreName(order))
+				: "Order #%d at %s is ready for pickup. Open the task and scan the invoice QR at the store to confirm pickup."
+						.formatted(order.getId(), resolveOrderStoreName(order));
+		createOrderTaskNotifications(recipients, order, title, message, "/employee/orders/" + order.getId());
 	}
 
 	private void createOrderNotification(Order order, String title, String message) {
@@ -354,7 +355,13 @@ public class NotificationService {
 		userNotificationRepository.save(notification);
 	}
 
-	private void createOrderTaskNotifications(List<User> recipients, Order order, String title, String message) {
+	private void createOrderTaskNotifications(
+			List<User> recipients,
+			Order order,
+			String title,
+			String message,
+			String actionUrl
+	) {
 		List<UserNotification> notifications = new ArrayList<>();
 		for (User recipient : recipients) {
 			UserNotification notification = new UserNotification();
@@ -363,7 +370,7 @@ public class NotificationService {
 			notification.setTitle(title);
 			notification.setMessage(message);
 			notification.setRelatedOrderId(order.getId());
-			notification.setActionUrl("/employee/orders/" + order.getId());
+			notification.setActionUrl(actionUrl);
 
 			resolveOrderStore(order).ifPresent(orderStore -> {
 				notification.setRelatedStoreId(orderStore.storeId());
@@ -377,21 +384,22 @@ public class NotificationService {
 	private String buildOrderStatusMessage(Order order) {
 		Long orderId = order.getId();
 		if (order.getStatus() == OrderStatus.CANCELLED || order.getPaymentStatus() == PaymentStatus.CANCELLED) {
-			return "Don hang #%d da bi huy.".formatted(orderId);
+			return "Order #%d has been cancelled.".formatted(orderId);
 		}
 		if (order.getPaymentStatus() == PaymentStatus.FAILED) {
-			return "Thanh toan cua don hang #%d that bai.".formatted(orderId);
+			return "Payment for order #%d failed.".formatted(orderId);
 		}
 		if (order.getPaymentStatus() != PaymentStatus.PAID) {
-			return "Don hang #%d dang cho thanh toan.".formatted(orderId);
+			return "Order #%d is awaiting payment.".formatted(orderId);
 		}
 		return switch (order.getStatus()) {
-			case PENDING, CONFIRMED -> "Don hang #%d da thanh toan thanh cong va dang cho cua hang xu ly.".formatted(orderId);
-			case PREPARING -> "Don hang #%d dang duoc cua hang chuan bi.".formatted(orderId);
-			case READY_FOR_SHIPPER -> "Don hang #%d da san sang ban giao cho shipper.".formatted(orderId);
-			case OUT_FOR_DELIVERY -> "Don hang #%d dang duoc giao den ban.".formatted(orderId);
-			case COMPLETED -> "Don hang #%d da giao thanh cong.".formatted(orderId);
-			case CANCELLED -> "Don hang #%d da bi huy.".formatted(orderId);
+			case PENDING -> "Order #%d has been paid successfully and is waiting for the store manager to confirm it.".formatted(orderId);
+			case CONFIRMED -> "Order #%d has been confirmed by the store and is moving into processing.".formatted(orderId);
+			case PREPARING -> "Order #%d is being prepared by the store.".formatted(orderId);
+			case READY_FOR_SHIPPER -> "Order #%d is ready and waiting for the assigned shipper to pick it up.".formatted(orderId);
+			case OUT_FOR_DELIVERY -> "Order #%d is on the way to you.".formatted(orderId);
+			case COMPLETED -> "Order #%d has been delivered successfully.".formatted(orderId);
+			case CANCELLED -> "Order #%d has been cancelled.".formatted(orderId);
 		};
 	}
 
@@ -502,7 +510,7 @@ public class NotificationService {
 	private User requireEmployeeNotificationUser(String authorizationHeader) {
 		User user = sessionAuthService.requireUser(authorizationHeader);
 		if (!EMPLOYEE_NOTIFICATION_ROLES.contains(user.getRole())) {
-			throw new ForbiddenException("Only MANAGER, STAFF, and SHIPPER accounts can access employee notifications");
+			throw new ForbiddenException("Only STAFF and SHIPPER accounts can access employee notifications");
 		}
 		if (!user.isEnabled()) {
 			throw new ForbiddenException("Employee account is disabled");

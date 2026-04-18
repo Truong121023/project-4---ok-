@@ -27,10 +27,6 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _future ??= AppScope.of(context).loadStoreDetail(widget.storeKey);
-    final controller = AppScope.of(context);
-    if (controller.isLoggedIn && controller.favoriteItems.isEmpty) {
-      controller.loadFavorites();
-    }
   }
 
   Future<void> _reload() async {
@@ -60,7 +56,10 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(saved ? 'Da them store vao yeu thich' : 'Da bo store khoi yeu thich')),
+        SnackBar(
+            content: Text(saved
+                ? 'Added to favorites'
+                : 'Removed from favorites')),
       );
     } catch (error) {
       if (!mounted) {
@@ -88,15 +87,18 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
         final store = detail?.store;
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Chi tiet store'),
+            title: const Text('Store details'),
             actions: [
               if (store != null && controller.isLoggedIn)
                 IconButton(
-                  onPressed: _favoriteBusy ? null : () => _toggleFavorite(store),
+                  onPressed:
+                      _favoriteBusy ? null : () => _toggleFavorite(store),
                   icon: Icon(
-                    controller.isFavorite('STORE', store.id) ? Icons.favorite : Icons.favorite_border,
+                    controller.isFavorite('STORE', store.id)
+                        ? Icons.favorite
+                        : Icons.favorite_border,
                   ),
-                  tooltip: 'Yeu thich',
+                  tooltip: 'Favorite',
                 ),
             ],
           ),
@@ -129,7 +131,10 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
                   const SizedBox(height: 18),
                   Text(
                     store.name,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 8),
                   Text(store.address),
@@ -138,9 +143,12 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      MetricChip(label: '${Formatters.rating(detail.stats.averageRating)} sao'),
-                      MetricChip(label: '${detail.stats.availableItemCount} mon san'),
-                      MetricChip(label: store.open ? 'Dang mo' : 'Sap mo lai'),
+                      MetricChip(
+                          label:
+                              '${Formatters.rating(detail.stats.averageRating)} stars'),
+                      MetricChip(
+                          label: '${detail.stats.availableItemCount} items ready'),
+                      MetricChip(label: store.open ? 'Open now' : 'Temporarily closed'),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -161,14 +169,14 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
                         );
                       },
                       icon: const Icon(Icons.rate_review_outlined),
-                      label: const Text('Viet review'),
+                      label: const Text('Write review'),
                     ),
                   ],
                   if (store.sections.isNotEmpty) ...[
                     const SizedBox(height: 24),
                     const SectionHeader(
-                      title: 'Khong gian',
-                      subtitle: 'Noi dung section duoc map tu store.sections.',
+                      title: 'Store story',
+                      subtitle: 'Content sections mapped from store.sections.',
                     ),
                     const SizedBox(height: 12),
                     ...store.sections.map(
@@ -182,7 +190,8 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
                               children: [
                                 if (section.imagePath != null) ...[
                                   NetworkOrFallbackImage(
-                                    imageUrl: controller.config.resolveImageUrl(section.imagePath),
+                                    imageUrl: controller.config
+                                        .resolveImageUrl(section.imagePath),
                                     height: 150,
                                     label: section.title,
                                   ),
@@ -190,7 +199,10 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
                                 ],
                                 Text(
                                   section.title,
-                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w800),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(section.content),
@@ -203,8 +215,9 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
                   ],
                   const SizedBox(height: 12),
                   const SectionHeader(
-                    title: 'Menu tai store',
-                    subtitle: 'Tap trung vao mon co the order nhanh tren mobile.',
+                    title: 'Store menu',
+                    subtitle:
+                        'Focused on items that are easy to order quickly on mobile.',
                   ),
                   const SizedBox(height: 12),
                   ...detail.categories.map(
@@ -218,7 +231,10 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
                             children: [
                               Text(
                                 category.title,
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w800),
                               ),
                               const SizedBox(height: 6),
                               Text(category.description),
@@ -230,7 +246,8 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
                                     contentPadding: EdgeInsets.zero,
                                     title: Text(
                                       item.name,
-                                      style: const TextStyle(fontWeight: FontWeight.w800),
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w800),
                                     ),
                                     subtitle: Text(item.description),
                                     trailing: FilledButton.tonal(
@@ -248,24 +265,32 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
                                           if (!context.mounted) {
                                             return;
                                           }
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text(error.toString())),
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                                content:
+                                                    Text(error.toString())),
                                           );
                                           return;
                                         }
                                         if (!context.mounted) {
                                           return;
                                         }
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('${item.name} da duoc them vao gio hang')),
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                              content: Text(
+                                                  '${item.name} was added to the cart')),
                                         );
                                       },
-                                      child: Text(Formatters.currency(item.price)),
+                                      child:
+                                          Text(Formatters.currency(item.price)),
                                     ),
                                     onTap: () {
                                       Navigator.of(context).push(
                                         MaterialPageRoute<void>(
-                                          builder: (_) => DishDetailScreen(dishId: item.id),
+                                          builder: (_) =>
+                                              DishDetailScreen(dishId: item.id),
                                         ),
                                       );
                                     },

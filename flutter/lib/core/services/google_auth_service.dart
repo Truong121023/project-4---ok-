@@ -40,7 +40,7 @@ class GoogleAuthService {
     if (!config.useMockData && config.googleServerClientId.trim().isEmpty) {
       throw const GoogleAuthFailure(
         message:
-            'Thieu Google client ID. Them VITE_GOOGLE_CLIENT_ID vao .env hoac --dart-define=GOOGLE_SERVER_CLIENT_ID=<web-client-id> khi chay app.',
+            'Missing Google client ID. Add VITE_GOOGLE_CLIENT_ID to .env or pass --dart-define=GOOGLE_SERVER_CLIENT_ID=<web-client-id> when running the app.',
       );
     }
 
@@ -48,7 +48,7 @@ class GoogleAuthService {
 
     if (!_googleSignIn.supportsAuthenticate()) {
       throw const GoogleAuthFailure(
-        message: 'Thiet bi hien tai khong ho tro Google Sign-In.',
+        message: 'This device does not support Google Sign-In.',
       );
     }
 
@@ -66,7 +66,7 @@ class GoogleAuthService {
       if (idToken == null || idToken.isEmpty) {
         throw GoogleAuthFailure(
           message:
-              'Google Sign-In da chon tai khoan ${account.email} nhung khong tra ve idToken. Kiem tra Google OAuth consent screen, Android package/SHA-1 va VITE_GOOGLE_CLIENT_ID.',
+              'Google Sign-In selected ${account.email} but did not return an idToken. Check the Google OAuth consent screen, Android package/SHA-1, and VITE_GOOGLE_CLIENT_ID.',
           code: 'missing_id_token',
         );
       }
@@ -86,21 +86,21 @@ class GoogleAuthService {
     final normalizedDetails = details?.toLowerCase() ?? '';
 
     if (normalizedDetails.contains('account reauth failed')) {
-      return 'Tai khoan Google nay tren dien thoai dang can dang nhap lai. Day la loi tai khoan tren thiet bi, chua toi backend cua app. Hay mo Gmail/Play Store voi tai khoan do de xac thuc lai, hoac vao Settings > Accounts > Google, xoa roi them lai tai khoan, sau do thu dang nhap lai. (code: ${error.code.name}${details == null || details.isEmpty ? '' : ', details: $details'})';
+      return 'This Google account on the device needs re-authentication. This is a device account issue before the app backend is reached. Open Gmail or Play Store with that account to re-authenticate, or go to Settings > Accounts > Google, remove and add the account again, then try signing in once more. (code: ${error.code.name}${details == null || details.isEmpty ? '' : ', details: $details'})';
     }
 
     final base = switch (error.code) {
       GoogleSignInExceptionCode.canceled =>
-        'Google login bi dong hoac khong hoan tat. Neu tai khoan khac khong vao duoc, rat co the OAuth consent screen dang o Testing va Gmail nay chua nam trong Test users.',
+        'Google sign-in was closed or not completed. If other accounts also cannot sign in, the OAuth consent screen may still be in Testing and this Gmail account may not be listed in Test users.',
       GoogleSignInExceptionCode.clientConfigurationError =>
-        'Google Sign-In chua duoc cau hinh dung tren Android. Kiem tra package name, SHA-1 va web/server client ID.',
+        'Google Sign-In is not configured correctly on Android. Check the package name, SHA-1, and web/server client ID.',
       GoogleSignInExceptionCode.providerConfigurationError =>
-        'Google Play Services hoac Google provider tren thiet bi chua san sang.',
+        'Google Play Services or the Google provider on this device is not ready.',
       GoogleSignInExceptionCode.uiUnavailable =>
-        'Khong mo duoc giao dien Google Sign-In luc nay.',
+        'The Google Sign-In interface could not be opened right now.',
       GoogleSignInExceptionCode.interrupted =>
-        'Google Sign-In bi gian doan giua chung. Thu lai sau vai giay.',
-      _ => 'Google Sign-In that bai.',
+        'Google Sign-In was interrupted. Please try again in a few seconds.',
+      _ => 'Google Sign-In failed.',
     };
 
     if (details == null || details.isEmpty) {

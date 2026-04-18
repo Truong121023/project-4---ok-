@@ -4,9 +4,10 @@ import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
 import '../models/models.dart';
+import '../utils/ui_text.dart';
 
 class ApiException implements Exception {
-  ApiException(this.message, {this.statusCode});
+  ApiException(String message, {this.statusCode}) : message = UiText.translate(message);
 
   final String message;
   final int? statusCode;
@@ -42,9 +43,40 @@ class ApiService {
     return HomeBundle.fromJson(json);
   }
 
+  Future<List<PromotionCard>> getUserVouchers({
+    required String token,
+  }) async {
+    final json = await _request(
+      'GET',
+      '/api/user/vouchers',
+      token: token,
+    );
+    if (json is List) {
+      return json
+          .whereType<Map>()
+          .map((item) => PromotionCard.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
+    }
+    return const [];
+  }
+
+  Future<VoucherRedemptionResult> redeemUserVoucher({
+    required String token,
+    required int promotionId,
+  }) async {
+    final json = await _request(
+      'POST',
+      '/api/user/vouchers/$promotionId/redeem',
+      token: token,
+    ) as JsonMap;
+    return VoucherRedemptionResult.fromJson(json);
+  }
+
   Future<List<StoreCard>> getStores({
     String search = '',
     String sort = 'rating_desc',
+    double? latitude,
+    double? longitude,
     int page = 0,
     int size = 20,
   }) async {
@@ -54,6 +86,8 @@ class ApiService {
       query: {
         'search': search,
         'sort': sort,
+        if (latitude != null) 'lat': '$latitude',
+        if (longitude != null) 'lng': '$longitude',
         'page': '$page',
         'size': '$size',
       },
@@ -62,7 +96,8 @@ class ApiService {
   }
 
   Future<StoreDetail> getStoreDetail(String storeKey) async {
-    final json = await _request('GET', '/api/public/stores/$storeKey') as JsonMap;
+    final json =
+        await _request('GET', '/api/public/stores/$storeKey') as JsonMap;
     return StoreDetail.fromJson(json);
   }
 
@@ -70,6 +105,7 @@ class ApiService {
     required String token,
     required String message,
     List<AiChatHistoryEntry> history = const [],
+    int? threadId,
   }) async {
     final json = await _request(
       'POST',
@@ -78,9 +114,42 @@ class ApiService {
       body: {
         'message': message,
         'history': history.map((entry) => entry.toJson()).toList(),
+        if (threadId != null) 'threadId': threadId,
       },
     ) as JsonMap;
     return AiChatResponse.fromJson(json);
+  }
+
+  Future<List<AiChatThreadSummary>> getAiChatThreads({
+    required String token,
+    int page = 0,
+    int size = 20,
+  }) async {
+    final json = await _request(
+      'GET',
+      '/api/ai/chat/threads',
+      token: token,
+      query: {
+        'page': '$page',
+        'size': '$size',
+      },
+    ) as JsonMap;
+    return PageResponse<AiChatThreadSummary>.fromJson(
+      json,
+      AiChatThreadSummary.fromJson,
+    ).items;
+  }
+
+  Future<AiChatThreadDetail> getAiChatThreadDetail({
+    required String token,
+    required int threadId,
+  }) async {
+    final json = await _request(
+      'GET',
+      '/api/ai/chat/threads/$threadId',
+      token: token,
+    ) as JsonMap;
+    return AiChatThreadDetail.fromJson(json);
   }
 
   Future<List<DishCard>> getDishes({
@@ -151,7 +220,8 @@ class ApiService {
   }
 
   Future<EventDetail> getEventDetail(String eventKey) async {
-    final json = await _request('GET', '/api/public/events/$eventKey') as JsonMap;
+    final json =
+        await _request('GET', '/api/public/events/$eventKey') as JsonMap;
     return EventDetail.fromJson(json);
   }
 
@@ -262,7 +332,8 @@ class ApiService {
 
   Future<AppUser> getCurrentUser(String token) async {
     final json = await _request('GET', '/api/auth/me', token: token) as JsonMap;
-    return AppUser.fromJson(Map<String, dynamic>.from(json['user'] as Map? ?? const {}));
+    return AppUser.fromJson(
+        Map<String, dynamic>.from(json['user'] as Map? ?? const {}));
   }
 
   Future<AdminDashboard> getAdminDashboard(
@@ -553,7 +624,9 @@ class ApiService {
         'size': '$size',
       },
     ) as JsonMap;
-    return PageResponse<UserNotificationItem>.fromJson(json, UserNotificationItem.fromJson).items;
+    return PageResponse<UserNotificationItem>.fromJson(
+            json, UserNotificationItem.fromJson)
+        .items;
   }
 
   Future<int> getAdminNotificationUnreadCount(String token) async {
@@ -746,7 +819,9 @@ class ApiService {
       final response = await _sendMultipart(request);
       return response;
     } on ApiException catch (error) {
-      if (error.statusCode == 404 || error.statusCode == 405 || error.statusCode == 501) {
+      if (error.statusCode == 404 ||
+          error.statusCode == 405 ||
+          error.statusCode == 501) {
         return null;
       }
       rethrow;
@@ -758,7 +833,8 @@ class ApiService {
   }
 
   Future<Cart> getCart(String token) async {
-    final json = await _request('GET', '/api/user/cart', token: token) as JsonMap;
+    final json =
+        await _request('GET', '/api/user/cart', token: token) as JsonMap;
     return Cart.fromJson(json);
   }
 
@@ -827,7 +903,8 @@ class ApiService {
         'size': '20',
       },
     ) as JsonMap;
-    return PageResponse<OrderSummary>.fromJson(json, OrderSummary.fromJson).items;
+    return PageResponse<OrderSummary>.fromJson(json, OrderSummary.fromJson)
+        .items;
   }
 
   Future<OrderDetail> getOrderDetail({
@@ -944,6 +1021,24 @@ class ApiService {
     return const [];
   }
 
+  Future<List<UserLevelDefinition>> getUserLevelDefinitions({
+    required String token,
+  }) async {
+    final json = await _request(
+      'GET',
+      '/api/user/levels/definitions',
+      token: token,
+    );
+    if (json is List) {
+      return json
+          .whereType<Map>()
+          .map((item) =>
+              UserLevelDefinition.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
+    }
+    return const [];
+  }
+
   Future<List<UserReview>> getUserReviews({
     required String token,
     String? targetType,
@@ -1038,7 +1133,9 @@ class ApiService {
         'size': '$size',
       },
     ) as JsonMap;
-    return PageResponse<CustomerFeedback>.fromJson(json, CustomerFeedback.fromJson).items;
+    return PageResponse<CustomerFeedback>.fromJson(
+            json, CustomerFeedback.fromJson)
+        .items;
   }
 
   Future<CustomerFeedback> createUserFeedback({
@@ -1092,7 +1189,9 @@ class ApiService {
         'size': '$size',
       },
     ) as JsonMap;
-    return PageResponse<UserNotificationItem>.fromJson(json, UserNotificationItem.fromJson).items;
+    return PageResponse<UserNotificationItem>.fromJson(
+            json, UserNotificationItem.fromJson)
+        .items;
   }
 
   Future<int> getUserNotificationUnreadCount(String token) async {
@@ -1137,11 +1236,13 @@ class ApiService {
   }
 
   Future<List<DeliveryAddress>> getDeliveryAddresses(String token) async {
-    final json = await _request('GET', '/api/user/delivery-addresses', token: token);
+    final json =
+        await _request('GET', '/api/user/delivery-addresses', token: token);
     if (json is List) {
       return json
           .whereType<Map>()
-          .map((item) => DeliveryAddress.fromJson(Map<String, dynamic>.from(item)))
+          .map((item) =>
+              DeliveryAddress.fromJson(Map<String, dynamic>.from(item)))
           .toList();
     }
     return const [];
@@ -1152,6 +1253,8 @@ class ApiService {
     required String fullName,
     required String phoneNumber,
     required String deliveryAddress,
+    double? latitude,
+    double? longitude,
     bool primary = false,
   }) async {
     final json = await _request(
@@ -1162,6 +1265,8 @@ class ApiService {
         'fullName': fullName,
         'phoneNumber': phoneNumber,
         'deliveryAddress': deliveryAddress,
+        'latitude': latitude,
+        'longitude': longitude,
         'primary': primary,
       },
     ) as JsonMap;
@@ -1174,6 +1279,8 @@ class ApiService {
     required String fullName,
     required String phoneNumber,
     required String deliveryAddress,
+    double? latitude,
+    double? longitude,
     bool primary = false,
   }) async {
     final json = await _request(
@@ -1184,6 +1291,8 @@ class ApiService {
         'fullName': fullName,
         'phoneNumber': phoneNumber,
         'deliveryAddress': deliveryAddress,
+        'latitude': latitude,
+        'longitude': longitude,
         'primary': primary,
       },
     ) as JsonMap;
@@ -1213,12 +1322,72 @@ class ApiService {
     );
   }
 
+  Future<CheckoutPreview> checkoutPreview({
+    required String token,
+    required int deliveryAddressId,
+    String deliveryType = 'DELIVERY',
+    String promotionCode = '',
+    DateTime? scheduledDeliveryAt,
+  }) async {
+    final body = <String, dynamic>{
+      'deliveryAddressId': deliveryAddressId,
+      'deliveryType': deliveryType,
+    };
+    if (promotionCode.isNotEmpty) {
+      body['promotionCode'] = promotionCode;
+    }
+    if (scheduledDeliveryAt != null) {
+      body['scheduledDeliveryAt'] =
+          scheduledDeliveryAt.toUtc().toIso8601String();
+    }
+
+    final json = await _request(
+      'POST',
+      '/api/user/cart/checkout-preview',
+      token: token,
+      body: body,
+    ) as JsonMap;
+    return CheckoutPreview.fromJson(json);
+  }
+
+  Future<List<CheckoutPromotionSuggestion>> getEligibleCheckoutPromotions({
+    required String token,
+    required int deliveryAddressId,
+    String deliveryType = 'DELIVERY',
+    DateTime? scheduledDeliveryAt,
+  }) async {
+    final body = <String, dynamic>{
+      'deliveryAddressId': deliveryAddressId,
+      'deliveryType': deliveryType,
+    };
+    if (scheduledDeliveryAt != null) {
+      body['scheduledDeliveryAt'] =
+          scheduledDeliveryAt.toUtc().toIso8601String();
+    }
+
+    final json = await _request(
+      'POST',
+      '/api/user/cart/eligible-promotions',
+      token: token,
+      body: body,
+    );
+    if (json is List) {
+      return json
+          .whereType<Map>()
+          .map((item) => CheckoutPromotionSuggestion.fromJson(
+                Map<String, dynamic>.from(item),
+              ))
+          .toList();
+    }
+    return const [];
+  }
+
   Future<CheckoutResult> checkout({
     required String token,
     required int deliveryAddressId,
     required String returnUrl,
     required String cancelUrl,
-    String deliveryType = 'IMMEDIATE',
+    String deliveryType = 'DELIVERY',
     String promotionCode = '',
     DateTime? scheduledDeliveryAt,
   }) async {
@@ -1232,7 +1401,8 @@ class ApiService {
       body['promotionCode'] = promotionCode;
     }
     if (scheduledDeliveryAt != null) {
-      body['scheduledDeliveryAt'] = scheduledDeliveryAt.toUtc().toIso8601String();
+      body['scheduledDeliveryAt'] =
+          scheduledDeliveryAt.toUtc().toIso8601String();
     }
 
     final json = await _request(
@@ -1270,7 +1440,8 @@ class ApiService {
     }
 
     if (response.statusCode >= 400) {
-      final message = _extractErrorMessage(decoded) ?? 'Request failed with status ${response.statusCode}.';
+      final message = _extractErrorMessage(decoded) ??
+          'Request failed with status ${response.statusCode}.';
       if (response.statusCode == 401 && onUnauthorized != null) {
         await onUnauthorized!(
           ApiUnauthorizedSignal(
@@ -1299,7 +1470,8 @@ class ApiService {
     }
 
     if (response.statusCode >= 400) {
-      final message = _extractErrorMessage(decoded) ?? 'Request failed with status ${response.statusCode}.';
+      final message = _extractErrorMessage(decoded) ??
+          'Request failed with status ${response.statusCode}.';
       if (response.statusCode == 401 && onUnauthorized != null) {
         await onUnauthorized!(
           ApiUnauthorizedSignal(

@@ -44,11 +44,11 @@ class _DishesScreenState extends State<DishesScreen> {
   String _labelForSort(String sort) {
     switch (sort) {
       case 'price_asc':
-        return 'Gia tang';
+        return 'Price: low to high';
       case 'price_desc':
-        return 'Gia giam';
+        return 'Price: high to low';
       case 'most_ordered':
-        return 'Ban chay';
+        return 'Best sellers';
       default:
         return 'Top rated';
     }
@@ -70,7 +70,7 @@ class _DishesScreenState extends State<DishesScreen> {
                   textInputAction: TextInputAction.search,
                   onSubmitted: (_) => _reload(),
                   decoration: InputDecoration(
-                    hintText: 'Tim mon, category hoac store',
+                    hintText: 'Search dishes, categories, or stores',
                     suffixIcon: IconButton(
                       onPressed: _reload,
                       icon: const Icon(Icons.search),
@@ -122,8 +122,8 @@ class _DishesScreenState extends State<DishesScreen> {
                   return const Padding(
                     padding: EdgeInsets.all(16),
                     child: EmptyStateCard(
-                      title: 'Khong tim thay mon',
-                      message: 'Thu doi tu khoa hoac cach sap xep.',
+                      title: 'No dishes found',
+                      message: 'Try a different keyword or sort option.',
                     ),
                   );
                 }
@@ -171,7 +171,7 @@ class _DishesScreenState extends State<DishesScreen> {
                             return;
                           }
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('${dish.name} da duoc them vao gio hang')),
+                            SnackBar(content: Text('${dish.name} was added to the cart')),
                           );
                         },
                       );

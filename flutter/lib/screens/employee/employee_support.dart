@@ -16,15 +16,17 @@ String employeeRoleLabel(EmployeeRoleKind kind) {
 
 String employeePanelTitle(EmployeeRoleKind kind) {
   return switch (kind) {
-    EmployeeRoleKind.staff => 'Kitchen panel',
+    EmployeeRoleKind.staff => 'Store support panel',
     EmployeeRoleKind.shipper => 'Delivery panel',
   };
 }
 
 String employeePanelSubtitle(EmployeeRoleKind kind) {
   return switch (kind) {
-    EmployeeRoleKind.staff => 'Quet QR de nhan don, lam mon roi ban giao cho shipper.',
-    EmployeeRoleKind.shipper => 'Quet QR de nhan don, giao thanh cong va luu anh chung minh.',
+    EmployeeRoleKind.staff =>
+      'Store-side processing is now handled by the manager. Staff accounts only track related order details and notifications here.',
+    EmployeeRoleKind.shipper =>
+      'Check your inbox for new assignments, scan the invoice QR at pickup, and complete delivery with a proof photo.',
   };
 }
 
@@ -37,40 +39,47 @@ IconData employeeRoleIcon(EmployeeRoleKind kind) {
 
 String employeePrimaryQueueLabel(EmployeeRoleKind kind) {
   return switch (kind) {
-    EmployeeRoleKind.staff => 'Dang lam mon',
-    EmployeeRoleKind.shipper => 'Dang giao don',
+    EmployeeRoleKind.staff => 'No more PREPARING tasks',
+    EmployeeRoleKind.shipper => 'Pickup ready',
   };
 }
 
 String employeeActiveQueueLabel(EmployeeRoleKind kind) {
   return switch (kind) {
-    EmployeeRoleKind.staff => 'Da quet QR',
-    EmployeeRoleKind.shipper => 'Da quet QR',
+    EmployeeRoleKind.staff => 'Processing',
+    EmployeeRoleKind.shipper => 'Active delivery',
   };
 }
 
 String employeeCompletedQueueLabel(EmployeeRoleKind kind) {
   return switch (kind) {
-    EmployeeRoleKind.staff => 'Da ban giao',
-    EmployeeRoleKind.shipper => 'Da hoan thanh',
+    EmployeeRoleKind.staff => 'Completed',
+    EmployeeRoleKind.shipper => 'Completed',
   };
 }
 
 List<String> employeeAllowedActions(JsonMap order) {
-  return asStringList(order['allowedActions']).map((action) => action.toUpperCase()).toList();
+  return asStringList(order['allowedActions'])
+      .map((action) => action.toUpperCase())
+      .toList();
 }
 
-List<JsonMap> employeePendingOrders(EmployeeRoleKind kind, List<JsonMap> orders) {
+bool employeeHasAction(JsonMap order, String action) {
+  return employeeAllowedActions(order).contains(action.toUpperCase());
+}
+
+List<JsonMap> employeePendingOrders(
+    EmployeeRoleKind kind, List<JsonMap> orders) {
   return orders.where((order) {
-    final status = asString(order['status']).toUpperCase();
     return switch (kind) {
-      EmployeeRoleKind.staff => status == 'CONFIRMED',
-      EmployeeRoleKind.shipper => status == 'READY_FOR_SHIPPER',
+      EmployeeRoleKind.staff => false,
+      EmployeeRoleKind.shipper => employeeHasAction(order, 'ACCEPT_DELIVERY'),
     };
   }).toList();
 }
 
-List<JsonMap> employeeActiveOrders(EmployeeRoleKind kind, List<JsonMap> orders, int currentUserId) {
+List<JsonMap> employeeActiveOrders(
+    EmployeeRoleKind kind, List<JsonMap> orders, int currentUserId) {
   return orders.where((order) {
     final status = asString(order['status']).toUpperCase();
     final assignedId = switch (kind) {
@@ -78,7 +87,7 @@ List<JsonMap> employeeActiveOrders(EmployeeRoleKind kind, List<JsonMap> orders, 
       EmployeeRoleKind.shipper => asInt(order['deliveringShipperId']),
     };
     final allowedStatus = switch (kind) {
-      EmployeeRoleKind.staff => status == 'PREPARING',
+      EmployeeRoleKind.staff => false,
       EmployeeRoleKind.shipper => status == 'OUT_FOR_DELIVERY',
     };
     if (!allowedStatus) {
@@ -88,64 +97,47 @@ List<JsonMap> employeeActiveOrders(EmployeeRoleKind kind, List<JsonMap> orders, 
   }).toList();
 }
 
-List<JsonMap> employeeCompletedOrders(EmployeeRoleKind kind, List<JsonMap> orders) {
+List<JsonMap> employeeCompletedOrders(
+    EmployeeRoleKind kind, List<JsonMap> orders) {
   return orders.where((order) {
     final status = asString(order['status']).toUpperCase();
     return switch (kind) {
-      EmployeeRoleKind.staff => status == 'READY_FOR_SHIPPER',
+      EmployeeRoleKind.staff => false,
       EmployeeRoleKind.shipper => status == 'COMPLETED',
     };
   }).toList();
 }
 
-String? employeeActionPath(EmployeeRoleKind kind, JsonMap order, int currentUserId) {
-  final status = asString(order['status']).toUpperCase();
+String? employeeActionPath(
+    EmployeeRoleKind kind, JsonMap order, int currentUserId) {
+  final _ = currentUserId;
   final allowedActions = employeeAllowedActions(order);
   if (kind == EmployeeRoleKind.staff) {
-    if (allowedActions.contains('COMPLETE_PREPARING')) {
-      return 'complete-preparing';
-    }
-    if (allowedActions.contains('MARK_READY')) {
-      return 'mark-ready';
-    }
-    if (allowedActions.contains('ACCEPT_PREPARING')) {
-      return 'accept-preparing';
-    }
+    return null;
   } else {
+    final status = asString(order['status']).trim().toUpperCase();
+    final assignedShipperId = asNullableInt(order['deliveringShipperId']);
     if (allowedActions.contains('MARK_COMPLETED')) {
       return 'complete-delivery';
     }
     if (allowedActions.contains('ACCEPT_DELIVERY')) {
       return 'accept-delivery';
     }
+    if (status == 'OUT_FOR_DELIVERY' &&
+        assignedShipperId != null &&
+        assignedShipperId == currentUserId) {
+      return 'complete-delivery';
+    }
   }
-  return switch (kind) {
-    EmployeeRoleKind.staff => switch (status) {
-        'CONFIRMED' => 'accept-preparing',
-        'PREPARING' => (asInt(order['preparingStaffId']) == 0 || asInt(order['preparingStaffId']) == currentUserId)
-            ? 'mark-ready'
-            : null,
-        _ => null,
-      },
-    EmployeeRoleKind.shipper => switch (status) {
-        'READY_FOR_SHIPPER' => 'accept-delivery',
-        'OUT_FOR_DELIVERY' =>
-          (asInt(order['deliveringShipperId']) == 0 || asInt(order['deliveringShipperId']) == currentUserId)
-              ? 'complete-delivery'
-              : null,
-        _ => null,
-      },
-  };
+  return null;
 }
 
-String? employeeActionLabel(EmployeeRoleKind kind, JsonMap order, int currentUserId) {
+String? employeeActionLabel(
+    EmployeeRoleKind kind, JsonMap order, int currentUserId) {
   final action = employeeActionPath(kind, order, currentUserId);
   return switch (action) {
-    'accept-preparing' => 'Nhan don tu QR',
-    'mark-ready' => 'Da ban giao',
-    'complete-preparing' => 'Da ban giao',
-    'accept-delivery' => 'Nhan giao tu QR',
-    'complete-delivery' => 'Da giao don',
+    'accept-delivery' => 'Confirm pickup',
+    'complete-delivery' => 'Upload delivery proof',
     _ => null,
   };
 }
@@ -157,7 +149,9 @@ String employeeOrderSubtitle(JsonMap order) {
   }
   final paymentStatus = asString(order['paymentStatus']).trim();
   final deliveryAddress = asString(order['deliveryAddress']).trim();
-  return [paymentStatus, deliveryAddress].where((value) => value.isNotEmpty).join(' - ');
+  return [paymentStatus, deliveryAddress]
+      .where((value) => value.isNotEmpty)
+      .join(' - ');
 }
 
 List<JsonMap> employeeMonthlyItems(JsonMap monthlySchedule) {
@@ -165,4 +159,54 @@ List<JsonMap> employeeMonthlyItems(JsonMap monthlySchedule) {
     monthlySchedule['items'],
     (json) => Map<String, dynamic>.from(json),
   );
+}
+
+int? employeeOrderIdFromActionUrl(String? actionUrl) {
+  final trimmed = actionUrl?.trim();
+  if (trimmed == null || trimmed.isEmpty) {
+    return null;
+  }
+  final uri = Uri.tryParse(trimmed);
+  final segments = (uri?.pathSegments ?? trimmed.split('/'))
+      .map((segment) => segment.trim())
+      .where((segment) => segment.isNotEmpty)
+      .toList();
+  final ordersIndex = segments.lastIndexOf('orders');
+  if (ordersIndex == -1 || ordersIndex + 1 >= segments.length) {
+    return null;
+  }
+  return int.tryParse(segments[ordersIndex + 1]);
+}
+
+int? employeeNotificationOrderId(JsonMap notification) {
+  return employeeOrderIdFromActionUrl(
+          asNullableString(notification['actionUrl'])) ??
+      asNullableInt(notification['relatedOrderId']) ??
+      asNullableInt(notification['orderId']);
+}
+
+String? employeeAssignedShipperSummary(JsonMap order) {
+  final shipperName = asNullableString(order['deliveringShipperName'])?.trim();
+  final shipperId = asNullableInt(order['deliveringShipperId']);
+  final identity = shipperName != null && shipperName.isNotEmpty
+      ? shipperId == null
+          ? shipperName
+          : '$shipperName (#$shipperId)'
+      : shipperId == null
+          ? null
+          : 'Shipper #$shipperId';
+  final status = asString(order['status']).trim().toUpperCase();
+
+  if (identity == null) {
+    return status == 'READY_FOR_SHIPPER'
+        ? 'The manager has not assigned a shipper to this order yet'
+        : null;
+  }
+
+  return switch (status) {
+    'READY_FOR_SHIPPER' => 'Assigned shipper: $identity',
+    'OUT_FOR_DELIVERY' => 'Shipper delivering now: $identity',
+    'COMPLETED' => 'Shipper completed delivery: $identity',
+    _ => 'Assigned to: $identity',
+  };
 }

@@ -9,9 +9,19 @@ import com.example.registrationotp.model.UserLevelDefinition;
 
 public interface UserLevelDefinitionRepository extends JpaRepository<UserLevelDefinition, Long> {
 
+	boolean existsByCodeIgnoreCase(String code);
+
+	boolean existsByCodeIgnoreCaseAndIdNot(String code, Long id);
+
 	boolean existsByStoreIdAndCodeIgnoreCase(Long storeId, String code);
 
 	boolean existsByStoreIdAndCodeIgnoreCaseAndIdNot(Long storeId, String code, Long id);
+
+	List<UserLevelDefinition> findAllByOrderByMinPaidAmountAscCodeAsc();
+
+	List<UserLevelDefinition> findAllByActiveTrueOrderByMinPaidAmountAscCodeAsc();
+
+	List<UserLevelDefinition> findAllByStoreIsNullAndActiveTrueOrderByMinPaidAmountAscCodeAsc();
 
 	List<UserLevelDefinition> findAllByStoreIdOrderByMinPaidAmountAsc(Long storeId);
 

@@ -90,7 +90,7 @@ class _BackofficeNotificationsScreenState extends State<BackofficeNotificationsS
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Da danh dau da doc tat ca thong bao.')),
+        const SnackBar(content: Text('All notifications were marked as read.')),
       );
     } catch (error) {
       if (!mounted) {
@@ -105,7 +105,7 @@ class _BackofficeNotificationsScreenState extends State<BackofficeNotificationsS
   @override
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
-    final title = controller.isManager ? 'Thong bao cua hang' : 'Backoffice notifications';
+    final title = controller.isManager ? 'Store notifications' : 'Backoffice notifications';
 
     return Scaffold(
       appBar: AppBar(title: Text(title)),
@@ -138,14 +138,14 @@ class _BackofficeNotificationsScreenState extends State<BackofficeNotificationsS
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${data.unreadCount} thong bao chua doc',
+                          '${data.unreadCount} unread notifications',
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 8),
                           Text(
                             controller.isManager
-                                ? 'Thong bao don moi cua cua hang ban dang phu trach se hien o day.'
-                                : 'Thong bao quan tri va cac cap nhat can xu ly se hien o day.',
+                                ? 'New order notifications for your assigned store appear here.'
+                                : 'Admin notifications and actionable updates appear here.',
                           ),
                         const SizedBox(height: 12),
                         Wrap(
@@ -153,7 +153,7 @@ class _BackofficeNotificationsScreenState extends State<BackofficeNotificationsS
                           runSpacing: 8,
                           children: [
                             ChoiceChip(
-                              label: const Text('Tat ca'),
+                              label: const Text('All'),
                               selected: _filterRead == null,
                               onSelected: (_) {
                                 setState(() => _filterRead = null);
@@ -161,7 +161,7 @@ class _BackofficeNotificationsScreenState extends State<BackofficeNotificationsS
                               },
                             ),
                             ChoiceChip(
-                              label: const Text('Chua doc'),
+                              label: const Text('Unread'),
                               selected: _filterRead == false,
                               onSelected: (_) {
                                 setState(() => _filterRead = false);
@@ -169,7 +169,7 @@ class _BackofficeNotificationsScreenState extends State<BackofficeNotificationsS
                               },
                             ),
                             ChoiceChip(
-                              label: const Text('Da doc'),
+                              label: const Text('Read'),
                               selected: _filterRead == true,
                               onSelected: (_) {
                                 setState(() => _filterRead = true);
@@ -183,7 +183,7 @@ class _BackofficeNotificationsScreenState extends State<BackofficeNotificationsS
                           alignment: Alignment.centerRight,
                           child: FilledButton.tonal(
                             onPressed: data.notifications.isEmpty ? null : _markAllRead,
-                            child: const Text('Doc het'),
+                            child: const Text('Read all'),
                           ),
                         ),
                       ],
@@ -193,8 +193,8 @@ class _BackofficeNotificationsScreenState extends State<BackofficeNotificationsS
                 const SizedBox(height: 16),
                 if (data.notifications.isEmpty)
                   const EmptyStateCard(
-                    title: 'Chua co thong bao',
-                    message: 'Thong bao don hang va moderation se xuat hien tai day.',
+                    title: 'No notifications yet',
+                    message: 'Order and moderation notifications will appear here.',
                   )
                 else
                   ...data.notifications.map(
@@ -218,7 +218,7 @@ class _BackofficeNotificationsScreenState extends State<BackofficeNotificationsS
                           trailing: IconButton(
                             onPressed: () => _toggleRead(item),
                             icon: Icon(item.read ? Icons.mark_email_unread_outlined : Icons.mark_email_read_outlined),
-                            tooltip: item.read ? 'Danh dau chua doc' : 'Danh dau da doc',
+                            tooltip: item.read ? 'Mark as unread' : 'Mark as read',
                           ),
                           onTap: () => _openNotification(item),
                         ),

@@ -67,7 +67,7 @@ class _UserReviewEditorScreenState extends State<UserReviewEditorScreen> {
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(widget.existing == null ? 'Da gui review' : 'Da cap nhat review'),
+          content: Text(widget.existing == null ? 'Review submitted' : 'Review updated'),
         ),
       );
       Navigator.of(context).pop(true);
@@ -91,7 +91,7 @@ class _UserReviewEditorScreenState extends State<UserReviewEditorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.existing == null ? 'Viet review' : 'Sua review'),
+        title: Text(widget.existing == null ? 'Write review' : 'Edit review'),
       ),
       body: Form(
         key: _formKey,
@@ -109,14 +109,14 @@ class _UserReviewEditorScreenState extends State<UserReviewEditorScreen> {
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 8),
-                    Text('Loai: ${widget.targetType}'),
+                    Text('Type: ${widget.targetType}'),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 16),
             Text(
-              'Danh gia cua ban: ${_rating.toStringAsFixed(1)}',
+              'Your rating: ${_rating.toStringAsFixed(1)}',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
             ),
             Slider(
@@ -135,12 +135,12 @@ class _UserReviewEditorScreenState extends State<UserReviewEditorScreen> {
             TextFormField(
               controller: _titleController,
               decoration: const InputDecoration(
-                labelText: 'Tieu de',
-                hintText: 'VD: De order, nhan vien than thien',
+                labelText: 'Title',
+                hintText: 'Example: easy to order, friendly staff',
               ),
               validator: (value) {
                 if ((value ?? '').trim().isEmpty) {
-                  return 'Nhap tieu de review';
+                  return 'Enter a review title';
                 }
                 return null;
               },
@@ -150,12 +150,12 @@ class _UserReviewEditorScreenState extends State<UserReviewEditorScreen> {
               controller: _commentController,
               maxLines: 6,
               decoration: const InputDecoration(
-                labelText: 'Noi dung',
-                hintText: 'Chia se tra nghiem cua ban de team cai thien tot hon',
+                labelText: 'Comment',
+                hintText: 'Share your experience so the team can keep improving',
               ),
               validator: (value) {
                 if ((value ?? '').trim().isEmpty) {
-                  return 'Nhap noi dung review';
+                  return 'Enter your review comment';
                 }
                 return null;
               },
@@ -170,7 +170,7 @@ class _UserReviewEditorScreenState extends State<UserReviewEditorScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.send_outlined),
-              label: Text(_submitting ? 'Dang gui...' : 'Luu review'),
+              label: Text(_submitting ? 'Sending...' : 'Save review'),
             ),
           ],
         ),

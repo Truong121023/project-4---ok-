@@ -74,7 +74,7 @@ class _EmployeeActiveOrdersScreenState extends State<EmployeeActiveOrdersScreen>
             itemBuilder: (_) => const [
               PopupMenuItem<String>(
                 value: 'logout',
-                child: Text('Dang xuat'),
+                child: Text('Sign out'),
               ),
             ],
           ),
@@ -101,6 +101,12 @@ class _EmployeeActiveOrdersScreenState extends State<EmployeeActiveOrdersScreen>
             snapshot.data!.items,
             currentUserId,
           );
+          final summaryTitle = widget.kind == EmployeeRoleKind.shipper
+              ? 'Active deliveries'
+              : 'Active tasks';
+          final summaryMessage = widget.kind == EmployeeRoleKind.shipper
+              ? 'Open each order to review the route, call the customer, and finish delivery with a proof photo.'
+              : 'Accepted store tasks appear here so you can continue processing them.';
 
           return RefreshIndicator(
             onRefresh: _refresh,
@@ -109,19 +115,36 @@ class _EmployeeActiveOrdersScreenState extends State<EmployeeActiveOrdersScreen>
               children: [
                 Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(18),
+                    padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Don dang thao tac',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                          summaryTitle,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          widget.kind == EmployeeRoleKind.staff
-                              ? 'Don sau khi quet QR va nhan thanh cong se vao day de tiep tuc lam mon.'
-                              : 'Don sau khi quet QR va nhan giao thanh cong se vao day de chot giao hang.',
+                        Text(summaryMessage),
+                        const SizedBox(height: 14),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            MetricChip(
+                              label: '${activeOrders.length} orders',
+                              icon: widget.kind == EmployeeRoleKind.shipper
+                                  ? Icons.delivery_dining_outlined
+                                  : Icons.local_cafe_outlined,
+                            ),
+                            MetricChip(
+                              label: widget.kind == EmployeeRoleKind.shipper
+                                  ? 'Open Maps quickly'
+                                  : 'Tap to open task',
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -130,8 +153,8 @@ class _EmployeeActiveOrdersScreenState extends State<EmployeeActiveOrdersScreen>
                 const SizedBox(height: 20),
                 if (activeOrders.isEmpty)
                   const EmptyStateCard(
-                    title: 'Chua co don dang xu ly',
-                    message: 'Quet QR tren hoa don de nhan don, sau do card se xuat hien o day.',
+                    title: 'No active orders yet',
+                    message: 'Orders move here after you confirm pickup from the assigned QR task.',
                   )
                 else
                   ...activeOrders.map(

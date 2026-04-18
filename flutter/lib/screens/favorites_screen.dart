@@ -62,7 +62,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     if (item.targetType == 'EVENT') {
       Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => EventDetailScreen(eventKey: item.targetSlug ?? item.targetId.toString()),
+          builder: (_) =>
+              EventDetailScreen(eventKey: item.targetSlug ?? item.targetId.toString()),
         ),
       );
     }
@@ -83,7 +84,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Da bo khoi danh sach yeu thich')),
+        const SnackBar(content: Text('Removed from favorites')),
       );
     } catch (error) {
       if (!mounted) {
@@ -99,7 +100,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Yeu thich')),
+      appBar: AppBar(title: const Text('Favorites')),
       body: controller.isLoggedIn
           ? Column(
               children: [
@@ -110,7 +111,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                     runSpacing: 8,
                     children: [
                       ChoiceChip(
-                        label: const Text('Tat ca'),
+                        label: const Text('All'),
                         selected: _filter == null,
                         onSelected: (_) {
                           setState(() {
@@ -139,7 +140,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                   child: FutureBuilder<List<FavoriteItem>>(
                     future: _future,
                     builder: (context, snapshot) {
-                      if (snapshot.connectionState != ConnectionState.done && controller.favoriteItems.isEmpty) {
+                      if (snapshot.connectionState != ConnectionState.done &&
+                          controller.favoriteItems.isEmpty) {
                         return const Center(child: CircularProgressIndicator());
                       }
                       if (snapshot.hasError && controller.favoriteItems.isEmpty) {
@@ -159,8 +161,9 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                             padding: const EdgeInsets.all(16),
                             children: const [
                               EmptyStateCard(
-                                title: 'Chua co mon yeu thich',
-                                message: 'Ban co the them store, dish hoac event tu man hinh chi tiet.',
+                                title: 'No favorites yet',
+                                message:
+                                    'You can add stores, dishes, or events from their detail screens.',
                               ),
                             ],
                           ),
@@ -181,7 +184,9 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                                   width: 56,
                                   child: NetworkOrFallbackImage(
                                     imageUrl: controller.config.resolveImageUrl(
-                                      item.targetImagePaths.isEmpty ? null : item.targetImagePaths.first,
+                                      item.targetImagePaths.isEmpty
+                                          ? null
+                                          : item.targetImagePaths.first,
                                     ),
                                     height: 56,
                                     borderRadius: BorderRadius.circular(16),
@@ -193,12 +198,14 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                                   style: const TextStyle(fontWeight: FontWeight.w800),
                                 ),
                                 subtitle: Text(
-                                  '${item.targetType}${item.purchased ? ' • Da mua' : ''}',
+                                  item.purchased
+                                      ? '${item.targetType} • Purchased'
+                                      : item.targetType,
                                 ),
                                 trailing: IconButton(
                                   onPressed: () => _removeFavorite(item),
                                   icon: const Icon(Icons.favorite),
-                                  tooltip: 'Bo yeu thich',
+                                  tooltip: 'Remove favorite',
                                 ),
                                 onTap: () => _openFavorite(item),
                               ),
@@ -214,9 +221,10 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           : Padding(
               padding: const EdgeInsets.all(16),
               child: EmptyStateCard(
-                title: 'Can dang nhap',
-                message: 'Dang nhap de luu va dong bo store, dish va event yeu thich.',
-                actionLabel: 'Dang nhap',
+                title: 'Sign in required',
+                message:
+                    'Sign in to save and sync your favorite stores, dishes, and events.',
+                actionLabel: 'Sign in',
                 onAction: () {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(builder: (_) => const LoginScreen()),

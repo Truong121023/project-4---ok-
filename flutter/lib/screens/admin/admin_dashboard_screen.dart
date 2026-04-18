@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../app/app.dart';
 import '../../core/models/models.dart';
@@ -135,7 +135,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             _HeroChip(
                                 label: controller.config.useMockData
                                     ? 'Che do demo'
-                                    : 'Ket noi live'),
+                                    : 'Live connection'),
                             _HeroChip(
                                 label:
                                     controller.session?.user.email ?? 'Guest'),
@@ -154,7 +154,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          'Tap trung nhin so lieu tong quan, mo nhanh module va doc chi tiet du lieu that tu /api/admin/*. ',
+                          'Focus on high-level metrics, jump into modules quickly, and inspect live data from /api/admin/*.',
                           style:
                               Theme.of(context).textTheme.bodyLarge?.copyWith(
                                     color: Colors.white.withValues(alpha: 0.92),
@@ -178,7 +178,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             onSubmitted: (_) => _refresh(),
                             decoration: const InputDecoration(
                               labelText: 'Scope theo Store ID',
-                              hintText: 'Bo trong de xem tat ca store',
+                              hintText: 'Leave empty to view all stores',
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -195,7 +195,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   _storeScopeController.clear();
                                   _refresh();
                                 },
-                                child: const Text('Tat ca'),
+                                child: const Text('All'),
                               ),
                             ],
                           ),
@@ -319,7 +319,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 const SectionHeader(
                   title: 'Dashboard preview',
                   subtitle:
-                      'Lay tu GET /api/admin/dashboard de xem nhanh du lieu gan day.',
+                      'Loaded from GET /api/admin/dashboard for a quick view of recent data.',
                 ),
                 const SizedBox(height: 12),
                 _PreviewPanel(
@@ -569,3 +569,4 @@ class _AdminDashboardBundle {
   final AdminSummary summary;
   final AdminDashboard dashboard;
 }
+

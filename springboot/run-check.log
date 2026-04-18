@@ -1,0 +1,118 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] --------------------< com.example:registration-otp >--------------------
+[INFO] Building registration-otp 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot:3.5.11:run (default-cli) > test-compile @ registration-otp >>>
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ registration-otp ---
+[INFO] Copying 2 resources from src\main\resources to target\classes
+[INFO] Copying 3 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.14.1:compile (default-compile) @ registration-otp ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ registration-otp ---
+[INFO] skip non existing resourceDirectory C:\project4\springboot\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.14.1:testCompile (default-testCompile) @ registration-otp ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] <<< spring-boot:3.5.11:run (default-cli) < test-compile @ registration-otp <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot:3.5.11:run (default-cli) @ registration-otp ---
+[INFO] Attaching agents: []
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::               (v3.5.11)
+
+2026-04-17T18:04:22.017+07:00  INFO 7584 --- [           main] c.e.r.RegistrationOtpApplication         : Starting RegistrationOtpApplication using Java 21.0.5 with PID 7584 (C:\project4\springboot\target\classes started by tnqua in C:\project4\springboot)
+2026-04-17T18:04:22.019+07:00  INFO 7584 --- [           main] c.e.r.RegistrationOtpApplication         : No active profile set, falling back to 1 default profile: "default"
+2026-04-17T18:04:23.227+07:00  INFO 7584 --- [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-04-17T18:04:23.379+07:00  INFO 7584 --- [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 146 ms. Found 26 JPA repository interfaces.
+2026-04-17T18:04:23.945+07:00  INFO 7584 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-04-17T18:04:23.959+07:00  INFO 7584 --- [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-04-17T18:04:23.959+07:00  INFO 7584 --- [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.52]
+2026-04-17T18:04:24.023+07:00  INFO 7584 --- [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-04-17T18:04:24.025+07:00  INFO 7584 --- [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 1935 ms
+2026-04-17T18:04:24.210+07:00  INFO 7584 --- [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-04-17T18:04:24.244+07:00  INFO 7584 --- [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.6.42.Final
+2026-04-17T18:04:24.266+07:00  INFO 7584 --- [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-04-17T18:04:24.495+07:00  INFO 7584 --- [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-04-17T18:04:24.515+07:00  INFO 7584 --- [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-04-17T18:04:24.641+07:00  INFO 7584 --- [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@14590fe2
+2026-04-17T18:04:24.642+07:00  INFO 7584 --- [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-04-17T18:04:24.725+07:00  INFO 7584 --- [           main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+	Database driver: undefined/unknown
+	Database version: 8.0.39
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-04-17T18:04:26.613+07:00  INFO 7584 --- [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+Hibernate: alter table carts modify column status enum ('OPEN') not null
+Hibernate: alter table content_sections modify column owner_type enum ('DISH','EVENT','NEWS_ARTICLE','STORE') not null
+Hibernate: alter table customer_feedbacks modify column category enum ('APP_EXPERIENCE','DELIVERY','GENERAL','ORDER_EXPERIENCE','OTHER','PRODUCT_QUALITY','STORE_SERVICE') not null
+Hibernate: alter table customer_feedbacks modify column replied_by_user_role enum ('ADMIN','MANAGER','SHIPPER','STAFF','USER')
+Hibernate: alter table email_otps modify column purpose enum ('PASSWORD_RESET','REGISTER_VERIFY')
+Hibernate: alter table employee_attendances modify column employee_role enum ('ADMIN','MANAGER','SHIPPER','STAFF','USER') not null
+Hibernate: alter table employee_work_schedules modify column employee_role enum ('ADMIN','MANAGER','SHIPPER','STAFF','USER') not null
+Hibernate: alter table favorites modify column target_type enum ('DISH','EVENT','STORE') not null
+Hibernate: alter table order_scan_audits modify column action enum ('ACCEPT_DELIVERY','ACCEPT_PREPARING') not null
+Hibernate: alter table order_scan_audits modify column role enum ('ADMIN','MANAGER','SHIPPER','STAFF','USER')
+Hibernate: alter table orders modify column delivery_type enum ('IMMEDIATE','SCHEDULED') not null
+Hibernate: alter table orders modify column payment_status enum ('CANCELLED','FAILED','PAID','PENDING') not null
+Hibernate: alter table orders modify column promotion_scope enum ('DISH','ORDER')
+Hibernate: alter table orders modify column status enum ('CANCELLED','COMPLETED','CONFIRMED','OUT_FOR_DELIVERY','PENDING','PREPARING','READY_FOR_SHIPPER') not null
+Hibernate: alter table promotions modify column discount_target enum ('BOTH','ITEMS','SHIPPING') not null
+Hibernate: alter table promotions modify column discount_type enum ('FIXED_AMOUNT','PERCENT') not null
+Hibernate: alter table promotions modify column scope enum ('DISH','ORDER') not null
+Hibernate: alter table reviews modify column target_type enum ('CATEGORY','DISH','EVENT','STORE') not null
+Hibernate: alter table user_notifications modify column type enum ('BRAND_EVENT','NEWS_ARTICLE','ORDER_STATUS','ORDER_TASK') not null
+Hibernate: alter table users modify column role enum ('ADMIN','MANAGER','SHIPPER','STAFF','USER') not null
+2026-04-17T18:04:27.417+07:00  INFO 7584 --- [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-04-17T18:04:28.523+07:00  INFO 7584 --- [           main] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-04-17T18:04:30.346+07:00  WARN 7584 --- [           main] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.context.ApplicationContextException: Failed to start bean 'webServerStartStop'
+2026-04-17T18:04:30.349+07:00  INFO 7584 --- [           main] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-04-17T18:04:30.351+07:00  INFO 7584 --- [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-04-17T18:04:30.359+07:00  INFO 7584 --- [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-04-17T18:04:30.373+07:00  INFO 7584 --- [           main] .s.b.a.l.ConditionEvaluationReportLogger : 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-04-17T18:04:30.385+07:00 ERROR 7584 --- [           main] o.s.b.d.LoggingFailureAnalysisReporter   : 
+
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Web server failed to start. Port 8080 was already in use.
+
+Action:
+
+Identify and stop the process that's listening on port 8080 or configure this application to listen on another port.
+
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  14.225 s
+[INFO] Finished at: 2026-04-17T18:04:30+07:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.springframework.boot:spring-boot-maven-plugin:3.5.11:run (default-cli) on project registration-otp: Process terminated with exit code: 1 -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException

@@ -12,18 +12,12 @@ class OrderQrStatusScreen extends StatefulWidget {
     super.key,
     required this.response,
     required this.viewerRole,
-    this.title = 'Thong tin don hang',
-    this.canManagerConfirm = false,
-    this.orderBelongsToWorkingStore = false,
-    this.onConfirmManager,
+    this.title = 'Order details',
   });
 
   final MobileOrderQrResolveResponse response;
   final String viewerRole;
   final String title;
-  final bool canManagerConfirm;
-  final bool orderBelongsToWorkingStore;
-  final Future<JsonMap> Function()? onConfirmManager;
 
   @override
   State<OrderQrStatusScreen> createState() => _OrderQrStatusScreenState();
@@ -31,7 +25,6 @@ class OrderQrStatusScreen extends StatefulWidget {
 
 class _OrderQrStatusScreenState extends State<OrderQrStatusScreen> {
   late JsonMap _order;
-  bool _confirming = false;
 
   @override
   void initState() {
@@ -41,16 +34,10 @@ class _OrderQrStatusScreenState extends State<OrderQrStatusScreen> {
 
   List<String> get _allowedActions => asStringList(_order['allowedActions']).map((action) => action.toUpperCase()).toList();
 
-  bool get _managerConfirmed => asNullableInt(_order['confirmedByUserId']) != null || asDateTime(_order['confirmedAt']) != null;
+  bool get _storeConfirmed => asNullableInt(_order['confirmedByUserId']) != null || asDateTime(_order['confirmedAt']) != null;
 
   bool get _canViewInvoice =>
       asBool(_order['invoiceAvailable']) || _allowedActions.contains('VIEW_INVOICE');
-
-  bool get _canManagerConfirm =>
-      widget.viewerRole.toUpperCase() == 'MANAGER' &&
-      widget.canManagerConfirm &&
-      _allowedActions.contains('CONFIRM_ORDER') &&
-      !_managerConfirmed;
 
   String _roleBadge() {
     return switch (widget.viewerRole.toUpperCase()) {
@@ -64,18 +51,13 @@ class _OrderQrStatusScreenState extends State<OrderQrStatusScreen> {
   }
 
   String _heroTitle() {
-    if (widget.viewerRole.toUpperCase() == 'MANAGER') {
-      if (_managerConfirmed) {
-        return 'Don da duoc xac nhan boi cua hang.';
-      }
-      if (_canManagerConfirm) {
-        return 'Don nay dang cho manager cua store xac nhan.';
-      }
-      return widget.orderBelongsToWorkingStore
-          ? 'Manager dang o che do xem thong tin don.'
-          : 'Don nay khong thuoc cua hang dang duoc manager nay phu trach.';
+    if (widget.response.message.isNotEmpty) {
+      return widget.response.message;
     }
-    return widget.response.message.isEmpty ? 'Thong tin don hang da san sang.' : widget.response.message;
+    if (_storeConfirmed) {
+      return 'The store has confirmed the order.';
+    }
+    return 'The order details are ready.';
   }
 
   String _heroSubtitle() {
@@ -83,65 +65,42 @@ class _OrderQrStatusScreenState extends State<OrderQrStatusScreen> {
     if (summary.isNotEmpty) {
       return summary;
     }
-    return 'Theo doi don hang ngay trong app.';
+    return 'Track the order directly in the app.';
   }
 
   Future<void> _openExternalUrl(String? url) async {
     if (url == null || url.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Server chua tra URL de mo.')),
+        const SnackBar(content: Text('The server did not return a link to open yet.')),
       );
       return;
     }
     final uri = Uri.tryParse(url);
     if (uri == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('URL khong hop le.')),
+        const SnackBar(content: Text('The URL is invalid.')),
       );
       return;
     }
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Khong mo duoc $url')),
+        SnackBar(content: Text('Could not open $url')),
       );
-    }
-  }
-
-  Future<void> _confirmManagerCheck() async {
-    if (_confirming || widget.onConfirmManager == null) {
-      return;
-    }
-    setState(() => _confirming = true);
-    try {
-      final updated = await widget.onConfirmManager!();
-      if (!mounted) {
-        return;
-      }
-      setState(() => _order = Map<String, dynamic>.from(updated));
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            asString(updated['statusSummary'], 'Da xac nhan thong tin don cua cua hang.'),
-          ),
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _confirming = false);
-      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
+    final isUserViewer = widget.viewerRole.toUpperCase() == 'USER';
     final totalAmount = asDouble(_order['totalAmount']);
     final invoiceNumber = asString(_order['invoiceNumber']);
-    final storeName = asString(_order['storeName'], 'Tea Matcha');
+    final storeName = asString(_order['storeName'], 'Kamatcha');
     final proofImagePath = asNullableString(_order['deliveryProofImagePath']);
     final proofNote = asNullableString(_order['deliveryProofNote']);
     final invoiceUrl = asNullableString(_order['invoicePreviewUrl']) ?? asNullableString(_order['invoiceDownloadUrl']);
+    final visibleActions = isUserViewer ? _allowedActions : const <String>[];
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
@@ -170,7 +129,7 @@ class _OrderQrStatusScreenState extends State<OrderQrStatusScreen> {
                       MetricChip(label: asString(_order['status'], 'ORDER')),
                       if (asString(_order['paymentStatus']).isNotEmpty)
                         MetricChip(label: asString(_order['paymentStatus'])),
-                      if (_managerConfirmed) const MetricChip(label: 'Da xac nhan'),
+                      if (_storeConfirmed) const MetricChip(label: 'Confirmed'),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -205,39 +164,39 @@ class _OrderQrStatusScreenState extends State<OrderQrStatusScreen> {
                   ),
                   if (invoiceNumber.isNotEmpty) ...[
                     const SizedBox(height: 10),
-                    Text('Hoa don: $invoiceNumber'),
+                    Text('Invoice: $invoiceNumber'),
                   ],
                   if (totalAmount > 0) ...[
                     const SizedBox(height: 8),
-                    Text('Tong tien: ${Formatters.currency(totalAmount)}'),
+                    Text('Total amount: ${Formatters.currency(totalAmount)}'),
                   ],
                   if (widget.response.claimedByUserName != null) ...[
                     const SizedBox(height: 8),
                     Text(
                       widget.response.claimedByUserRole == null || widget.response.claimedByUserRole!.trim().isEmpty
-                          ? 'Nguoi da nhan QR: ${widget.response.claimedByUserName}'
-                          : 'Nguoi da nhan QR: ${widget.response.claimedByUserName} (${widget.response.claimedByUserRole})',
+                          ? 'QR claimed by: ${widget.response.claimedByUserName}'
+                          : 'QR claimed by: ${widget.response.claimedByUserName} (${widget.response.claimedByUserRole})',
                     ),
                   ],
                   if (widget.response.executedAction != null) ...[
                     const SizedBox(height: 8),
-                    Text('Buoc vua thuc hien: ${widget.response.executedAction}'),
+                    Text('Last action: ${widget.response.executedAction}'),
                   ],
                   if (asString(_order['deliveryFullName']).isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    Text('Nguoi nhan: ${asString(_order['deliveryFullName'])}'),
+                    Text('Recipient: ${asString(_order['deliveryFullName'])}'),
                   ],
                   if (asString(_order['deliveryPhoneNumber']).isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    Text('So dien thoai: ${asString(_order['deliveryPhoneNumber'])}'),
+                    Text('Phone: ${asString(_order['deliveryPhoneNumber'])}'),
                   ],
                   if (asString(_order['deliveryAddress']).isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    Text('Dia chi giao: ${asString(_order['deliveryAddress'])}'),
+                    Text('Delivery address: ${asString(_order['deliveryAddress'])}'),
                   ],
                   if (asDateTime(_order['createdAt']) != null) ...[
                     const SizedBox(height: 8),
-                    Text('Tao luc: ${Formatters.fullDateTime(asDateTime(_order['createdAt'])!)}'),
+                    Text('Created at: ${Formatters.fullDateTime(asDateTime(_order['createdAt'])!)}'),
                   ],
                 ],
               ),
@@ -250,52 +209,15 @@ class _OrderQrStatusScreenState extends State<OrderQrStatusScreen> {
             confirmedAt: asDateTime(_order['confirmedAt']),
             preparingStaffName: asNullableString(_order['preparingStaffName']),
             deliveringShipperName: asNullableString(_order['deliveringShipperName']),
+            deliveryStatus: asString(_order['status']),
             deliveryProofCapturedAt: asDateTime(_order['deliveryProofCapturedAt']),
           ),
-          if (widget.viewerRole.toUpperCase() == 'MANAGER') ...[
-            const SizedBox(height: 20),
-          SectionHeader(
-            title: 'Xac nhan cua hang',
-            subtitle: _canManagerConfirm
-                  ? 'Manager co the xac nhan don ngay tu man quet QR.'
-                  : widget.orderBelongsToWorkingStore
-                      ? 'Manager dang xem thong tin don cua cua hang minh.'
-                      : 'Don nay khong thuoc cua hang dang duoc phan cong.',
-            ),
-            const SizedBox(height: 12),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _managerConfirmed
-                          ? 'Don nay da co nguoi xac nhan o buoc cua hang.'
-                          : _canManagerConfirm
-                              ? 'Sau khi xac nhan, don se chuyen sang buoc nhan vien xu ly.'
-                              : 'Khong co thao tac xac nhan them cho don nay.',
-                    ),
-                    if (_canManagerConfirm) ...[
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: _confirming ? null : _confirmManagerCheck,
-                          icon: const Icon(Icons.verified_outlined),
-                          label: Text(_confirming ? 'Dang xac nhan...' : 'Xac nhan don'),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ],
           const SizedBox(height: 20),
           SectionHeader(
-            title: 'Thao tac va tai lieu',
-            subtitle: 'Chi hien nhung nut hop le o thoi diem hien tai.',
+            title: isUserViewer ? 'Available actions and documents' : 'Available documents',
+            subtitle: isUserViewer
+                ? 'Only valid actions for the current live order state are shown here.'
+                : 'This role can only view order details and open the invoice on mobile.',
           ),
           const SizedBox(height: 12),
           Card(
@@ -304,15 +226,19 @@ class _OrderQrStatusScreenState extends State<OrderQrStatusScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (_allowedActions.isNotEmpty)
+                  if (visibleActions.isNotEmpty)
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: _allowedActions.map((action) => MetricChip(label: action)).toList(),
+                      children: visibleActions.map((action) => MetricChip(label: action)).toList(),
                     )
                   else
-                    const Text('Role hien tai dang o che do xem thong tin don hang.'),
-                  if (_canViewInvoice || _canManagerConfirm) ...[
+                    Text(
+                      isUserViewer
+                          ? 'The current role is in order-view mode only.'
+                          : 'Mobile does not open the manager/admin workflow for this order.',
+                    ),
+                  if (_canViewInvoice) ...[
                     const SizedBox(height: 16),
                     Wrap(
                       spacing: 8,
@@ -322,7 +248,7 @@ class _OrderQrStatusScreenState extends State<OrderQrStatusScreen> {
                           OutlinedButton.icon(
                             onPressed: () => _openExternalUrl(invoiceUrl),
                             icon: const Icon(Icons.receipt_long_outlined),
-                            label: const Text('Mo hoa don'),
+                            label: const Text('Open invoice'),
                           ),
                       ],
                     ),
@@ -334,8 +260,8 @@ class _OrderQrStatusScreenState extends State<OrderQrStatusScreen> {
           if (proofImagePath != null) ...[
             const SizedBox(height: 20),
             SectionHeader(
-              title: 'Proof giao hang',
-              subtitle: 'Anh xac nhan giao hang da duoc luu tren he thong.',
+              title: 'Delivery proof',
+              subtitle: 'The delivery proof image has been saved on the system.',
             ),
             const SizedBox(height: 12),
             Card(
@@ -357,7 +283,7 @@ class _OrderQrStatusScreenState extends State<OrderQrStatusScreen> {
                     if (asDateTime(_order['deliveryProofUploadedAt']) != null) ...[
                       const SizedBox(height: 8),
                       Text(
-                        'Upload luc ${Formatters.fullDateTime(asDateTime(_order['deliveryProofUploadedAt'])!)}',
+                        'Uploaded at ${Formatters.fullDateTime(asDateTime(_order['deliveryProofUploadedAt'])!)}',
                       ),
                     ],
                   ],

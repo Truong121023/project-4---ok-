@@ -15,11 +15,17 @@ public record UserResponse(
 		String workingStoreAddress,
 		boolean verified,
 		boolean profileCompleted,
+		int creditPoints,
+		int membershipPoints,
 		Instant createdAt,
 		Instant verifiedAt
 ) {
 
 	public static UserResponse from(User user) {
+		return from(user, 0);
+	}
+
+	public static UserResponse from(User user, int membershipPoints) {
 		return new UserResponse(
 				user.getId(),
 				user.getFullName(),
@@ -30,6 +36,8 @@ public record UserResponse(
 				user.getWorkingStore() != null ? user.getWorkingStore().getAddress() : null,
 				user.getVerifiedAt() != null,
 				user.isProfileCompleted(),
+				user.getCreditPoints(),
+				Math.max(membershipPoints, 0),
 				user.getCreatedAt(),
 				user.getVerifiedAt()
 		);

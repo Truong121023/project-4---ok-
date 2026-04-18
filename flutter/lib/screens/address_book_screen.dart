@@ -78,10 +78,10 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
       animation: controller,
       builder: (context, _) {
         return Scaffold(
-          appBar: AppBar(title: const Text('Dia chi giao hang')),
+          appBar: AppBar(title: const Text('Delivery addresses')),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: controller.isLoggedIn ? () => _openEditor() : null,
-            label: const Text('Them dia chi'),
+            label: const Text('Add address'),
             icon: const Icon(Icons.add_location_alt_outlined),
           ),
           body: RefreshIndicator(
@@ -91,18 +91,21 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
               children: [
                 if (!controller.isLoggedIn)
                   const EmptyStateCard(
-                    title: 'Can dang nhap',
-                    message: 'Dia chi giao hang la du lieu can tai khoan nguoi dung.',
+                    title: 'Sign in required',
+                    message:
+                        'Delivery addresses are tied to your account.',
                   )
-                else if (controller.addressBusy && controller.deliveryAddresses.isEmpty)
-                  const Center(child: Padding(
+                else if (controller.addressBusy &&
+                    controller.deliveryAddresses.isEmpty)
+                  const Center(
+                      child: Padding(
                     padding: EdgeInsets.only(top: 24),
                     child: CircularProgressIndicator(),
                   ))
                 else if (controller.deliveryAddresses.isEmpty)
                   const EmptyStateCard(
-                    title: 'Chua co dia chi',
-                    message: 'Them dia chi dau tien de bat dau checkout that.',
+                    title: 'No addresses yet',
+                    message: 'Add your first address to start checkout faster.',
                   )
                 else
                   ...controller.deliveryAddresses.map(
@@ -111,7 +114,9 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                       child: Card(
                         child: InkWell(
                           borderRadius: BorderRadius.circular(24),
-                          onTap: widget.selectionMode ? () => Navigator.of(context).pop(address) : null,
+                          onTap: widget.selectionMode
+                              ? () => Navigator.of(context).pop(address)
+                              : () => _openEditor(address),
                           child: Padding(
                             padding: const EdgeInsets.all(16),
                             child: Column(
@@ -122,21 +127,38 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                                     Expanded(
                                       child: Text(
                                         address.fullName,
-                                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
                                               fontWeight: FontWeight.w800,
                                             ),
                                       ),
                                     ),
-                                    if (address.primary) const MetricChip(label: 'Mac dinh'),
+                                    if (address.primary)
+                                      const MetricChip(label: 'Primary'),
                                   ],
                                 ),
                                 const SizedBox(height: 6),
-                                Text('${address.phoneNumber}\n${address.deliveryAddress}'),
+                                Text(
+                                    '${address.phoneNumber}\n${address.deliveryAddress}'),
                                 const SizedBox(height: 10),
                                 Text(
                                   address.verified
-                                      ? 'Da xac thuc - ${Formatters.shortDate(address.verifiedAt)}'
-                                      : 'Chua xac thuc',
+                                      ? 'Verified on ${Formatters.shortDate(address.verifiedAt)}'
+                                      : 'Not verified',
+                                ),
+                                const SizedBox(height: 10),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    MetricChip(
+                                      label: address.hasCoordinates
+                                          ? 'Coordinates available'
+                                          : 'Coordinates missing',
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(height: 12),
                                 Wrap(
@@ -147,30 +169,35 @@ class _AddressBookScreenState extends State<AddressBookScreen> {
                                       FilledButton.tonal(
                                         onPressed: () async {
                                           try {
-                                            await controller.makeDeliveryAddressPrimary(address.id);
+                                            await controller
+                                                .makeDeliveryAddressPrimary(
+                                                    address.id);
                                           } on ApiException catch (error) {
                                             if (!context.mounted) {
                                               return;
                                             }
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: Text(error.message)),
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              SnackBar(
+                                                  content: Text(error.message)),
                                             );
                                           }
                                         },
-                                        child: const Text('Dat mac dinh'),
+                                        child: const Text('Set as default'),
                                       ),
                                     FilledButton.tonal(
                                       onPressed: () => _openEditor(address),
-                                      child: const Text('Sua'),
+                                      child: const Text('Edit'),
                                     ),
                                     FilledButton.tonal(
                                       onPressed: () => _delete(address),
-                                      child: const Text('Xoa'),
+                                      child: const Text('Delete'),
                                     ),
                                     if (widget.selectionMode)
                                       FilledButton(
-                                        onPressed: () => Navigator.of(context).pop(address),
-                                        child: const Text('Chon'),
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(address),
+                                        child: const Text('Select'),
                                       ),
                                   ],
                                 ),

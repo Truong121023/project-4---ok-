@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../core/models/models.dart';
 import '../../core/utils/formatters.dart';
@@ -64,7 +64,7 @@ const List<AdminModuleDefinition> adminModules = [
   AdminModuleDefinition(
     id: 'users',
     title: 'Users',
-    subtitle: 'Tai khoan, role, verification va trang thai hoat dong.',
+    subtitle: 'Accounts, roles, verification, and active status.',
     path: '/api/admin/users',
     group: 'Operations',
     icon: Icons.group_outlined,
@@ -88,7 +88,7 @@ const List<AdminModuleDefinition> adminModules = [
   AdminModuleDefinition(
     id: 'stores',
     title: 'Stores',
-    subtitle: 'Chi nhanh, dia chi, highlights va sections dai.',
+    subtitle: 'Branches, addresses, highlights, and long-form sections.',
     path: '/api/admin/stores',
     group: 'Operations',
     icon: Icons.storefront_outlined,
@@ -97,7 +97,7 @@ const List<AdminModuleDefinition> adminModules = [
   AdminModuleDefinition(
     id: 'feedbacks',
     title: 'Feedbacks',
-    subtitle: 'Moderation va admin reply cho y kien khach hang.',
+    subtitle: 'Moderation and admin replies for customer feedback.',
     path: '/api/admin/feedbacks',
     group: 'Operations',
     icon: Icons.forum_outlined,
@@ -106,7 +106,7 @@ const List<AdminModuleDefinition> adminModules = [
   AdminModuleDefinition(
     id: 'categories',
     title: 'Categories',
-    subtitle: 'Nhom mon theo tung store.',
+    subtitle: 'Item groups by store.',
     path: '/api/admin/categories',
     group: 'Catalog',
     icon: Icons.category_outlined,
@@ -115,7 +115,7 @@ const List<AdminModuleDefinition> adminModules = [
   AdminModuleDefinition(
     id: 'dishes',
     title: 'Dishes',
-    subtitle: 'Mon an, availability, gia va highlight.',
+    subtitle: 'Items, availability, pricing, and highlights.',
     path: '/api/admin/dishes',
     group: 'Catalog',
     icon: Icons.ramen_dining_outlined,
@@ -124,7 +124,7 @@ const List<AdminModuleDefinition> adminModules = [
   AdminModuleDefinition(
     id: 'store-dishes',
     title: 'Store Dishes',
-    subtitle: 'Gia override, so luong va availability theo chi nhanh.',
+    subtitle: 'Price overrides, quantities, and availability by branch.',
     path: '/api/admin/store-dishes',
     group: 'Catalog',
     icon: Icons.local_mall_outlined,
@@ -133,7 +133,7 @@ const List<AdminModuleDefinition> adminModules = [
   AdminModuleDefinition(
     id: 'promotions',
     title: 'Promotions',
-    subtitle: 'Danh sach uu dai khong phan trang.',
+    subtitle: 'Unpaged promotion list.',
     path: '/api/admin/promotions',
     group: 'Catalog',
     icon: Icons.local_offer_outlined,
@@ -143,7 +143,7 @@ const List<AdminModuleDefinition> adminModules = [
   AdminModuleDefinition(
     id: 'user-levels',
     title: 'User Levels',
-    subtitle: 'Cap do khach hang va nguong chi tieu.',
+    subtitle: 'Customer levels and spending thresholds.',
     path: '/api/admin/user-levels',
     group: 'Catalog',
     icon: Icons.workspace_premium_outlined,
@@ -153,7 +153,7 @@ const List<AdminModuleDefinition> adminModules = [
   AdminModuleDefinition(
     id: 'events',
     title: 'Events',
-    subtitle: 'Su kien theo store, thoi gian, suc chua va noi dung dai.',
+    subtitle: 'Events by store, time, capacity, and long-form content.',
     path: '/api/admin/events',
     group: 'Content',
     icon: Icons.event_outlined,
@@ -162,11 +162,11 @@ const List<AdminModuleDefinition> adminModules = [
   AdminModuleDefinition(
     id: 'news',
     title: 'News',
-    subtitle: 'Bai viet, slug, publish state va sections.',
+    subtitle: 'Articles, slugs, publish state, and sections.',
     path: '/api/admin/news',
     group: 'Content',
     icon: Icons.newspaper_outlined,
-    searchHint: 'Tim theo tieu de bai viet',
+    searchHint: 'Search by article title',
   ),
   AdminModuleDefinition(
     id: 'reviews',
@@ -305,7 +305,7 @@ List<MapEntry<String, dynamic>> adminScalarEntries(JsonMap data) {
       continue;
     }
     final text = formatAdminValue(entry.key, value).trim();
-    if (text.isEmpty || text == 'Dang cap nhat') {
+    if (text.isEmpty || text == 'Updating') {
       continue;
     }
     entries.add(MapEntry(entry.key, value));
@@ -421,7 +421,7 @@ String formatAdminValue(String key, dynamic value) {
   final normalizedKey = key.toLowerCase();
 
   if (value == null) {
-    return 'Dang cap nhat';
+    return 'Updating';
   }
   if (value is bool) {
     return value ? 'Bat' : 'Tat';
@@ -445,3 +445,4 @@ String formatAdminValue(String key, dynamic value) {
   }
   return text;
 }
+

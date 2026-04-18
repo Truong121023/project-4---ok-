@@ -48,7 +48,7 @@ public class SmtpEmailSender implements EmailSender {
 	public void sendPasswordResetOtpEmail(String toEmail, String fullName, String otpCode, Duration expiresIn) {
 		sendMail(
 				toEmail,
-				"OTP password reset for Tea Matcha",
+				"OTP password reset for Kamatcha",
 				"""
 				Hello %s,
 
@@ -80,11 +80,11 @@ public class SmtpEmailSender implements EmailSender {
 
 		sendMail(
 				toEmail,
-				"Tea Matcha order payment reminder",
+				"Kamatcha order payment reminder",
 				"""
 				Hello %s,
 
-				Your Tea Matcha order #%d is waiting for payment.
+				Your Kamatcha order #%d is waiting for payment.
 				Total amount: %s VND
 				%s
 				%s
@@ -108,7 +108,7 @@ public class SmtpEmailSender implements EmailSender {
 	public void sendPaymentSuccessEmail(String toEmail, String fullName, Long orderId, BigDecimal totalAmount) {
 		sendMail(
 				toEmail,
-				"Tea Matcha payment received",
+				"Kamatcha payment received",
 				"""
 				Hello %s,
 

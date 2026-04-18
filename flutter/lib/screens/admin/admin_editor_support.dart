@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 
 import '../../core/models/models.dart';
 import 'admin_support.dart';
@@ -65,6 +65,7 @@ const List<String> _roleOptions = ['ADMIN', 'MANAGER', 'STAFF', 'SHIPPER', 'USER
 const List<String> _managerRoleOptions = ['STAFF', 'SHIPPER'];
 const List<String> _promotionScopeOptions = ['ORDER', 'DISH'];
 const List<String> _discountTypeOptions = ['PERCENT', 'FIXED_AMOUNT'];
+const List<String> _discountTargetOptions = ['ITEMS', 'SHIPPING', 'BOTH'];
 
 const Set<String> _managerCreatableModules = {
   'users',
@@ -269,17 +270,31 @@ const Map<String, AdminEditableModuleDefinition> adminEditableModules = {
       AdminEditorFieldDefinition(key: 'description', label: 'Description', type: AdminEditorFieldType.multiline, maxLines: 3),
       AdminEditorFieldDefinition(key: 'scope', label: 'Scope', type: AdminEditorFieldType.text, options: _promotionScopeOptions),
       AdminEditorFieldDefinition(key: 'discountType', label: 'Discount Type', type: AdminEditorFieldType.text, options: _discountTypeOptions),
+      AdminEditorFieldDefinition(
+        key: 'discountTarget',
+        label: 'Discount Target',
+        type: AdminEditorFieldType.text,
+        options: _discountTargetOptions,
+        helperText: 'Choose a discount for signature items, shipping, or both. Vouchers apply across the system and are not tied to a single store.',
+      ),
       AdminEditorFieldDefinition(key: 'discountValue', label: 'Discount Value', type: AdminEditorFieldType.decimal, requiredOnCreate: true, requiredOnEdit: true),
-      AdminEditorFieldDefinition(key: 'minimumOrderAmount', label: 'Minimum Order Amount', type: AdminEditorFieldType.decimal),
+      AdminEditorFieldDefinition(key: 'minOrderAmount', label: 'Min Order Amount', type: AdminEditorFieldType.decimal),
       AdminEditorFieldDefinition(key: 'maximumDiscountAmount', label: 'Maximum Discount Amount', type: AdminEditorFieldType.decimal),
-      AdminEditorFieldDefinition(key: 'minStoreBillAmount', label: 'Min Store Bill Amount', type: AdminEditorFieldType.decimal),
-      AdminEditorFieldDefinition(key: 'minCrossStoreBillAmount', label: 'Min Cross Store Bill Amount', type: AdminEditorFieldType.decimal),
       AdminEditorFieldDefinition(key: 'usageLimit', label: 'Usage Limit', type: AdminEditorFieldType.integer),
       AdminEditorFieldDefinition(key: 'startsAt', label: 'Starts At', type: AdminEditorFieldType.dateTime, hint: '2026-04-01T00:00:00Z'),
       AdminEditorFieldDefinition(key: 'endsAt', label: 'Ends At', type: AdminEditorFieldType.dateTime, hint: '2026-04-30T23:59:59Z'),
-      AdminEditorFieldDefinition(key: 'promotionDishIds', label: 'Promotion Dish IDs', type: AdminEditorFieldType.jsonList),
-      AdminEditorFieldDefinition(key: 'eligibleStoreIds', label: 'Eligible Store IDs', type: AdminEditorFieldType.jsonList),
-      AdminEditorFieldDefinition(key: 'eligibleUserLevelIds', label: 'Eligible User Level IDs', type: AdminEditorFieldType.jsonList),
+      AdminEditorFieldDefinition(
+        key: 'promotionDishIds',
+        label: 'Signature Dish IDs',
+        type: AdminEditorFieldType.jsonList,
+        helperText: 'Only choose SIGNATURE item IDs. Vouchers apply across the system and the backend will validate again if a local or store-specialty item appears.',
+      ),
+      AdminEditorFieldDefinition(
+        key: 'eligibleUserLevelIds',
+        label: 'Eligible User Level IDs',
+        type: AdminEditorFieldType.jsonList,
+        helperText: 'Use this to suggest membership-based eligibility on the frontend. The backend still makes the final decision.',
+      ),
       AdminEditorFieldDefinition(key: 'active', label: 'Active', type: AdminEditorFieldType.boolean, alwaysInclude: true),
     ],
   ),
@@ -381,7 +396,12 @@ String encodeAdminJson(dynamic value) {
 }
 
 String editorFieldInitialText(AdminEditorFieldDefinition field, JsonMap data) {
-  final value = data[field.key];
+  final value = data[field.key] ??
+      switch (field.key) {
+        'minOrderAmount' => data['minimumOrderAmount'],
+        'promotionDishIds' => data['applicableDishIds'],
+        _ => null,
+      };
   if (value == null) {
     return '';
   }
@@ -394,3 +414,4 @@ String editorFieldInitialText(AdminEditorFieldDefinition field, JsonMap data) {
 bool editorFieldInitialBool(AdminEditorFieldDefinition field, JsonMap data) {
   return asBool(data[field.key]);
 }
+

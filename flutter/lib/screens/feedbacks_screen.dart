@@ -45,7 +45,7 @@ class _FeedbacksScreenState extends State<FeedbacksScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Da xoa feedback')),
+        const SnackBar(content: Text('Feedback deleted')),
       );
     } catch (error) {
       if (!mounted) {
@@ -68,14 +68,16 @@ class _FeedbacksScreenState extends State<FeedbacksScreen> {
             IconButton(
               onPressed: () async {
                 final created = await Navigator.of(context).push<bool>(
-                  MaterialPageRoute<bool>(builder: (_) => const FeedbackComposerScreen()),
+                  MaterialPageRoute<bool>(
+                    builder: (_) => const FeedbackComposerScreen(),
+                  ),
                 );
                 if (created == true && mounted) {
                   _refresh();
                 }
               },
               icon: const Icon(Icons.add_comment_outlined),
-              tooltip: 'Tao feedback',
+              tooltip: 'Create feedback',
             ),
         ],
       ),
@@ -103,8 +105,9 @@ class _FeedbacksScreenState extends State<FeedbacksScreen> {
                       padding: const EdgeInsets.all(16),
                       children: const [
                         EmptyStateCard(
-                          title: 'Chua co feedback',
-                          message: 'Ban co the gui feedback ve delivery, order experience, store service va app.',
+                          title: 'No feedback yet',
+                          message:
+                              'You can send feedback about delivery, the order experience, store service, or the app.',
                         ),
                       ],
                     ),
@@ -148,21 +151,23 @@ class _FeedbacksScreenState extends State<FeedbacksScreen> {
                                   if (feedback.relatedStoreName != null)
                                     MetricChip(label: feedback.relatedStoreName!),
                                   if (feedback.relatedOrderId != null)
-                                    MetricChip(label: 'Don #${feedback.relatedOrderId}'),
+                                    MetricChip(label: 'Order #${feedback.relatedOrderId}'),
                                   MetricChip(label: Formatters.shortDate(feedback.createdAt)),
                                 ],
                               ),
-                              if (feedback.replyMessage != null && feedback.replyMessage!.isNotEmpty) ...[
+                              if (feedback.replyMessage != null &&
+                                  feedback.replyMessage!.isNotEmpty) ...[
                                 const SizedBox(height: 14),
                                 Card(
                                   color: const Color(0xFFF4F7F1),
                                   child: Padding(
                                     padding: const EdgeInsets.all(14),
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          'Phan hoi tu ${feedback.repliedByUserName ?? 'Tea Matcha'}',
+                                          'Reply from ${feedback.repliedByUserName ?? 'Kamatcha'}',
                                           style: Theme.of(context)
                                               .textTheme
                                               .titleSmall
@@ -180,7 +185,7 @@ class _FeedbacksScreenState extends State<FeedbacksScreen> {
                                 alignment: Alignment.centerRight,
                                 child: TextButton(
                                   onPressed: () => _deleteFeedback(feedback),
-                                  child: const Text('Xoa'),
+                                  child: const Text('Delete'),
                                 ),
                               ),
                             ],
@@ -195,9 +200,10 @@ class _FeedbacksScreenState extends State<FeedbacksScreen> {
           : Padding(
               padding: const EdgeInsets.all(16),
               child: EmptyStateCard(
-                title: 'Can dang nhap',
-                message: 'Dang nhap de gui feedback va theo doi phan hoi tu team.',
-                actionLabel: 'Dang nhap',
+                title: 'Sign in required',
+                message:
+                    'Sign in to send feedback and track the team response.',
+                actionLabel: 'Sign in',
                 onAction: () {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
@@ -213,7 +219,8 @@ class FeedbackComposerScreen extends StatefulWidget {
   const FeedbackComposerScreen({super.key});
 
   @override
-  State<FeedbackComposerScreen> createState() => _FeedbackComposerScreenState();
+  State<FeedbackComposerScreen> createState() =>
+      _FeedbackComposerScreenState();
 }
 
 class _FeedbackComposerScreenState extends State<FeedbackComposerScreen> {
@@ -261,7 +268,7 @@ class _FeedbackComposerScreenState extends State<FeedbackComposerScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Da gui feedback')),
+        const SnackBar(content: Text('Feedback sent')),
       );
       Navigator.of(context).pop(true);
     } catch (error) {
@@ -284,7 +291,7 @@ class _FeedbackComposerScreenState extends State<FeedbackComposerScreen> {
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Tao feedback')),
+      appBar: AppBar(title: const Text('Create feedback')),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -292,7 +299,7 @@ class _FeedbackComposerScreenState extends State<FeedbackComposerScreen> {
           children: [
             DropdownButtonFormField<String>(
               initialValue: _category,
-              decoration: const InputDecoration(labelText: 'Loai feedback'),
+              decoration: const InputDecoration(labelText: 'Feedback category'),
               items: _categories
                   .map(
                     (item) => DropdownMenuItem<String>(
@@ -314,17 +321,17 @@ class _FeedbackComposerScreenState extends State<FeedbackComposerScreen> {
             DropdownButtonFormField<OrderSummary?>(
               initialValue: _selectedOrder,
               decoration: const InputDecoration(
-                labelText: 'Gan voi don hang (khong bat buoc)',
+                labelText: 'Related order (optional)',
               ),
               items: [
                 const DropdownMenuItem<OrderSummary?>(
                   value: null,
-                  child: Text('Khong gan don cu the'),
+                  child: Text('Not linked to a specific order'),
                 ),
                 ...controller.orders.map(
                   (order) => DropdownMenuItem<OrderSummary?>(
                     value: order,
-                    child: Text('#${order.id} • ${order.storeName}'),
+                    child: Text('#${order.id} - ${order.storeName}'),
                   ),
                 ),
               ],
@@ -338,12 +345,12 @@ class _FeedbackComposerScreenState extends State<FeedbackComposerScreen> {
             TextFormField(
               controller: _subjectController,
               decoration: const InputDecoration(
-                labelText: 'Tieu de',
-                hintText: 'VD: Giao hang tre hoac can ho tro app',
+                labelText: 'Subject',
+                hintText: 'Example: late delivery or app support needed',
               ),
               validator: (value) {
                 if ((value ?? '').trim().isEmpty) {
-                  return 'Nhap tieu de feedback';
+                  return 'Enter a feedback subject';
                 }
                 return null;
               },
@@ -353,12 +360,12 @@ class _FeedbackComposerScreenState extends State<FeedbackComposerScreen> {
               controller: _messageController,
               maxLines: 7,
               decoration: const InputDecoration(
-                labelText: 'Noi dung',
-                hintText: 'Mo ta cu the de team xu ly nhanh hon',
+                labelText: 'Message',
+                hintText: 'Describe the issue clearly so the team can help faster',
               ),
               validator: (value) {
                 if ((value ?? '').trim().isEmpty) {
-                  return 'Nhap noi dung feedback';
+                  return 'Enter your feedback message';
                 }
                 return null;
               },
@@ -373,7 +380,7 @@ class _FeedbackComposerScreenState extends State<FeedbackComposerScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.send_outlined),
-              label: Text(_submitting ? 'Dang gui...' : 'Gui feedback'),
+              label: Text(_submitting ? 'Sending...' : 'Send feedback'),
             ),
           ],
         ),

@@ -61,7 +61,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(asString(result['statusSummary'], 'Da cap nhat don hang.'))),
+        SnackBar(content: Text(asString(result['statusSummary'], 'Order updated.'))),
       );
       await _refresh();
     } catch (error) {
@@ -129,7 +129,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                             MetricChip(label: employeeRoleLabel(widget.kind)),
                             if (session?.user.workingStoreName != null)
                               MetricChip(label: session!.user.workingStoreName!),
-                            MetricChip(label: '${data.unreadCount} thong bao moi'),
+                            MetricChip(label: '${data.unreadCount} new notifications'),
                           ],
                         ),
                         const SizedBox(height: 16),
@@ -146,8 +146,8 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                 ),
                 const SizedBox(height: 24),
                 const SectionHeader(
-                  title: 'Tap trung hom nay',
-                  subtitle: 'Mo app la thay ngay viec can xu ly trong ca.',
+                  title: 'Today at a glance',
+                  subtitle: 'Open the app and see the next tasks for your shift right away.',
                 ),
                 const SizedBox(height: 12),
                 GridView.count(
@@ -161,7 +161,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                     _MiniMetricCard(label: employeePrimaryQueueLabel(widget.kind), value: '${pending.length}'),
                     _MiniMetricCard(label: employeeActiveQueueLabel(widget.kind), value: '${active.length}'),
                     _MiniMetricCard(label: employeeCompletedQueueLabel(widget.kind), value: '${completed.length}'),
-                    _MiniMetricCard(label: 'Thong bao moi', value: '${data.unreadCount}'),
+                    _MiniMetricCard(label: 'New notifications', value: '${data.unreadCount}'),
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -172,8 +172,8 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                 const SizedBox(height: 12),
                 if (pending.isEmpty)
                   const EmptyStateCard(
-                    title: 'Khong co task cho nhan',
-                    message: 'Danh sach se tu dong cap nhat khi co don moi.',
+                    title: 'No tasks available to claim',
+                    message: 'This list updates automatically when new orders arrive.',
                   )
                 else
                   ...pending.take(3).map(
@@ -190,13 +190,13 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                 const SizedBox(height: 24),
                 SectionHeader(
                   title: employeeActiveQueueLabel(widget.kind),
-                  subtitle: 'Don dang duoc ban xu ly ngay luc nay.',
+                  subtitle: 'Orders you are actively handling right now.',
                 ),
                 const SizedBox(height: 12),
                 if (active.isEmpty)
                   const EmptyStateCard(
-                    title: 'Khong co don dang xu ly',
-                    message: 'Khi ban nhan don, card se chuyen sang khu nay.',
+                    title: 'No active orders',
+                    message: 'Once you claim an order, its card moves into this section.',
                   )
                 else
                   ...active.take(3).map(

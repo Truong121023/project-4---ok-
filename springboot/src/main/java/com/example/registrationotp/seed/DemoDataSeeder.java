@@ -32,6 +32,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.example.registrationotp.config.UploadProperties;
+import com.example.registrationotp.model.AiChatMessage;
+import com.example.registrationotp.model.AiChatThread;
 import com.example.registrationotp.model.Cart;
 import com.example.registrationotp.model.CartItem;
 import com.example.registrationotp.model.CartStatus;
@@ -42,6 +44,7 @@ import com.example.registrationotp.model.DeliveryType;
 import com.example.registrationotp.model.Dish;
 import com.example.registrationotp.model.EmailOtp;
 import com.example.registrationotp.model.EmployeeAttendance;
+import com.example.registrationotp.model.EmployeeOrderScanAction;
 import com.example.registrationotp.model.EmployeeWorkSchedule;
 import com.example.registrationotp.model.EventItem;
 import com.example.registrationotp.model.Favorite;
@@ -50,10 +53,12 @@ import com.example.registrationotp.model.FeedbackCategory;
 import com.example.registrationotp.model.NewsArticle;
 import com.example.registrationotp.model.Order;
 import com.example.registrationotp.model.OrderItem;
+import com.example.registrationotp.model.OrderScanAudit;
 import com.example.registrationotp.model.OrderStatus;
 import com.example.registrationotp.model.OtpPurpose;
 import com.example.registrationotp.model.PaymentStatus;
 import com.example.registrationotp.model.Promotion;
+import com.example.registrationotp.model.PromotionDiscountTarget;
 import com.example.registrationotp.model.PromotionDiscountType;
 import com.example.registrationotp.model.PromotionScope;
 import com.example.registrationotp.model.Review;
@@ -67,6 +72,8 @@ import com.example.registrationotp.model.UserLevelDefinition;
 import com.example.registrationotp.model.UserNotification;
 import com.example.registrationotp.model.UserNotificationType;
 import com.example.registrationotp.model.UserSession;
+import com.example.registrationotp.repository.AiChatMessageRepository;
+import com.example.registrationotp.repository.AiChatThreadRepository;
 import com.example.registrationotp.repository.CartItemRepository;
 import com.example.registrationotp.repository.CartRepository;
 import com.example.registrationotp.repository.CategoryRepository;
@@ -80,6 +87,7 @@ import com.example.registrationotp.repository.FavoriteRepository;
 import com.example.registrationotp.repository.NewsArticleRepository;
 import com.example.registrationotp.repository.OrderItemRepository;
 import com.example.registrationotp.repository.OrderRepository;
+import com.example.registrationotp.repository.OrderScanAuditRepository;
 import com.example.registrationotp.repository.PromotionRepository;
 import com.example.registrationotp.repository.ReviewRepository;
 import com.example.registrationotp.repository.StoreDishRepository;
@@ -95,11 +103,12 @@ import com.example.registrationotp.support.NewsSlugNormalizer;
 @Service
 public class DemoDataSeeder {
 
-	private static final int SEED_COUNT = 20;
-	private static final int CONTENT_SECTION_COUNT = SEED_COUNT * 4;
-	private static final int EMPLOYEE_ATTENDANCE_SEED_COUNT = 5;
-	private static final int EMPLOYEE_WORK_SCHEDULE_SEED_COUNT = 5;
-	private static final String DEFAULT_PASSWORD = "12312345";
+	private static final int SEED_COUNT = 10;
+	private static final int STORE_CONTENT_SECTION_SEED_COUNT = 3;
+	private static final int DISH_CONTENT_SECTION_SEED_COUNT = 3;
+	private static final int EVENT_CONTENT_SECTION_SEED_COUNT = 2;
+	private static final int NEWS_CONTENT_SECTION_SEED_COUNT = 2;
+	private static final String DEFAULT_PASSWORD = "11111111";
 	private static final Instant BASE_TIME = Instant.parse("2026-03-01T02:00:00Z");
 	private static final BigDecimal ONE_HUNDRED = new BigDecimal("100");
 	private static final List<String> EXPECTED_TABLES = List.of(
@@ -111,6 +120,8 @@ public class DemoDataSeeder {
 			"user_notifications",
 			"employee_work_schedules",
 			"employee_attendances",
+			"ai_chat_threads",
+			"ai_chat_messages",
 			"stores",
 			"store_image_paths",
 			"store_highlight_tags",
@@ -137,6 +148,7 @@ public class DemoDataSeeder {
 			"orders",
 			"order_promotion_dish_ids",
 			"order_items",
+			"order_scan_audits",
 			"customer_feedbacks",
 			"favorites",
 			"reviews",
@@ -276,7 +288,7 @@ public class DemoDataSeeder {
 			"Moonlight Dessert Pairing"
 	);
 	private static final List<String> NEWS_TITLES = List.of(
-			"Tea Matcha launches the District One Atelier menu",
+			"Kamatcha launches the District One Atelier menu",
 			"Riverside branch extends brunch hours this month",
 			"Airport Hub refreshes bottled drink lineup",
 			"Garden Courtyard announces new weekend workshop slots",
@@ -345,6 +357,8 @@ public class DemoDataSeeder {
 	private final DataSource dataSource;
 	private final PasswordEncoder passwordEncoder;
 	private final UserRepository userRepository;
+	private final AiChatThreadRepository aiChatThreadRepository;
+	private final AiChatMessageRepository aiChatMessageRepository;
 	private final StoreRepository storeRepository;
 	private final CategoryRepository categoryRepository;
 	private final DishRepository dishRepository;
@@ -356,6 +370,7 @@ public class DemoDataSeeder {
 	private final UserDeliveryAddressRepository userDeliveryAddressRepository;
 	private final OrderRepository orderRepository;
 	private final OrderItemRepository orderItemRepository;
+	private final OrderScanAuditRepository orderScanAuditRepository;
 	private final CustomerFeedbackRepository customerFeedbackRepository;
 	private final FavoriteRepository favoriteRepository;
 	private final ReviewRepository reviewRepository;
@@ -373,6 +388,8 @@ public class DemoDataSeeder {
 			DataSource dataSource,
 			PasswordEncoder passwordEncoder,
 			UserRepository userRepository,
+			AiChatThreadRepository aiChatThreadRepository,
+			AiChatMessageRepository aiChatMessageRepository,
 			StoreRepository storeRepository,
 			CategoryRepository categoryRepository,
 			DishRepository dishRepository,
@@ -384,6 +401,7 @@ public class DemoDataSeeder {
 			UserDeliveryAddressRepository userDeliveryAddressRepository,
 			OrderRepository orderRepository,
 			OrderItemRepository orderItemRepository,
+			OrderScanAuditRepository orderScanAuditRepository,
 			CustomerFeedbackRepository customerFeedbackRepository,
 			FavoriteRepository favoriteRepository,
 			ReviewRepository reviewRepository,
@@ -399,6 +417,8 @@ public class DemoDataSeeder {
 		this.dataSource = dataSource;
 		this.passwordEncoder = passwordEncoder;
 		this.userRepository = userRepository;
+		this.aiChatThreadRepository = aiChatThreadRepository;
+		this.aiChatMessageRepository = aiChatMessageRepository;
 		this.storeRepository = storeRepository;
 		this.categoryRepository = categoryRepository;
 		this.dishRepository = dishRepository;
@@ -410,6 +430,7 @@ public class DemoDataSeeder {
 		this.userDeliveryAddressRepository = userDeliveryAddressRepository;
 		this.orderRepository = orderRepository;
 		this.orderItemRepository = orderItemRepository;
+		this.orderScanAuditRepository = orderScanAuditRepository;
 		this.customerFeedbackRepository = customerFeedbackRepository;
 		this.favoriteRepository = favoriteRepository;
 		this.reviewRepository = reviewRepository;
@@ -434,6 +455,7 @@ public class DemoDataSeeder {
 
 		List<Store> stores = seedStores();
 		List<User> users = seedUsers(stores);
+		seedAiChats(users);
 		List<UserLevelDefinition> userLevels = seedUserLevels(stores);
 		List<Category> categories = seedCategories(stores);
 		List<Dish> dishes = seedDishes(categories);
@@ -443,6 +465,7 @@ public class DemoDataSeeder {
 		List<Promotion> promotions = seedPromotions(dishes, stores, userLevels);
 		Map<Long, UserDeliveryAddress> addressesByUserId = seedAddresses(users);
 		List<Order> orders = seedOrders(users, storeDishes, promotions, addressesByUserId);
+		seedOrderScanAudits(users, orders);
 
 		seedFeedbacks(users, orders, stores);
 		seedFavorites(users, stores, dishes, events);
@@ -541,11 +564,11 @@ public class DemoDataSeeder {
 			String imagePath = downloadDemoImage("stores", "store", index, theme, "matcha,cafe,interior");
 
 			Store store = new Store();
-			store.setSlug("tea-matcha-" + slugify(theme));
-			store.setName("Tea Matcha " + theme);
+			store.setSlug("kamatcha-" + slugify(theme));
+			store.setName("Kamatcha " + theme);
 			store.setDescription("Demo branch " + theme + " focused on seasonal drinks, clean service, and approachable tasting flights.");
 			store.setAddress(String.format("%02d %s, %s, Ho Chi Minh City", 10 + index, STREETS.get(index), DISTRICTS.get(index)));
-			store.setContactEmail(String.format("store.%02d@teamatcha.demo", index + 1));
+			store.setContactEmail(String.format("store.%02d@kamatcha.demo", index + 1));
 			store.setPhoneNumber(String.format("090%07d", 1000001 + index));
 			store.setLatitude(10.70 + (index * 0.0065));
 			store.setLongitude(106.62 + (index * 0.0052));
@@ -562,11 +585,12 @@ public class DemoDataSeeder {
 			store.setHighlightTags(List.of("highlight-" + twoDigit(index + 1)));
 			store.setServiceTags(List.of("service-" + twoDigit(index + 1)));
 			store.setImagePaths(List.of(imagePath));
-			store.setSections(List.of(section(
+			store.setSections(singleSection(
+					index < STORE_CONTENT_SECTION_SEED_COUNT,
 					theme + " Story",
 					"Demo section for " + theme + " describing the branch vibe, pickup flow, and featured beverage identity.",
 					imagePath
-			)));
+			));
 			store.setActive(index % 7 != 4);
 			stores.add(store);
 		}
@@ -578,11 +602,12 @@ public class DemoDataSeeder {
 		for (int index = 0; index < SEED_COUNT; index++) {
 			User user = new User();
 			user.setFullName(FIRST_NAMES.get(index) + " " + LAST_NAMES.get(index));
-			user.setEmail(String.format("demo.user.%02d@teamatcha.local", index + 1));
+			user.setEmail(String.format("demo.user.%02d@kamatcha.local", index + 1));
 			user.setPasswordHash(passwordEncoder.encode(DEFAULT_PASSWORD));
 			Role role = roleFor(index);
 			user.setRole(role);
 			user.setWorkingStore(role.requiresWorkingStore() ? stores.get(index) : null);
+			user.setCreditPoints(Math.max(0, (index - 1) * 120));
 			user.setEnabled(index % 9 != 8);
 			user.setVerifiedAt(BASE_TIME.plusSeconds(index * 3600L));
 			users.add(user);
@@ -590,14 +615,49 @@ public class DemoDataSeeder {
 		return userRepository.saveAll(users);
 	}
 
+	private void seedAiChats(List<User> users) {
+		List<AiChatThread> threads = new ArrayList<>();
+		for (int index = 0; index < SEED_COUNT; index++) {
+			String role = index % 2 == 0 ? "user" : "assistant";
+
+			AiChatThread thread = new AiChatThread();
+			thread.setUser(users.get(index));
+			thread.setTitle("Demo AI Thread " + twoDigit(index + 1));
+			thread.setMessageCount(1);
+			thread.setLastMessageRole(role);
+			thread.setLastMessagePreview("Demo AI message preview " + twoDigit(index + 1) + ".");
+			thread.setLastMessageAt(BASE_TIME.plusSeconds(index * 1500L));
+			threads.add(thread);
+		}
+
+		List<AiChatThread> savedThreads = aiChatThreadRepository.saveAll(threads);
+		List<AiChatMessage> messages = new ArrayList<>();
+		for (int index = 0; index < SEED_COUNT; index++) {
+			String role = index % 2 == 0 ? "user" : "assistant";
+
+			AiChatMessage message = new AiChatMessage();
+			message.setThread(savedThreads.get(index));
+			message.setRole(role);
+			message.setContent(role.equals("user")
+					? "Demo user prompt " + twoDigit(index + 1) + " asking about menu pairings, store information, or delivery timing."
+					: "Demo assistant reply " + twoDigit(index + 1) + " summarizing a helpful answer for the seeded chat history.");
+			message.setReferencesJson("[]");
+			message.setActionsJson("[]");
+			message.setModel(role.equals("assistant") ? "gpt-5.4-nano" : null);
+			messages.add(message);
+		}
+
+		aiChatMessageRepository.saveAll(messages);
+	}
+
 	private List<UserLevelDefinition> seedUserLevels(List<Store> stores) {
 		List<UserLevelDefinition> levels = new ArrayList<>();
 		for (int index = 0; index < SEED_COUNT; index++) {
 			UserLevelDefinition level = new UserLevelDefinition();
-			level.setStore(stores.get(index));
+			level.setStore(null);
 			level.setCode("LEVEL-" + twoDigit(index + 1));
 			level.setName("Leaf Tier " + twoDigit(index + 1));
-			level.setMinPaidAmount(BigDecimal.valueOf(index * 250000L));
+			level.setMinPaidAmount(BigDecimal.valueOf(index * 120L));
 			level.setActive(index % 6 != 5);
 			levels.add(level);
 		}
@@ -642,11 +702,12 @@ public class DemoDataSeeder {
 			dish.setActive(index % 9 != 7);
 			dish.setImagePaths(List.of(imagePath));
 			dish.setHighlightTags(List.of("dish-tag-" + twoDigit(index + 1)));
-			dish.setSections(List.of(section(
+			dish.setSections(singleSection(
+					index < DISH_CONTENT_SECTION_SEED_COUNT,
 					name + " Notes",
 					"Demo tasting notes and pairing suggestions for " + name + ".",
 					imagePath
-			)));
+			));
 			dishes.add(dish);
 		}
 		return dishRepository.saveAll(dishes);
@@ -684,11 +745,12 @@ public class DemoDataSeeder {
 			event.setStore(stores.get(index));
 			event.setImagePaths(List.of(imagePath));
 			event.setHighlightTags(List.of("event-tag-" + twoDigit(index + 1)));
-			event.setSections(List.of(section(
+			event.setSections(singleSection(
+					index < EVENT_CONTENT_SECTION_SEED_COUNT,
 					name + " Agenda",
 					"Demo agenda for " + name + " covering tasting, education, and community moments.",
 					imagePath
-			)));
+			));
 			event.setStartsAt(BASE_TIME.plusSeconds((index + 3L) * 86400L));
 			event.setEndsAt(BASE_TIME.plusSeconds((index + 3L) * 86400L).plusSeconds(10800L));
 			event.setCapacity(30 + (index * 4));
@@ -714,11 +776,12 @@ public class DemoDataSeeder {
 			newsArticle.setRelatedStore(stores.get(index));
 			newsArticle.setTags(List.of("news-tag-" + twoDigit(index + 1)));
 			newsArticle.setImagePaths(List.of(imagePath));
-			newsArticle.setSections(List.of(section(
+			newsArticle.setSections(singleSection(
+					index < NEWS_CONTENT_SECTION_SEED_COUNT,
 					title + " Detail",
 					"Demo editorial section for " + title + ".",
 					imagePath
-			)));
+			));
 			newsArticle.setFeatured(index % 4 == 0);
 			newsArticle.setPublished(index % 6 != 5);
 			newsArticle.setPublishedAt(index % 6 == 5 ? null : BASE_TIME.plusSeconds(index * 43200L));
@@ -740,16 +803,22 @@ public class DemoDataSeeder {
 			promotion.setDescription("Demo promotion for " + stores.get(index).getName() + ".");
 			promotion.setScope(index % 2 == 0 ? PromotionScope.ORDER : PromotionScope.DISH);
 			promotion.setDiscountType(index % 2 == 0 ? PromotionDiscountType.PERCENT : PromotionDiscountType.FIXED_AMOUNT);
+			promotion.setDiscountTarget(switch (index % 3) {
+				case 1 -> PromotionDiscountTarget.SHIPPING;
+				case 2 -> PromotionDiscountTarget.BOTH;
+				default -> PromotionDiscountTarget.ITEMS;
+			});
 			promotion.setApplicableDishIds(List.of(dishes.get(index).getId()));
-			promotion.setEligibleStoreIds(List.of(stores.get(index).getId()));
+			promotion.setEligibleStoreIds(List.of());
 			promotion.setEligibleUserLevelIds(List.of(userLevels.get(index).getId()));
 			promotion.setDiscountValue(index % 2 == 0
 					? BigDecimal.valueOf(10 + (index % 11))
 					: BigDecimal.valueOf(12000L + (index * 1000L)));
 			promotion.setMinOrderAmount(BigDecimal.valueOf(90000L + (index * 5000L)));
 			promotion.setMaxDiscountAmount(BigDecimal.valueOf(25000L + (index * 1500L)));
-			promotion.setMinStoreBillAmount(BigDecimal.valueOf(60000L + (index * 1500L)));
-			promotion.setMinCrossStoreBillAmount(BigDecimal.valueOf(120000L + (index * 3000L)));
+			promotion.setCreditCost(80 + (index * 10));
+			promotion.setMinStoreBillAmount(null);
+			promotion.setMinCrossStoreBillAmount(null);
 			promotion.setUsageLimit(80 + index);
 			promotion.setUsedCount(index % 9);
 			promotion.setStartsAt(BASE_TIME.minusSeconds(86400L * 5));
@@ -769,6 +838,8 @@ public class DemoDataSeeder {
 			address.setFullName(user.getFullName());
 			address.setPhoneNumber(String.format("091%07d", 2000001 + index));
 			address.setDeliveryAddress(String.format("%02d %s Residence, %s, Ho Chi Minh City", 100 + index, STREETS.get(index), DISTRICTS.get(index)));
+			address.setLatitude(10.705 + (index * 0.0059));
+			address.setLongitude(106.625 + (index * 0.0051));
 			address.setPrimaryAddress(Boolean.TRUE);
 			address.setVerifiedAt(BASE_TIME.plusSeconds(index * 1800L));
 			address.setLastUsedAt(BASE_TIME.plusSeconds(index * 3600L));
@@ -790,7 +861,7 @@ public class DemoDataSeeder {
 			Map<Long, UserDeliveryAddress> addressesByUserId
 	) {
 		List<User> preparingPool = users.stream()
-				.filter(user -> user.getRole() == Role.STAFF || user.getRole() == Role.MANAGER)
+				.filter(user -> user.getRole() == Role.MANAGER)
 				.toList();
 		List<User> shipperPool = users.stream()
 				.filter(user -> user.getRole() == Role.SHIPPER)
@@ -999,15 +1070,54 @@ public class DemoDataSeeder {
 		userNotificationRepository.saveAll(notifications);
 	}
 
+	private void seedOrderScanAudits(List<User> users, List<Order> orders) {
+		List<User> managerPool = users.stream()
+				.filter(user -> user.getRole() == Role.MANAGER)
+				.toList();
+		List<User> shipperPool = users.stream()
+				.filter(user -> user.getRole() == Role.SHIPPER)
+				.toList();
+		if (managerPool.isEmpty() || shipperPool.isEmpty()) {
+			return;
+		}
+
+		List<OrderScanAudit> audits = new ArrayList<>();
+		for (int index = 0; index < SEED_COUNT; index++) {
+			boolean deliveryAction = index % 2 == 1;
+			User actor = deliveryAction
+					? shipperPool.get(index % shipperPool.size())
+					: managerPool.get(index % managerPool.size());
+
+			OrderScanAudit audit = new OrderScanAudit();
+			audit.setOrder(orders.get(index));
+			audit.setScannedByUserId(actor.getId());
+			audit.setScannedByUserName(actor.getFullName());
+			audit.setRole(actor.getRole());
+			audit.setAction(deliveryAction ? EmployeeOrderScanAction.ACCEPT_DELIVERY : EmployeeOrderScanAction.ACCEPT_PREPARING);
+			audit.setSuccess(index % 4 != 3);
+			audit.setFailureReason(audit.isSuccess()
+					? null
+					: "Demo scan rejected because the order stage did not match the requested action.");
+			audits.add(audit);
+		}
+
+		orderScanAuditRepository.saveAll(audits);
+	}
+
 	private void seedAttendances(List<User> users) {
-		LocalDate workDate = LocalDate.parse("2026-03-01");
+		List<User> staffPool = users.stream()
+				.filter(user -> user.getRole() == Role.MANAGER || user.getRole() == Role.SHIPPER)
+				.toList();
+		if (staffPool.isEmpty()) {
+			return;
+		}
+
 		List<EmployeeWorkSchedule> schedules = new ArrayList<>();
 		List<EmployeeAttendance> attendances = new ArrayList<>();
-		for (int index = 0; index < users.size(); index++) {
-			User user = users.get(index);
-			if (user.getRole() != Role.STAFF && user.getRole() != Role.SHIPPER) {
-				continue;
-			}
+		for (int index = 0; index < SEED_COUNT; index++) {
+			User user = staffPool.get(index % staffPool.size());
+			LocalDate workDate = LocalDate.parse("2026-03-01").plusDays(index);
+
 			EmployeeWorkSchedule schedule = new EmployeeWorkSchedule();
 			schedule.setUser(user);
 			schedule.setStore(user.getWorkingStore());
@@ -1060,6 +1170,30 @@ public class DemoDataSeeder {
 	}
 
 	private Map<String, Long> verifyTableCounts() throws Exception {
+		List<String> actualTables = new ArrayList<>();
+		try (Connection connection = dataSource.getConnection();
+			 Statement statement = connection.createStatement();
+			 ResultSet resultSet = statement.executeQuery(
+					 "select table_name from information_schema.tables " +
+							 "where table_schema = database() and table_type = 'BASE TABLE' order by table_name"
+			 )) {
+			while (resultSet.next()) {
+				actualTables.add(resultSet.getString(1));
+			}
+		}
+
+		List<String> missingTables = EXPECTED_TABLES.stream()
+				.filter(table -> !actualTables.contains(table))
+				.toList();
+		List<String> unexpectedTables = actualTables.stream()
+				.filter(table -> !EXPECTED_TABLES.contains(table))
+				.toList();
+		if (!missingTables.isEmpty() || !unexpectedTables.isEmpty()) {
+			throw new IllegalStateException(
+					"Schema tables do not match demo expectations. Missing=" + missingTables + ", unexpected=" + unexpectedTables
+			);
+		}
+
 		Map<String, Long> counts = new LinkedHashMap<>();
 		try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
 			for (String table : EXPECTED_TABLES) {
@@ -1078,18 +1212,6 @@ public class DemoDataSeeder {
 	}
 
 	private long expectedCountForTable(String table) {
-		if ("content_sections".equals(table)) {
-			return CONTENT_SECTION_COUNT;
-		}
-		if ("content_section_image_paths".equals(table)) {
-			return CONTENT_SECTION_COUNT;
-		}
-		if ("employee_attendances".equals(table)) {
-			return EMPLOYEE_ATTENDANCE_SEED_COUNT;
-		}
-		if ("employee_work_schedules".equals(table)) {
-			return EMPLOYEE_WORK_SCHEDULE_SEED_COUNT;
-		}
 		return SEED_COUNT;
 	}
 
@@ -1109,7 +1231,7 @@ public class DemoDataSeeder {
 			try {
 				HttpRequest request = HttpRequest.newBuilder()
 						.uri(uri)
-						.header("User-Agent", "TeaMatchaDemoSeeder/2.0")
+						.header("User-Agent", "KamatchaDemoSeeder/2.0")
 						.GET()
 						.build();
 				HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
@@ -1137,17 +1259,21 @@ public class DemoDataSeeder {
 		return section;
 	}
 
+	private List<ContentSection> singleSection(boolean include, String title, String content, String imagePath) {
+		if (!include) {
+			return List.of();
+		}
+		return List.of(section(title, content, imagePath));
+	}
+
 	private Role roleFor(int index) {
 		if (index < 2) {
 			return Role.ADMIN;
 		}
-		if (index < 5) {
+		if (index < 4) {
 			return Role.MANAGER;
 		}
-		if (index < 8) {
-			return Role.STAFF;
-		}
-		if (index < 10) {
+		if (index < 6) {
 			return Role.SHIPPER;
 		}
 		return Role.USER;

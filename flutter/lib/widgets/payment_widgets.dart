@@ -1,0 +1,253 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+
+import '../core/utils/formatters.dart';
+
+class PaymentQrSection extends StatefulWidget {
+  const PaymentQrSection({
+    super.key,
+    required this.qrCode,
+    required this.checkoutUrl,
+    required this.expiresAt,
+    this.onOpenCheckoutUrl,
+    this.title = 'PayOS payment',
+    this.subtitle,
+  });
+
+  final String qrCode;
+  final String checkoutUrl;
+  final DateTime? expiresAt;
+  final Future<void> Function()? onOpenCheckoutUrl;
+  final String title;
+  final String? subtitle;
+
+  @override
+  State<PaymentQrSection> createState() => _PaymentQrSectionState();
+}
+
+class _PaymentQrSectionState extends State<PaymentQrSection> {
+  Timer? _ticker;
+  DateTime _now = DateTime.now();
+
+  bool get _hasQrCode => widget.qrCode.trim().isNotEmpty;
+  bool get _hasCheckoutUrl => widget.checkoutUrl.trim().isNotEmpty;
+  bool get _hasPaymentPayload =>
+      _hasQrCode || _hasCheckoutUrl || widget.expiresAt != null;
+  bool get _isExpired =>
+      widget.expiresAt != null && !widget.expiresAt!.isAfter(_now);
+
+  @override
+  void initState() {
+    super.initState();
+    _configureTicker();
+  }
+
+  @override
+  void didUpdateWidget(covariant PaymentQrSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.expiresAt != widget.expiresAt) {
+      _configureTicker();
+      return;
+    }
+    _now = DateTime.now();
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  void _configureTicker() {
+    _ticker?.cancel();
+    _now = DateTime.now();
+    final expiresAt = widget.expiresAt;
+    if (expiresAt == null || !expiresAt.isAfter(_now)) {
+      return;
+    }
+
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) {
+        return;
+      }
+      final now = DateTime.now();
+      setState(() {
+        _now = now;
+      });
+      if (!expiresAt.isAfter(now)) {
+        _ticker?.cancel();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_hasPaymentPayload) {
+      return const SizedBox.shrink();
+    }
+
+    final theme = Theme.of(context);
+    final expiresAt = widget.expiresAt;
+    final remaining = expiresAt?.difference(_now);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 26),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              widget.title,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            if (widget.subtitle?.trim().isNotEmpty ?? false) ...[
+              const SizedBox(height: 8),
+              Text(
+                widget.subtitle!,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            const SizedBox(height: 22),
+            if (_hasQrCode && !_isExpired)
+              Column(
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(32),
+                      border: Border.all(
+                        color: const Color(0xFFE7DDCD),
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x12000000),
+                          blurRadius: 24,
+                          offset: Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(22),
+                      child: QrImageView(
+                        data: widget.qrCode.trim(),
+                        version: QrVersions.auto,
+                        gapless: false,
+                        size: 272,
+                        backgroundColor: Colors.white,
+                        errorStateBuilder: (context, error) {
+                          return const SizedBox(
+                            width: 272,
+                            height: 272,
+                            child: Center(
+                              child: Text(
+                                'Could not render the PayOS QR code.',
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  if (expiresAt != null)
+                    _PaymentStatusPill(
+                      label: _isExpired
+                          ? 'Expired'
+                          : '${Formatters.countdown(remaining!)} left',
+                      expired: _isExpired,
+                    ),
+                  if (expiresAt != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'Expires at ${Formatters.fullDateTime(expiresAt)}',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  Text(
+                    'Scan this QR code with your banking or wallet app to complete the payment.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              )
+            else
+              Text(
+                _isExpired
+                    ? 'This payment link has expired. Refresh the payment to generate a new code if you still want to pay.'
+                    : 'The server has not returned a PayOS QR code for this order yet.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            if (_hasCheckoutUrl) ...[
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _isExpired ? null : widget.onOpenCheckoutUrl,
+                  icon: const Icon(Icons.open_in_browser_outlined),
+                  label: const Text('Open payment page'),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PaymentStatusPill extends StatelessWidget {
+  const _PaymentStatusPill({
+    required this.label,
+    required this.expired,
+  });
+
+  final String label;
+  final bool expired;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final backgroundColor =
+        expired ? theme.colorScheme.errorContainer : const Color(0xFFE8F0E0);
+    final foregroundColor =
+        expired ? theme.colorScheme.onErrorContainer : const Color(0xFF17332A);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Text(
+          label,
+          style: theme.textTheme.labelLarge?.copyWith(
+            color: foregroundColor,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
+  }
+}

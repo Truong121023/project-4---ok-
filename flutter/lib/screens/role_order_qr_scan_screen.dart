@@ -46,7 +46,7 @@ class RoleOrderQrScanScreen extends StatelessWidget {
     final controller = AppScope.of(context);
     return OrderQrScannerScreen(
       title: title,
-      subtitle: 'Quet QR tren hoa don de mo thong tin don hang theo role hien tai cua ban.',
+      subtitle: 'Scan the invoice QR to open the order screen for your current role.',
       header: Card(
         child: Padding(
           padding: const EdgeInsets.all(18),

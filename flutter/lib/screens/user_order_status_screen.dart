@@ -17,21 +17,21 @@ class UserOrderStatusScreen extends StatelessWidget {
   Future<void> _openExternalUrl(BuildContext context, String? url) async {
     if (url == null || url.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Chua co hoa don de mo.')),
+        const SnackBar(content: Text('There is no invoice to open yet.')),
       );
       return;
     }
     final uri = Uri.tryParse(url);
     if (uri == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lien ket hoa don khong hop le.')),
+        const SnackBar(content: Text('The invoice link is invalid.')),
       );
       return;
     }
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Khong mo duoc $url')),
+        SnackBar(content: Text('Could not open $url')),
       );
     }
   }
@@ -46,7 +46,7 @@ class UserOrderStatusScreen extends StatelessWidget {
     final invoiceUrl = asNullableString(order['invoicePreviewUrl']) ?? asNullableString(order['invoiceDownloadUrl']);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Thong tin don hang')),
+      appBar: AppBar(title: const Text('Order details')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
         children: [
@@ -70,12 +70,13 @@ class UserOrderStatusScreen extends StatelessWidget {
                     children: [
                       const MetricChip(label: 'USER QR'),
                       MetricChip(label: asString(order['status'], 'ORDER')),
-                      MetricChip(label: asString(order['paymentStatus'], '')),
+                      if (asString(order['paymentStatus']).isNotEmpty)
+                        MetricChip(label: asString(order['paymentStatus'])),
                     ],
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    response.message.isEmpty ? 'Trang thai don hang da san sang.' : response.message,
+                    response.message.isEmpty ? 'The order status view is ready.' : response.message,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.w800,
@@ -83,7 +84,7 @@ class UserOrderStatusScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    asString(order['statusSummary'], 'Theo doi tien do don hang ngay trong app.'),
+                    asString(order['statusSummary'], 'Track the order progress directly inside the app.'),
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                           color: Colors.white.withValues(alpha: 0.92),
                         ),
@@ -100,26 +101,26 @@ class UserOrderStatusScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '#${asInt(order['id'])} - ${asString(order['storeName'], 'Tea Matcha')}',
+                    '#${asInt(order['id'])} - ${asString(order['storeName'], 'Kamatcha')}',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 10),
-                  if (invoiceNumber.isNotEmpty) Text('Hoa don: $invoiceNumber'),
+                  if (invoiceNumber.isNotEmpty) Text('Invoice: $invoiceNumber'),
                   if (totalAmount > 0) ...[
                     const SizedBox(height: 8),
-                    Text('Tong tien: ${Formatters.currency(totalAmount)}'),
+                    Text('Total amount: ${Formatters.currency(totalAmount)}'),
                   ],
                   if (asString(order['deliveryAddress']).isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    Text('Dia chi giao: ${asString(order['deliveryAddress'])}'),
+                    Text('Delivery address: ${asString(order['deliveryAddress'])}'),
                   ],
                   if (asString(order['deliveryPhoneNumber']).isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    Text('So dien thoai: ${asString(order['deliveryPhoneNumber'])}'),
+                    Text('Phone: ${asString(order['deliveryPhoneNumber'])}'),
                   ],
                   if (asDateTime(order['createdAt']) != null) ...[
                     const SizedBox(height: 8),
-                    Text('Tao luc: ${Formatters.fullDateTime(asDateTime(order['createdAt'])!)}'),
+                    Text('Created at: ${Formatters.fullDateTime(asDateTime(order['createdAt'])!)}'),
                   ],
                 ],
               ),
@@ -132,18 +133,19 @@ class UserOrderStatusScreen extends StatelessWidget {
             confirmedAt: asDateTime(order['confirmedAt']),
             preparingStaffName: asNullableString(order['preparingStaffName']),
             deliveringShipperName: asNullableString(order['deliveringShipperName']),
+            deliveryStatus: asString(order['status']),
             deliveryProofCapturedAt: asDateTime(order['deliveryProofCapturedAt']),
           ),
           const SizedBox(height: 20),
           SectionHeader(
-            title: 'Tuy chon hien co',
-            subtitle: 'Nhung nut co san se doi theo trang thai thuc te cua don hang.',
+            title: 'Available actions',
+            subtitle: 'The available buttons change based on the live order status.',
           ),
           const SizedBox(height: 12),
           if (allowedActions.isEmpty)
             const EmptyStateCard(
-              title: 'Khong co thao tac them',
-              message: 'Ban co the theo doi trang thai don va quet lai neu can.',
+              title: 'No additional actions',
+              message: 'You can keep tracking the order here and scan again if needed.',
             )
           else
             Card(
@@ -162,7 +164,7 @@ class UserOrderStatusScreen extends StatelessWidget {
                       OutlinedButton.icon(
                         onPressed: () => _openExternalUrl(context, invoiceUrl),
                         icon: const Icon(Icons.receipt_long_outlined),
-                        label: const Text('Mo hoa don'),
+                        label: const Text('Open invoice'),
                       ),
                     ],
                   ],

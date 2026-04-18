@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../app/app.dart';
 import '../../core/models/models.dart';
@@ -64,7 +64,7 @@ class _EmployeeOrdersScreenState extends State<EmployeeOrdersScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(asString(result['statusSummary'], 'Da cap nhat don hang.'))),
+        SnackBar(content: Text(asString(result['statusSummary'], 'Order updated.'))),
       );
       await _refresh();
     } catch (error) {
@@ -119,7 +119,7 @@ class _EmployeeOrdersScreenState extends State<EmployeeOrdersScreen> {
                             controller: _searchController,
                             onSubmitted: (_) => _refresh(),
                             decoration: const InputDecoration(
-                              labelText: 'Tim ma don',
+                              labelText: 'Search order code',
                               prefixIcon: Icon(Icons.search),
                             ),
                           ),
@@ -141,8 +141,8 @@ class _EmployeeOrdersScreenState extends State<EmployeeOrdersScreen> {
                 const SizedBox(height: 12),
                 if (pending.isEmpty)
                   const EmptyStateCard(
-                    title: 'Khong co don cho nhan',
-                    message: 'Khi co don moi, card se hien o day de ban nhan viec nhanh.',
+                    title: 'No orders waiting to be claimed',
+                    message: 'When new orders arrive, the cards appear here so you can claim them quickly.',
                   )
                 else
                   ...pending.map(
@@ -159,13 +159,13 @@ class _EmployeeOrdersScreenState extends State<EmployeeOrdersScreen> {
                 const SizedBox(height: 24),
                 SectionHeader(
                   title: employeeActiveQueueLabel(widget.kind),
-                  subtitle: 'Nhung don dang nam trong tay ban.',
+                  subtitle: 'Orders currently assigned to you.',
                 ),
                 const SizedBox(height: 12),
                 if (active.isEmpty)
                   const EmptyStateCard(
-                    title: 'Khong co don dang xu ly',
-                    message: 'Sau khi nhan don, khu nay se hien cac don dang thao tac.',
+                    title: 'No active orders',
+                    message: 'After you claim an order, it will appear here while you work on it.',
                   )
                 else
                   ...active.map(
@@ -182,13 +182,13 @@ class _EmployeeOrdersScreenState extends State<EmployeeOrdersScreen> {
                 const SizedBox(height: 24),
                 SectionHeader(
                   title: employeeCompletedQueueLabel(widget.kind),
-                  subtitle: 'De nhin nhanh trang thai gan day.',
+                  subtitle: 'For a quick view of recent status changes.',
                 ),
                 const SizedBox(height: 12),
                 if (completed.isEmpty)
                   const EmptyStateCard(
-                    title: 'Chua co ban ghi gan day',
-                    message: 'Khu nay de doi chieu nhanh sau khi xu ly xong.',
+                    title: 'No recent records yet',
+                    message: 'Use this area for a quick cross-check after completing the task.',
                   )
                 else
                   ...completed.take(8).map(
@@ -209,3 +209,4 @@ class _EmployeeOrdersScreenState extends State<EmployeeOrdersScreen> {
     );
   }
 }
+

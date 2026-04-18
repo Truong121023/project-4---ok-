@@ -92,7 +92,9 @@ worktrees/
 # Generated OpenCode backup from scripts/generate-opencode.py --force
 .opencode.backup/
 .opencode
+.gemini
 .repomixignore
+.vscode
 release-manifest.json
 AGENTS.md
 CLAUDE.md
