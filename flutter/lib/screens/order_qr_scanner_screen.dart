@@ -12,9 +12,9 @@ class OrderQrScannerScreen extends StatefulWidget {
     required this.onTokenResolved,
     this.header,
     this.requireManualCameraOpen = false,
-    this.openCameraLabel = 'Mo camera',
-    this.cameraIntroTitle = 'San sang quet QR',
-    this.cameraIntroMessage = 'Bam nut ben duoi khi ban muon bat camera de quet ma.',
+    this.openCameraLabel = 'Open camera',
+    this.cameraIntroTitle = 'Ready to scan',
+    this.cameraIntroMessage = 'Turn on the camera and place the invoice QR inside the frame.',
   });
 
   final String title;
@@ -35,7 +35,6 @@ class _OrderQrScannerScreenState extends State<OrderQrScannerScreen> {
     detectionSpeed: DetectionSpeed.noDuplicates,
     facing: CameraFacing.back,
   );
-  final TextEditingController _manualController = TextEditingController();
   bool _busy = false;
   late bool _cameraOpened;
 
@@ -47,7 +46,6 @@ class _OrderQrScannerScreenState extends State<OrderQrScannerScreen> {
 
   @override
   void dispose() {
-    _manualController.dispose();
     _scannerController.dispose();
     super.dispose();
   }
@@ -59,7 +57,7 @@ class _OrderQrScannerScreenState extends State<OrderQrScannerScreen> {
     final token = extractOrderQrToken(rawValue);
     if (token == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('QR nay khong dung dinh dang don hang.')),
+        const SnackBar(content: Text('This QR code is not a valid order format.')),
       );
       return;
     }
@@ -199,8 +197,8 @@ class _OrderQrScannerScreenState extends State<OrderQrScannerScreen> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      MetricChip(label: _cameraOpened ? 'Dang quet QR' : 'Camera dang tat'),
-                      const MetricChip(label: 'Chap nhan token hoac URL'),
+                      MetricChip(label: _cameraOpened ? 'Scanning QR' : 'Camera is off'),
+                      const MetricChip(label: 'Invoice QR only'),
                     ],
                   ),
                 ],
@@ -208,48 +206,9 @@ class _OrderQrScannerScreenState extends State<OrderQrScannerScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Nhap token thu cong',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Dung khi test tren emulator hoac khi ban da co san duong dan QR don hang.',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _manualController,
-                    minLines: 1,
-                    maxLines: 2,
-                    decoration: const InputDecoration(
-                      hintText: 'Dan link QR hoac ma don hang',
-                      prefixIcon: Icon(Icons.qr_code_2),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: _busy ? null : () => _handleRawValue(_manualController.text),
-                      icon: const Icon(Icons.play_arrow),
-                      label: const Text('Xu ly QR'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
           const EmptyStateCard(
-            title: 'Meo nho',
-            message: 'Neu QR mo sang man hinh khac truoc, ban van co the quay lai day de quet lai hoac dan duong dan vao o ben tren.',
+            title: 'Quick tip',
+            message: 'If another screen opens first, you can come back here and scan the invoice QR again.',
           ),
         ],
       ),

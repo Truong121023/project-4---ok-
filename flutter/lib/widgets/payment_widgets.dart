@@ -12,7 +12,11 @@ class PaymentQrSection extends StatefulWidget {
     required this.checkoutUrl,
     required this.expiresAt,
     this.onOpenCheckoutUrl,
+<<<<<<< HEAD
+    this.title = 'PayOS payment',
+=======
     this.title = 'Thanh toan PayOS',
+>>>>>>> origin/main
     this.subtitle,
   });
 
@@ -90,6 +94,104 @@ class _PaymentQrSectionState extends State<PaymentQrSection> {
 
     final theme = Theme.of(context);
     final expiresAt = widget.expiresAt;
+<<<<<<< HEAD
+    final remaining = expiresAt?.difference(_now);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 26),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              widget.title,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            if (widget.subtitle?.trim().isNotEmpty ?? false) ...[
+              const SizedBox(height: 8),
+              Text(
+                widget.subtitle!,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            const SizedBox(height: 22),
+            if (_hasQrCode && !_isExpired)
+              Column(
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(32),
+                      border: Border.all(
+                        color: const Color(0xFFE7DDCD),
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x12000000),
+                          blurRadius: 24,
+                          offset: Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(22),
+                      child: QrImageView(
+                        data: widget.qrCode.trim(),
+                        version: QrVersions.auto,
+                        gapless: false,
+                        size: 272,
+                        backgroundColor: Colors.white,
+                        errorStateBuilder: (context, error) {
+                          return const SizedBox(
+                            width: 272,
+                            height: 272,
+                            child: Center(
+                              child: Text(
+                                'Could not render the PayOS QR code.',
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  if (expiresAt != null)
+                    _PaymentStatusPill(
+                      label: _isExpired
+                          ? 'Expired'
+                          : '${Formatters.countdown(remaining!)} left',
+                      expired: _isExpired,
+                    ),
+                  if (expiresAt != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'Expires at ${Formatters.fullDateTime(expiresAt)}',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  Text(
+                    'Scan this QR code with your banking or wallet app to complete the payment.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+=======
     final remaining = expiresAt == null ? null : expiresAt.difference(_now);
 
     return Card(
@@ -165,10 +267,29 @@ class _PaymentQrSectionState extends State<PaymentQrSection> {
                     ),
                   ],
                 ),
+>>>>>>> origin/main
               )
             else
               Text(
                 _isExpired
+<<<<<<< HEAD
+                    ? 'This payment link has expired. Refresh the payment to generate a new code if you still want to pay.'
+                    : 'The server has not returned a PayOS QR code for this order yet.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            if (_hasCheckoutUrl) ...[
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _isExpired ? null : widget.onOpenCheckoutUrl,
+                  icon: const Icon(Icons.open_in_browser_outlined),
+                  label: const Text('Open payment page'),
+=======
                     ? 'Link thanh toan da het han. Neu van muon thanh toan, hay refresh payment de lay ma moi.'
                     : 'Server chua tra ma QR PayOS cho don nay.',
               ),
@@ -180,6 +301,7 @@ class _PaymentQrSectionState extends State<PaymentQrSection> {
                   onPressed: _isExpired ? null : widget.onOpenCheckoutUrl,
                   icon: const Icon(Icons.open_in_browser_outlined),
                   label: const Text('Thanh toan'),
+>>>>>>> origin/main
                 ),
               ),
             ],
@@ -202,12 +324,19 @@ class _PaymentStatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+<<<<<<< HEAD
+    final backgroundColor =
+        expired ? theme.colorScheme.errorContainer : const Color(0xFFE8F0E0);
+    final foregroundColor =
+        expired ? theme.colorScheme.onErrorContainer : const Color(0xFF17332A);
+=======
     final backgroundColor = expired
         ? theme.colorScheme.errorContainer
         : const Color(0xFFE8F0E0);
     final foregroundColor = expired
         ? theme.colorScheme.onErrorContainer
         : const Color(0xFF17332A);
+>>>>>>> origin/main
 
     return DecoratedBox(
       decoration: BoxDecoration(

@@ -49,6 +49,10 @@ public class Promotion {
 	@Column(name = "discount_type", nullable = false, length = 20)
 	private PromotionDiscountType discountType = PromotionDiscountType.PERCENT;
 
+	@Enumerated(EnumType.STRING)
+	@Column(name = "discount_target", nullable = false, length = 20)
+	private PromotionDiscountTarget discountTarget = PromotionDiscountTarget.ITEMS;
+
 	@ElementCollection
 	@CollectionTable(name = "promotion_applicable_dishes", joinColumns = @JoinColumn(name = "promotion_id"))
 	@OrderColumn(name = "sort_order")
@@ -75,6 +79,9 @@ public class Promotion {
 
 	@Column(name = "max_discount_amount", precision = 12, scale = 2)
 	private BigDecimal maxDiscountAmount;
+
+	@Column(name = "credit_cost", nullable = false)
+	private Integer creditCost = 0;
 
 	@Column(name = "min_store_bill_amount", precision = 12, scale = 2)
 	private BigDecimal minStoreBillAmount;
@@ -169,6 +176,14 @@ public class Promotion {
 		this.discountType = discountType;
 	}
 
+	public PromotionDiscountTarget getDiscountTarget() {
+		return discountTarget == null ? PromotionDiscountTarget.ITEMS : discountTarget;
+	}
+
+	public void setDiscountTarget(PromotionDiscountTarget discountTarget) {
+		this.discountTarget = discountTarget == null ? PromotionDiscountTarget.ITEMS : discountTarget;
+	}
+
 	public List<Long> getApplicableDishIds() {
 		return applicableDishIds;
 	}
@@ -215,6 +230,14 @@ public class Promotion {
 
 	public void setMaxDiscountAmount(BigDecimal maxDiscountAmount) {
 		this.maxDiscountAmount = maxDiscountAmount;
+	}
+
+	public Integer getCreditCost() {
+		return creditCost == null ? 0 : Math.max(creditCost, 0);
+	}
+
+	public void setCreditCost(Integer creditCost) {
+		this.creditCost = creditCost == null ? 0 : Math.max(creditCost, 0);
 	}
 
 	public BigDecimal getMinStoreBillAmount() {

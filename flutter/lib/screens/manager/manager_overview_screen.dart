@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../app/app.dart';
 import '../../core/models/models.dart';
@@ -30,7 +30,7 @@ class _ManagerOverviewScreenState extends State<ManagerOverviewScreen> {
     final controller = AppScope.of(context);
     final storeId = controller.session?.user.workingStoreId;
     if (storeId == null || storeId <= 0) {
-      throw ApiException('Tai khoan manager chua co workingStoreId hop le.');
+      throw ApiException('The manager account does not have a valid workingStoreId yet.');
     }
     final values = await Future.wait<dynamic>([
       controller.loadAdminResource(path: '/api/admin/stores/$storeId'),
@@ -174,9 +174,9 @@ class _ManagerOverviewScreenState extends State<ManagerOverviewScreen> {
                 ),
                 const SizedBox(height: 24),
                 const SectionHeader(
-                  title: 'Store health hom nay',
+                  title: 'Store health today',
                   subtitle:
-                      'Chi so manager can nhin dau tien khi mo app theo pham vi cua hang.',
+                      'The first metrics a manager should see when opening the app inside the store scope.',
                 ),
                 const SizedBox(height: 12),
                 GridView.count(
@@ -211,9 +211,9 @@ class _ManagerOverviewScreenState extends State<ManagerOverviewScreen> {
                 ),
                 const SizedBox(height: 24),
                 const SectionHeader(
-                  title: 'Revenue cua hang',
+                  title: 'Store revenue',
                   subtitle:
-                      'Manager nhin nhanh doanh thu scope theo workingStoreId.',
+                      'A quick revenue view filtered by workingStoreId.',
                 ),
                 const SizedBox(height: 12),
                 GridView.count(
@@ -291,7 +291,7 @@ class _ManagerOverviewScreenState extends State<ManagerOverviewScreen> {
                         ),
                         const SizedBox(height: 10),
                         const Text(
-                          'Theo doi phien chat cua user trong pham vi cua hang, nhan session dang cho va tra loi ngay.',
+                          'Track user chat sessions inside the store scope, receive waiting sessions, and reply immediately.',
                         ),
                         const SizedBox(height: 12),
                         FilledButton.tonal(
@@ -320,7 +320,7 @@ class _ManagerOverviewScreenState extends State<ManagerOverviewScreen> {
                         const SizedBox(height: 12),
                         if (data.dashboard.topSellingDishes.isEmpty)
                           const Text(
-                              'Chua co du lieu best seller cho cua hang nay.')
+                              'No best-seller data is available for this store yet.')
                         else
                           ...data.dashboard.topSellingDishes.take(5).map(
                                 (entry) => Padding(
@@ -418,3 +418,4 @@ class _ManagerChip extends StatelessWidget {
     );
   }
 }
+

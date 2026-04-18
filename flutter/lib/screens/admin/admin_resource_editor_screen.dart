@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -145,7 +145,7 @@ class _AdminResourceEditorScreenState extends State<AdminResourceEditorScreen> {
       module: widget.module,
     ) &&
         !widget.isCreate) {
-      setState(() => _error = 'Tai khoan hien tai khong duoc sua module nay.');
+      setState(() => _error = 'The current account is not allowed to edit this module.');
       return;
     }
     if (!canCreateAdminModule(
@@ -153,7 +153,7 @@ class _AdminResourceEditorScreenState extends State<AdminResourceEditorScreen> {
       module: widget.module,
     ) &&
         widget.isCreate) {
-      setState(() => _error = 'Tai khoan hien tai khong duoc tao moi trong module nay.');
+      setState(() => _error = 'The current account is not allowed to create records in this module.');
       return;
     }
 
@@ -365,7 +365,7 @@ class _AdminResourceEditorScreenState extends State<AdminResourceEditorScreen> {
                 maxLines: 6,
                 decoration: const InputDecoration(
                   labelText: 'Prompt',
-                  hintText: 'Vi du: Tao mon matcha mua he, vi thanh, phu hop ban chay o store Q1.',
+                  hintText: 'Example: Create a summer matcha drink with a light taste that can become a best seller in store Q1.',
                 ),
               ),
               const SizedBox(height: 16),
@@ -674,3 +674,4 @@ class _AdminResourceEditorScreenState extends State<AdminResourceEditorScreen> {
     );
   }
 }
+

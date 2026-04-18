@@ -1,12 +1,26 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../app/app.dart';
 import '../../widgets/app_widgets.dart';
 import '../backoffice_notifications_screen.dart';
 import '../backoffice_support_chat_screen.dart';
+import 'admin_modules_screen.dart';
 
-class AdminAccountScreen extends StatelessWidget {
+class AdminAccountScreen extends StatefulWidget {
   const AdminAccountScreen({super.key});
+
+  @override
+  State<AdminAccountScreen> createState() => _AdminAccountScreenState();
+}
+
+class _AdminAccountScreenState extends State<AdminAccountScreen> {
+  Future<int>? _unreadFuture;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _unreadFuture ??= AppScope.of(context).loadAdminNotificationUnreadCount();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,14 +28,14 @@ class AdminAccountScreen extends StatelessWidget {
     final session = controller.session;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Admin account')),
+      appBar: AppBar(title: const Text('Admin more')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
         children: [
           if (session == null)
             const EmptyStateCard(
               title: 'Chua co session',
-              message: 'Dang nhap lai de vao admin app.',
+              message: 'Sign in again to open the admin app.',
             )
           else ...[
             Card(
@@ -32,7 +46,10 @@ class AdminAccountScreen extends StatelessWidget {
                   children: [
                     Text(
                       session.user.fullName,
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 8),
                     Text(session.user.email),
@@ -42,30 +59,56 @@ class AdminAccountScreen extends StatelessWidget {
                       runSpacing: 8,
                       children: [
                         MetricChip(label: session.user.role),
-                        MetricChip(label: session.user.verified ? 'Verified' : 'Cho verify'),
-                        MetricChip(label: controller.config.useMockData ? 'Che do demo' : 'Ket noi live'),
+                        MetricChip(
+                            label: session.user.verified
+                                ? 'Verified'
+                                : 'Cho verify'),
+                        MetricChip(
+                            label: controller.config.useMockData
+                                ? 'Che do demo'
+                                : 'Live connection'),
                       ],
                     ),
                     const SizedBox(height: 18),
                     Text(
                       'May chu',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 8),
                     Text(controller.config.normalizedBaseUrl),
                     const SizedBox(height: 18),
+                    ActionMenuCard(
+                      icon: Icons.dashboard_customize_outlined,
+                      title: 'All modules',
+                      subtitle:
+                          'Open the admin module list to jump straight to the area that needs attention.',
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const AdminModulesScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
                     FutureBuilder<int>(
-                      future: controller.loadAdminNotificationUnreadCount(),
+                      future: _unreadFuture,
                       builder: (context, snapshot) {
                         final unread = snapshot.data ?? 0;
                         return ActionMenuCard(
                           icon: Icons.notifications_active_outlined,
                           title: 'Backoffice notifications',
-                          subtitle: 'Doc thong bao he thong va mo nhanh cac don can kiem tra.',
+                          subtitle:
+                              'Read system notifications and quickly open orders that need review.',
                           badgeLabel: unread == 0 ? null : '$unread',
                           onTap: () {
                             Navigator.of(context).push(
-                              MaterialPageRoute<void>(builder: (_) => const BackofficeNotificationsScreen()),
+                              MaterialPageRoute<void>(
+                                  builder: (_) =>
+                                      const BackofficeNotificationsScreen()),
                             );
                           },
                         );
@@ -76,7 +119,7 @@ class AdminAccountScreen extends StatelessWidget {
                       icon: Icons.support_agent_outlined,
                       title: 'Support inbox',
                       subtitle:
-                          'Theo doi cac phien chat ho tro tren toan he thong va tra loi ngay tren mobile.',
+                          'Track support chat sessions across the system and reply directly from mobile.',
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
@@ -101,7 +144,7 @@ class AdminAccountScreen extends StatelessWidget {
             const EmptyStateCard(
               title: 'Huong phat trien tiep',
               message:
-                  'Khung admin da tach rieng theo role. Hien da co CRUD, AI draft, support inbox va quan ly noi dung chinh ngay tren mobile.',
+                  'The admin area is now split by role. CRUD, AI draft, support inbox, and core content management are available directly on mobile.',
             ),
           ],
         ],
@@ -109,3 +152,4 @@ class AdminAccountScreen extends StatelessWidget {
     );
   }
 }
+

@@ -4,7 +4,11 @@ import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.text.NumberFormat;
+import java.text.Normalizer;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Base64;
@@ -13,6 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -43,6 +48,8 @@ import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
 import com.example.registrationotp.config.PayOsProperties;
+import com.example.registrationotp.dto.CheckoutPromotionSuggestionResponse;
+import com.example.registrationotp.dto.CheckoutPromotionSuggestionsRequest;
 import com.example.registrationotp.dto.CheckoutPreviewRequest;
 import com.example.registrationotp.dto.CheckoutPreviewResponse;
 import com.example.registrationotp.dto.CheckoutRequest;
@@ -107,6 +114,10 @@ public class OrderService {
 	private static final String PAYMENT_PROVIDER_PAYOS = "PAYOS";
 	private static final String SIGNATURE_CATEGORY_NAME = "SIGNATURE";
 	private static final List<OrderStatus> SHIPPER_BUSY_STATUSES = List.of(OrderStatus.OUT_FOR_DELIVERY);
+	private static final ZoneId VIETNAM_ZONE_ID = ZoneId.of("Asia/Ho_Chi_Minh");
+	private static final DateTimeFormatter VIETNAM_DATE_TIME_FORMATTER = DateTimeFormatter
+			.ofPattern("dd/MM/yyyy HH:mm 'GMT+7'", Locale.ENGLISH)
+			.withZone(VIETNAM_ZONE_ID);
 
 	private final SessionAuthService sessionAuthService;
 	private final CartRepository cartRepository;
@@ -196,6 +207,56 @@ public class OrderService {
 		return toCheckoutPreviewResponse(checkoutComputation);
 	}
 
+	@Transactional(readOnly = true)
+	public List<CheckoutPromotionSuggestionResponse> listEligiblePromotions(
+			String authorizationHeader,
+			CheckoutPromotionSuggestionsRequest request
+	) {
+		User user = requireBuyerUser(authorizationHeader);
+		UserDeliveryAddress deliveryAddress = userDeliveryAddressRepository.findByIdAndUserId(request.deliveryAddressId(), user.getId())
+				.orElseThrow(() -> new NotFoundException("Delivery address not found"));
+		DeliveryType deliveryType = resolveDeliveryType(request);
+		Instant scheduledDeliveryAt = resolveScheduledDeliveryAt(request, deliveryType);
+		CheckoutComputation checkoutComputation = prepareCheckoutComputation(
+				user,
+				deliveryAddress,
+				null,
+				deliveryType,
+				scheduledDeliveryAt
+		);
+		return promotionService.listAccessiblePromotionsForUser(user).stream()
+				.map(promotion -> promotionService.evaluatePromotionForCheckout(promotion, checkoutComputation.storeContexts()))
+				.filter(PromotionService.PromotionCheckoutEvaluation::applicable)
+				.sorted(Comparator
+						.comparing(PromotionService.PromotionCheckoutEvaluation::discountAmount, Comparator.nullsLast(BigDecimal::compareTo))
+						.reversed()
+						.thenComparing(
+								evaluation -> evaluation.promotion() != null ? evaluation.promotion().getUpdatedAt() : Instant.EPOCH,
+								Comparator.reverseOrder()))
+				.map(evaluation -> {
+					Promotion promotion = evaluation.promotion();
+					Store store = evaluation.store();
+					return new CheckoutPromotionSuggestionResponse(
+							promotion.getId(),
+							promotion.getCode(),
+							promotion.getName(),
+							promotion.getDescription(),
+							promotion.getScope(),
+							promotion.getDiscountType(),
+							promotion.getDiscountTarget(),
+							promotion.getDiscountValue(),
+							promotion.getMinOrderAmount(),
+							promotion.getMaxDiscountAmount(),
+							evaluation.discountAmount(),
+							evaluation.eligibleAmount(),
+							evaluation.matchedDishIds(),
+							null,
+							null,
+							promotion.getStartsAt(),
+							promotion.getEndsAt());
+				})
+				.toList();
+	}
 	@Transactional
 	public CheckoutResponse checkout(String authorizationHeader, CheckoutRequest request) {
 		User user = requireBuyerUser(authorizationHeader);
@@ -219,6 +280,7 @@ public class OrderService {
 		markDeliveryAddressUsed(deliveryAddress);
 		Instant paymentExpiresAt = Instant.now().plusSeconds(resolvePaymentExpirySeconds());
 		List<Order> savedOrders = new ArrayList<>();
+		Order voucherOrder = null;
 		for (StoreOrderPlan storeOrderPlan : checkoutComputation.storeOrderPlans()) {
 			Order order = new Order();
 			order.setUser(user);
@@ -264,17 +326,38 @@ public class OrderService {
 			}
 
 			savedOrders.add(savedOrder);
+			if (voucherOrder == null && storeOrderPlan.appliedPromotion() != null) {
+				voucherOrder = savedOrder;
+			}
 		}
 
 		if (checkoutComputation.sharedPromotion() != null) {
-			int appliedPromotionCount = (int) checkoutComputation.storeOrderPlans().stream()
+			promotionService.incrementUsage(checkoutComputation.sharedPromotion());
+			if (voucherOrder != null) {
+				promotionService.consumeVoucherForOrder(user, checkoutComputation.sharedPromotion(), voucherOrder);
+			}
+int appliedPromotionCount = (int) checkoutComputation.storeOrderPlans().stream()
 					.filter(storeOrderPlan -> storeOrderPlan.appliedPromotion() != null)
 					.count();
 			promotionService.incrementUsage(checkoutComputation.sharedPromotion(), appliedPromotionCount);
 		}
 
 		Order primaryOrder = primaryOrder(savedOrders);
-		Long payosOrderCode = primaryOrder.getId();
+		PayOsPaymentSessionCreationResult paymentSession = createPaymentLinkWithRetry(
+				primaryOrder.getId(),
+				payosOrderCode -> buildPaymentLinkRequest(
+						payosOrderCode,
+						primaryOrder,
+						user,
+						checkoutComputation.cartItems(),
+						request,
+						checkoutComputation.totalAmount()
+				),
+				"creating initial payment",
+				primaryOrder.getId()
+		);
+		Long payosOrderCode = paymentSession.payosOrderCode();
+		PayOsPaymentLinkData paymentLinkData = paymentSession.paymentLinkData();
 		for (Order savedOrder : savedOrders) {
 			savedOrder.setPayosOrderCode(payosOrderCode);
 		}
@@ -322,7 +405,25 @@ public class OrderService {
 		Map<Long, StoreDish> storeDishByCartItemId = new LinkedHashMap<>();
 		Map<Long, Store> storesById = new LinkedHashMap<>();
 		Map<Long, List<CartItem>> cartItemsByStoreId = new LinkedHashMap<>();
+		Map<StoreDishRoutingKey, StoreDish> routedStoreDishByKey = new LinkedHashMap<>();
+		Map<StoreDishRoutingKey, Integer> requestedQuantityByRoutedStore = new LinkedHashMap<>();
 		for (CartItem cartItem : cartItems) {
+			validateCartItemForCheckout(cartItem);
+		}
+
+		Long signatureReceivingStoreId = resolveSignatureReceivingStoreId(
+				cartItems,
+				deliveryAddress,
+				availabilityInstant
+		);
+		for (CartItem cartItem : cartItems) {
+			StoreDish storeDish = resolveCheckoutStoreDish(
+					cartItem,
+					signatureReceivingStoreId,
+					availabilityInstant,
+					requestedQuantityByRoutedStore
+			);
+for (CartItem cartItem : cartItems) {
 			Store store = cartItem.getStore();
 			Dish dish = cartItem.getDish();
 			if (store == null || store.getId() == null || dish == null || dish.getId() == null) {
@@ -334,31 +435,66 @@ public class OrderService {
 			if (disabledReason != null) {
 				throw new BadRequestException(buildAvailabilityMessage(disabledReason, deliveryType));
 			}
-			if (cartItem.getQuantity() == null || cartItem.getQuantity() <= 0) {
-				throw new BadRequestException("Cart item quantity must be greater than zero");
-			}
-			if (storeDish.getQuantity() == null || storeDish.getQuantity() < cartItem.getQuantity()) {
-				throw new BadRequestException("Requested quantity exceeds stock for dish: " + dish.getName());
-			}
 
+			StoreDishRoutingKey routingKey = new StoreDishRoutingKey(
+					storeDish.getStore().getId(),
+					storeDish.getDish().getId()
+			);
+			routedStoreDishByKey.putIfAbsent(routingKey, storeDish);
+			requestedQuantityByRoutedStore.merge(routingKey, cartItem.getQuantity(), Integer::sum);
 			BigDecimal effectivePrice = catalogAvailabilityService.resolveEffectivePrice(storeDish);
 			cartItem.setUnitPrice(effectivePrice);
 			storeDishByCartItemId.put(cartItem.getId(), storeDish);
-			storesById.putIfAbsent(store.getId(), storeDish.getStore());
-			cartItemsByStoreId.computeIfAbsent(store.getId(), ignored -> new ArrayList<>()).add(cartItem);
 		}
 
-		Promotion resolvedPromotion = promotionService.resolvePromotion(promotionCode);
+		for (Map.Entry<StoreDishRoutingKey, Integer> entry : requestedQuantityByRoutedStore.entrySet()) {
+			StoreDish storeDish = routedStoreDishByKey.get(entry.getKey());
+			if (storeDish == null || storeDish.getDish() == null) {
+				throw new NotFoundException("Store dish not found");
+			}
+			if (storeDish.getQuantity() == null || storeDish.getQuantity() < entry.getValue()) {
+				throw new BadRequestException("Requested quantity exceeds stock for dish: " + storeDish.getDish().getName());
+			}
+		}
+
+		for (CartItem cartItem : cartItems) {
+			StoreDish storeDish = storeDishByCartItemId.get(cartItem.getId());
+			if (storeDish == null || storeDish.getStore() == null || storeDish.getStore().getId() == null) {
+				throw new NotFoundException("Store dish not found");
+			}
+			Long routedStoreId = storeDish.getStore().getId();
+			storesById.putIfAbsent(routedStoreId, storeDish.getStore());
+			cartItemsByStoreId.computeIfAbsent(routedStoreId, ignored -> new ArrayList<>()).add(cartItem);
+		}
+
+		Promotion resolvedPromotion = promotionService.resolvePromotionForUser(user, promotionCode);
 		List<PromotionService.StoreCheckoutContext> storeContexts = new ArrayList<>();
+		Map<Long, ShippingFeeService.ShippingFeeQuote> shippingQuotesByStoreId = new LinkedHashMap<>();
+		List<Long> currentUserLevelIds = resolveCurrentUserLevelIds(user);
 		for (Map.Entry<Long, List<CartItem>> entry : cartItemsByStoreId.entrySet()) {
 			Store store = storesById.get(entry.getKey());
 			BigDecimal subtotalAmount = calculateCartSubtotal(entry.getValue());
+			ShippingFeeService.ShippingFeeQuote shippingQuote = shippingFeeService.calculate(
+					store,
+					deliveryAddress,
+					deliveryType
+			);
+			shippingQuotesByStoreId.put(entry.getKey(), shippingQuote);
+if (cartItem.getQuantity() == null || cartItem.getQuantity() <= 0) {
+				throw new BadRequestException("Cart item quantity must be greater than zero");
+			if (storeDish.getQuantity() == null || storeDish.getQuantity() < cartItem.getQuantity()) {
+				throw new BadRequestException("Requested quantity exceeds stock for dish: " + dish.getName());
+			storesById.putIfAbsent(store.getId(), storeDish.getStore());
+			cartItemsByStoreId.computeIfAbsent(store.getId(), ignored -> new ArrayList<>()).add(cartItem);
+		Promotion resolvedPromotion = promotionService.resolvePromotion(promotionCode);
 			Long currentUserLevelId = resolveCurrentUserLevelId(user, store);
 			storeContexts.add(new PromotionService.StoreCheckoutContext(
 					store,
 					List.copyOf(entry.getValue()),
 					subtotalAmount,
-					currentUserLevelId
+					List.copyOf(currentUserLevelIds),
+					shippingQuote.shippingFeeAmount()
+currentUserLevelId
 			));
 		}
 
@@ -377,7 +513,13 @@ public class OrderService {
 		BigDecimal shippingFeeAmount = BigDecimal.ZERO;
 		BigDecimal totalAmount = BigDecimal.ZERO;
 		for (PromotionService.StoreCheckoutContext context : storeContexts) {
-			ShippingFeeService.ShippingFeeQuote shippingQuote = shippingFeeService.calculate(
+			ShippingFeeService.ShippingFeeQuote shippingQuote = context.store() == null || context.store().getId() == null
+					? new ShippingFeeService.ShippingFeeQuote(BigDecimal.ZERO, BigDecimal.ZERO)
+					: shippingQuotesByStoreId.getOrDefault(
+							context.store().getId(),
+							new ShippingFeeService.ShippingFeeQuote(BigDecimal.ZERO, BigDecimal.ZERO)
+					);
+ShippingFeeService.ShippingFeeQuote shippingQuote = shippingFeeService.calculate(
 					context.store(),
 					deliveryAddress,
 					deliveryType
@@ -386,7 +528,12 @@ public class OrderService {
 					? null
 					: allocationsByStoreId.get(context.store().getId());
 			BigDecimal storeDiscountAmount = allocation != null ? allocation.discountAmount() : BigDecimal.ZERO;
-			BigDecimal storeChargeableAmount = context.subtotalAmount().subtract(storeDiscountAmount).max(BigDecimal.ZERO);
+			BigDecimal storeBaseAmount = context.subtotalAmount().add(shippingQuote.shippingFeeAmount());
+			BigDecimal storeTotalAmount = storeBaseAmount.subtract(storeDiscountAmount).max(BigDecimal.ZERO);
+			Promotion appliedPromotion = allocation != null && storeDiscountAmount.compareTo(BigDecimal.ZERO) > 0
+					? promotionPlan.promotion()
+					: null;
+BigDecimal storeChargeableAmount = context.subtotalAmount().subtract(storeDiscountAmount).max(BigDecimal.ZERO);
 			BigDecimal storeTotalAmount = storeChargeableAmount.add(shippingQuote.shippingFeeAmount());
 			Promotion appliedPromotion = allocation != null && allocation.applicable() ? promotionPlan.promotion() : null;
 			BigDecimal promotionEligibleAmount = appliedPromotion != null ? allocation.eligibleAmount() : null;
@@ -415,6 +562,7 @@ public class OrderService {
 				cart,
 				List.copyOf(cartItems),
 				Map.copyOf(storeDishByCartItemId),
+				List.copyOf(storeContexts),
 				promotionPlan.applied() ? promotionPlan.promotion() : null,
 				List.copyOf(storeOrderPlans),
 				subtotalAmount,
@@ -425,7 +573,257 @@ public class OrderService {
 		);
 	}
 
+	private StoreDish resolveCheckoutStoreDish(
+			CartItem cartItem,
+			Long signatureReceivingStoreId,
+			Instant availabilityInstant,
+			Map<StoreDishRoutingKey, Integer> requestedQuantityByRoutedStore
+	) {
+		Store requestedStore = cartItem.getStore();
+		Dish dish = cartItem.getDish();
+		if (requestedStore == null || requestedStore.getId() == null || dish == null || dish.getId() == null) {
+			throw new BadRequestException("Cart contains invalid items");
+		}
+
+		StoreDish requestedStoreDish = storeDishRepository.findByStoreIdAndDishId(requestedStore.getId(), dish.getId())
+				.orElseThrow(() -> new NotFoundException("Store dish not found"));
+		if (!isSignatureDish(dish) || signatureReceivingStoreId == null) {
+			return requestedStoreDish;
+		}
+
+		if (signatureReceivingStoreId.equals(requestedStore.getId())) {
+			return requestedStoreDish;
+		}
+
+		StoreDish routedStoreDish = storeDishRepository.findByStoreIdAndDishId(signatureReceivingStoreId, dish.getId())
+				.orElseThrow(() -> new BadRequestException("Signature dish is not available at the selected receiving store"));
+		if (!hasAvailableRoutedQuantity(routedStoreDish, cartItem.getQuantity(), requestedQuantityByRoutedStore)) {
+			throw new BadRequestException("Requested quantity exceeds stock for dish: " + dish.getName());
+		}
+		return routedStoreDish;
+	}
+
+	private void validateCartItemForCheckout(CartItem cartItem) {
+		Store store = cartItem.getStore();
+		Dish dish = cartItem.getDish();
+		if (store == null || store.getId() == null || dish == null || dish.getId() == null) {
+			throw new BadRequestException("Cart contains invalid items");
+		}
+		if (cartItem.getQuantity() == null || cartItem.getQuantity() <= 0) {
+			throw new BadRequestException("Cart item quantity must be greater than zero");
+		}
+	}
+
+	private Long resolveSignatureReceivingStoreId(
+			List<CartItem> cartItems,
+			UserDeliveryAddress deliveryAddress,
+			Instant availabilityInstant
+	) {
+		if (deliveryAddress == null
+				|| deliveryAddress.getLatitude() == null
+				|| deliveryAddress.getLongitude() == null) {
+			return null;
+		}
+
+		List<CartItem> signatureItems = cartItems.stream()
+				.filter(item -> isSignatureDish(item.getDish()))
+				.toList();
+		if (signatureItems.isEmpty()) {
+			return null;
+		}
+
+		List<CartItem> regularItems = cartItems.stream()
+				.filter(item -> !isSignatureDish(item.getDish()))
+				.toList();
+		Map<Long, Integer> requiredSignatureQuantityByDishId = new LinkedHashMap<>();
+		for (CartItem signatureItem : signatureItems) {
+			requiredSignatureQuantityByDishId.merge(
+					signatureItem.getDish().getId(),
+					signatureItem.getQuantity(),
+					Integer::sum
+			);
+		}
+
+		Map<Long, Store> candidateStoresById = new LinkedHashMap<>();
+		if (regularItems.isEmpty()) {
+			candidateStoresById.putAll(
+					collectCandidateStoresForSignatureDishes(requiredSignatureQuantityByDishId.keySet())
+			);
+		} else {
+			for (CartItem regularItem : regularItems) {
+				Store store = regularItem.getStore();
+				if (store != null && store.getId() != null) {
+					candidateStoresById.putIfAbsent(store.getId(), store);
+				}
+			}
+		}
+
+		Long preferredStoreId = findNearestEligibleSignatureReceivingStoreId(
+				candidateStoresById.values(),
+				requiredSignatureQuantityByDishId,
+				deliveryAddress,
+				availabilityInstant
+		);
+		if (preferredStoreId != null) {
+			return preferredStoreId;
+		}
+
+		if (!regularItems.isEmpty()) {
+			Map<Long, Store> fallbackStoresById = collectCandidateStoresForSignatureDishes(
+					requiredSignatureQuantityByDishId.keySet()
+			);
+			for (Long preferredStoreIdInCart : candidateStoresById.keySet()) {
+				fallbackStoresById.remove(preferredStoreIdInCart);
+			}
+			Long fallbackStoreId = findNearestEligibleSignatureReceivingStoreId(
+					fallbackStoresById.values(),
+					requiredSignatureQuantityByDishId,
+					deliveryAddress,
+					availabilityInstant
+			);
+			if (fallbackStoreId != null) {
+				return fallbackStoreId;
+			}
+		}
+
+		throw new BadRequestException(
+				regularItems.isEmpty()
+						? "No nearby store can fulfill all signature dishes for this delivery"
+						: "No store can fulfill all signature dishes for this delivery"
+		);
+	}
+
+	private Map<Long, Store> collectCandidateStoresForSignatureDishes(Set<Long> signatureDishIds) {
+		Map<Long, Store> candidateStoresById = new LinkedHashMap<>();
+		for (Long dishId : signatureDishIds) {
+			for (StoreDish candidate : storeDishRepository.findAllByDishId(dishId)) {
+				Store store = candidate.getStore();
+				if (store != null && store.getId() != null) {
+					candidateStoresById.putIfAbsent(store.getId(), store);
+				}
+			}
+		}
+		return candidateStoresById;
+	}
+
+	private Long findNearestEligibleSignatureReceivingStoreId(
+			Iterable<Store> candidateStores,
+			Map<Long, Integer> requiredSignatureQuantityByDishId,
+			UserDeliveryAddress deliveryAddress,
+			Instant availabilityInstant
+	) {
+		List<Store> eligibleStores = new ArrayList<>();
+		for (Store store : candidateStores) {
+			if (canStoreReceiveSignatureOrder(store, requiredSignatureQuantityByDishId, availabilityInstant)) {
+				eligibleStores.add(store);
+			}
+		}
+		return eligibleStores.stream()
+				.sorted(Comparator
+						.comparing(
+								(Store store) -> {
+									Double distance = distanceToDeliveryAddressKm(store, deliveryAddress);
+									return distance != null ? distance : Double.MAX_VALUE;
+								},
+								Double::compareTo
+						)
+						.thenComparing(Store::getId, Comparator.nullsLast(Long::compareTo)))
+				.map(Store::getId)
+				.findFirst()
+				.orElse(null);
+	}
+
+	private boolean canStoreReceiveSignatureOrder(
+			Store store,
+			Map<Long, Integer> requiredSignatureQuantityByDishId,
+			Instant availabilityInstant
+	) {
+		if (store == null || store.getId() == null || requiredSignatureQuantityByDishId.isEmpty()) {
+			return false;
+		}
+
+		List<StoreDish> storeDishes = storeDishRepository.findAllByStoreIdAndDishIdIn(
+				store.getId(),
+				requiredSignatureQuantityByDishId.keySet()
+		);
+		Map<Long, StoreDish> storeDishesByDishId = new LinkedHashMap<>();
+		for (StoreDish storeDish : storeDishes) {
+			if (storeDish.getDish() != null && storeDish.getDish().getId() != null) {
+				storeDishesByDishId.put(storeDish.getDish().getId(), storeDish);
+			}
+		}
+
+		Set<Long> expectedDishIds = requiredSignatureQuantityByDishId.keySet();
+		if (!storeDishesByDishId.keySet().containsAll(expectedDishIds)) {
+			return false;
+		}
+
+		for (Map.Entry<Long, Integer> entry : requiredSignatureQuantityByDishId.entrySet()) {
+			StoreDish storeDish = storeDishesByDishId.get(entry.getKey());
+			if (storeDish == null) {
+				return false;
+			}
+			if (catalogAvailabilityService.resolveStoreDishDisabledReasonAt(storeDish, availabilityInstant) != null) {
+				return false;
+			}
+			int currentStock = storeDish.getQuantity() == null ? 0 : Math.max(storeDish.getQuantity(), 0);
+			if (currentStock < entry.getValue()) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private boolean hasAvailableRoutedQuantity(
+			StoreDish storeDish,
+			Integer requestedQuantity,
+			Map<StoreDishRoutingKey, Integer> requestedQuantityByRoutedStore
+	) {
+		if (storeDish == null
+				|| storeDish.getStore() == null
+				|| storeDish.getStore().getId() == null
+				|| storeDish.getDish() == null
+				|| storeDish.getDish().getId() == null
+				|| requestedQuantity == null
+				|| requestedQuantity <= 0) {
+			return false;
+		}
+		StoreDishRoutingKey routingKey = new StoreDishRoutingKey(
+				storeDish.getStore().getId(),
+				storeDish.getDish().getId()
+		);
+		int currentStock = storeDish.getQuantity() == null ? 0 : Math.max(storeDish.getQuantity(), 0);
+		int alreadyRequested = requestedQuantityByRoutedStore.getOrDefault(routingKey, 0);
+		return currentStock - alreadyRequested >= requestedQuantity;
+	}
+
+	private Double distanceToDeliveryAddressKm(Store store, UserDeliveryAddress deliveryAddress) {
+		if (store == null
+				|| deliveryAddress == null
+				|| store.getLatitude() == null
+				|| store.getLongitude() == null
+				|| deliveryAddress.getLatitude() == null
+				|| deliveryAddress.getLongitude() == null) {
+			return null;
+		}
+
+		double storeLat = Math.toRadians(store.getLatitude());
+		double storeLng = Math.toRadians(store.getLongitude());
+		double deliveryLat = Math.toRadians(deliveryAddress.getLatitude());
+		double deliveryLng = Math.toRadians(deliveryAddress.getLongitude());
+		double dLat = deliveryLat - storeLat;
+		double dLng = deliveryLng - storeLng;
+		double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+				+ Math.cos(storeLat) * Math.cos(deliveryLat) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+		double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+		return 6371d * c;
+	}
+
 	private CheckoutPreviewResponse toCheckoutPreviewResponse(CheckoutComputation checkoutComputation) {
+		String statusSummary = checkoutComputation.sharedPromotion() != null
+				? "Promotion " + checkoutComputation.sharedPromotion().getCode() + " is ready for checkout"
+				: "Preview ready";
+private CheckoutPreviewResponse toCheckoutPreviewResponse(CheckoutComputation checkoutComputation) {
 		return new CheckoutPreviewResponse(
 				checkoutComputation.subtotalAmount(),
 				checkoutComputation.discountAmount(),
@@ -434,7 +832,8 @@ public class OrderService {
 				buildShippingFeeBreakdown(checkoutComputation.storeOrderPlans()),
 				checkoutComputation.totalAmount(),
 				checkoutComputation.sharedPromotion() != null ? checkoutComputation.sharedPromotion().getCode() : null,
-				"Preview ready"
+				statusSummary
+"Preview ready"
 		);
 	}
 
@@ -495,7 +894,7 @@ public class OrderService {
 				<head>
 				  <meta charset="UTF-8" />
 				  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-				  <title>Open Tea Matcha App</title>
+				  <title>Open Kamatcha App</title>
 				  <style>
 				    body { font-family: Arial, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
 				    .wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
@@ -512,7 +911,9 @@ public class OrderService {
 				<body>
 				  <div class="wrap">
 				    <div class="card">
-				      <h1>Open Tea Matcha App</h1>
+				      <h1>Open Kamatcha App</h1>
+				      <p>This QR can open the Kamatcha mobile app for order tracking or store-delivery workflow.</p>
+<h1>Open Tea Matcha App</h1>
 				      <p>This QR can open the Tea Matcha mobile app for order tracking or store-delivery workflow.</p>
 				      <p>If the app does not open automatically, use one of the buttons below.</p>
 				      <div class="actions">
@@ -550,14 +951,14 @@ public class OrderService {
 		return switch (actor.getRole()) {
 			case USER -> resolveUserMobileQr(actor, order);
 			case SHIPPER -> resolveShipperMobileQr(actor, order);
-			case MANAGER -> resolveManagerMobileQr(actor, order);
+			case MANAGER -> resolveAdminMobileQr(actor, order);
 			case ADMIN -> resolveAdminMobileQr(actor, order);
 		};
 	}
 
 	@Transactional
 	public OrderResponse confirmOrder(String authorizationHeader, Long id) {
-		User operator = sessionAuthService.requireAdminOrManager(authorizationHeader);
+		User operator = requireManagerOrderOperator(authorizationHeader);
 		Order order = findOrder(id);
 		Long visibleStoreId = resolveVisibleStoreId(operator, order);
 		if (!canConfirmOrder(order)) {
@@ -574,7 +975,7 @@ public class OrderService {
 
 	@Transactional
 	public OrderResponse cancelOrderByAdmin(String authorizationHeader, Long id) {
-		User operator = sessionAuthService.requireAdminOrManager(authorizationHeader);
+		User operator = requireManagerOrderOperator(authorizationHeader);
 		Order order = findOrder(id);
 		Long visibleStoreId = resolveVisibleStoreId(operator, order);
 		List<Order> paymentGroup = loadPaymentGroup(order);
@@ -592,12 +993,12 @@ public class OrderService {
 
 	@Transactional
 	public OrderResponse markOrderPaidByAdmin(String authorizationHeader, Long id) {
-		User operator = sessionAuthService.requireAdminOrManager(authorizationHeader);
+		User operator = requireManagerOrderOperator(authorizationHeader);
 		Order order = findOrder(id);
 		Long visibleStoreId = resolveVisibleStoreId(operator, order);
 		List<Order> paymentGroup = loadPaymentGroup(order);
 		if (visibleStoreId != null && paymentGroup.size() > 1) {
-			throw new BadRequestException("Shared payment orders can only be marked paid by admin");
+			throw new BadRequestException("Shared payment orders cannot be marked paid manually from store workflow");
 		}
 
 		Map<Long, OrderStateSnapshot> previousStates = snapshotOrderStates(paymentGroup);
@@ -614,7 +1015,7 @@ public class OrderService {
 
 	@Transactional
 	public OrderResponse generateInvoice(String authorizationHeader, Long id) {
-		User operator = sessionAuthService.requireAdminOrManager(authorizationHeader);
+		User operator = requireManagerOrderOperator(authorizationHeader);
 		Order order = findOrder(id);
 		Long visibleStoreId = resolveVisibleStoreId(operator, order);
 		if (order.getPaymentStatus() != PaymentStatus.PAID) {
@@ -709,7 +1110,9 @@ public class OrderService {
 
 	@Transactional
 	public OrderResponse acceptPreparingOrder(String authorizationHeader, Long id) {
-		User manager = requireEmployeeOperator(authorizationHeader, Role.MANAGER);
+		requireEmployeeOperator(authorizationHeader, Role.STAFF);
+		throw new ForbiddenException("Preparation workflow is now handled by manager accounts");
+User manager = requireEmployeeOperator(authorizationHeader, Role.MANAGER);
 		Order order = findOrder(id);
 		ensureEmployeeCanAccessOrder(manager, order);
 		if (order.getPaymentStatus() != PaymentStatus.PAID) {
@@ -721,7 +1124,6 @@ public class OrderService {
 		if (order.getPreparingStaff() != null && !order.getPreparingStaff().getId().equals(manager.getId())) {
 			throw new ConflictException("Order is already being prepared by another manager");
 		}
-
 		Map<Long, OrderStateSnapshot> previousStates = snapshotOrderStates(List.of(order));
 		order.setPreparingStaff(manager);
 		order.setStatus(OrderStatus.PREPARING);
@@ -733,7 +1135,9 @@ public class OrderService {
 
 	@Transactional
 	public OrderResponse markOrderReadyForShipper(String authorizationHeader, Long id) {
-		User manager = requireEmployeeOperator(authorizationHeader, Role.MANAGER);
+		requireEmployeeOperator(authorizationHeader, Role.STAFF);
+		throw new ForbiddenException("Shipper assignment is now handled by manager accounts");
+User manager = requireEmployeeOperator(authorizationHeader, Role.MANAGER);
 		Order order = findOrder(id);
 		ensureEmployeeCanAccessOrder(manager, order);
 		if (order.getPaymentStatus() != PaymentStatus.PAID) {
@@ -745,7 +1149,6 @@ public class OrderService {
 		if (order.getPreparingStaff() == null || !order.getPreparingStaff().getId().equals(manager.getId())) {
 			throw new ForbiddenException("Only the assigned manager can mark this order ready for shipper");
 		}
-
 		Map<Long, OrderStateSnapshot> previousStates = snapshotOrderStates(List.of(order));
 		order.setStatus(OrderStatus.READY_FOR_SHIPPER);
 		autoAssignAvailableShipper(order);
@@ -763,15 +1166,17 @@ public class OrderService {
 		if (order.getPaymentStatus() != PaymentStatus.PAID) {
 			throw new BadRequestException("Only paid orders can be accepted for delivery");
 		}
-		if (order.getStatus() != OrderStatus.READY_FOR_SHIPPER && order.getStatus() != OrderStatus.OUT_FOR_DELIVERY) {
+		if (order.getStatus() != OrderStatus.READY_FOR_SHIPPER) {
 			throw new BadRequestException("Order is not available for delivery");
 		}
-		if (order.getDeliveringShipper() != null && !order.getDeliveringShipper().getId().equals(shipper.getId())) {
-			throw new ConflictException("Order is already being delivered by another shipper");
+		if (order.getDeliveringShipper() == null) {
+			throw new ConflictException("Manager must assign a shipper before pickup can be confirmed");
+		}
+		if (!order.getDeliveringShipper().getId().equals(shipper.getId())) {
+			throw new ConflictException("Order is assigned to another shipper");
 		}
 
 		Map<Long, OrderStateSnapshot> previousStates = snapshotOrderStates(List.of(order));
-		order.setDeliveringShipper(shipper);
 		order.setStatus(OrderStatus.OUT_FOR_DELIVERY);
 		Order savedOrder = orderRepository.save(order);
 		notifyEmployeeTaskChanges(List.of(savedOrder), previousStates);
@@ -792,6 +1197,9 @@ public class OrderService {
 		}
 		if (order.getDeliveringShipper() == null || !order.getDeliveringShipper().getId().equals(shipper.getId())) {
 			throw new ForbiddenException("Only the assigned shipper can complete this delivery");
+		}
+		if (!StringUtils.hasText(order.getDeliveryProofImagePath())) {
+			throw new BadRequestException("Delivery proof must be uploaded before this order can be completed");
 		}
 
 		Map<Long, OrderStateSnapshot> previousStates = snapshotOrderStates(List.of(order));
@@ -819,15 +1227,19 @@ public class OrderService {
 		Instant capturedAt = parseOptionalInstant(capturedAtText, "capturedAt");
 		String normalizedNote = normalizeOptionalNote(note);
 
+		Map<Long, OrderStateSnapshot> previousStates = snapshotOrderStates(List.of(order));
 		order.setDeliveryProofImagePath(uploadedFile.path());
 		order.setDeliveryProofCapturedAt(capturedAt);
 		order.setDeliveryProofUploadedAt(uploadedAt);
 		order.setDeliveryProofNote(normalizedNote);
-		orderRepository.save(order);
+		order.setStatus(OrderStatus.COMPLETED);
+		Order savedOrder = orderRepository.save(order);
+		notifyEmployeeTaskChanges(List.of(savedOrder), previousStates);
+		notifyOrderStateChanges(List.of(savedOrder), previousStates);
 
 		return new DeliveryProofUploadResponse(
-				"Delivery proof uploaded successfully",
-				order.getId(),
+				"Delivery proof uploaded and order completed successfully",
+				savedOrder.getId(),
 				uploadedFile.path(),
 				capturedAt,
 				normalizedNote,
@@ -863,7 +1275,7 @@ public class OrderService {
 
 	@Transactional
 	public OrderResponse updateOrderStatus(String authorizationHeader, Long id, OrderStatusUpdateRequest request) {
-		User operator = sessionAuthService.requireAdminOrManager(authorizationHeader);
+		User operator = requireManagerOrderOperator(authorizationHeader);
 		Order order = findOrder(id);
 		Long visibleStoreId = resolveVisibleStoreId(operator, order);
 		if (request.status() == null
@@ -872,29 +1284,44 @@ public class OrderService {
 				&& request.deliveringShipperId() == null) {
 			throw new BadRequestException("At least one order update field is required");
 		}
-		if (request.preparingStaffId() != null || request.deliveringShipperId() != null) {
+		if (request.preparingStaffId() != null) {
+			throw new BadRequestException("Direct preparing staff assignment is not allowed in this workflow");
+if (request.preparingStaffId() != null || request.deliveringShipperId() != null) {
 			throw new BadRequestException("Direct manager or shipper assignment is not allowed in this workflow");
 		}
-		if (request.status() != null
-				&& request.status() != OrderStatus.CONFIRMED
-				&& request.status() != OrderStatus.CANCELLED) {
-			throw new BadRequestException("Admin or Manager can only confirm or cancel orders directly");
+		OrderStatus requestedStatus = request.status();
+		if (request.deliveringShipperId() != null) {
+			if (requestedStatus != null && requestedStatus != OrderStatus.READY_FOR_SHIPPER) {
+				throw new BadRequestException("deliveringShipperId can only be updated for READY_FOR_SHIPPER");
+			}
+			requestedStatus = OrderStatus.READY_FOR_SHIPPER;
 		}
-		if (request.status() == OrderStatus.CONFIRMED
+		if (requestedStatus != null
+				&& requestedStatus != OrderStatus.CONFIRMED
+				&& requestedStatus != OrderStatus.PREPARING
+				&& requestedStatus != OrderStatus.READY_FOR_SHIPPER
+				&& requestedStatus != OrderStatus.CANCELLED) {
+			throw new BadRequestException("Manager can only confirm, prepare, assign shipper, or cancel orders directly");
+		}
+		if ((requestedStatus == OrderStatus.CONFIRMED
+				|| requestedStatus == OrderStatus.PREPARING
+				|| requestedStatus == OrderStatus.READY_FOR_SHIPPER)
 				&& request.paymentStatus() != PaymentStatus.PAID
 				&& order.getPaymentStatus() != PaymentStatus.PAID) {
-			throw new BadRequestException("Order must be marked paid before it can be confirmed");
+			throw new BadRequestException("Order must be marked paid before it can enter the store workflow");
 		}
 
 		List<Order> paymentGroup = loadPaymentGroup(order);
 		Map<Long, OrderStateSnapshot> previousStates = snapshotOrderStates(paymentGroup);
 		boolean newlyPaid = applyPaymentStatusUpdate(paymentGroup, request.paymentStatus());
 		awardCreditsForNewlyPaidOrders(paymentGroup, previousStates);
-		if (request.status() != null) {
+		if (requestedStatus != null) {
+			if (requestedStatus == OrderStatus.CANCELLED && paymentGroup.size() > 1) {
+if (request.status() != null) {
 			if (request.status() == OrderStatus.CANCELLED && paymentGroup.size() > 1) {
 				throw new BadRequestException("Shared payment orders cannot be cancelled individually");
 			}
-			applyStatusUpdate(order, request.status(), operator);
+			applyStatusUpdate(order, requestedStatus, operator, visibleStoreId, request.deliveringShipperId());
 		}
 
 		orderRepository.saveAll(paymentGroup);
@@ -1043,33 +1470,25 @@ public class OrderService {
 			throw new BadRequestException("Order has no items for payment recreation");
 		}
 
-		PayOsPaymentLinkData paymentLinkData = null;
-		Long payosOrderCode = null;
 		Long oldPayosOrderCode = primaryOrder.getPayosOrderCode();
 		String oldPaymentLinkId = primaryOrder.getPaymentLinkId();
 		String oldPaymentCheckoutUrl = primaryOrder.getPaymentCheckoutUrl();
-		for (int attempt = 0; attempt < 5; attempt++) {
-			payosOrderCode = nextPayOsOrderCode();
-			Instant paymentExpiresAt = Instant.now().plusSeconds(resolvePaymentExpirySeconds());
-			primaryOrder.setPaymentExpiresAt(paymentExpiresAt);
-			try {
-				paymentLinkData = payOsClient.createPaymentLink(
-						buildPaymentLinkRequest(
-								payosOrderCode,
-								primaryOrder,
-								orderItems,
-								sumOrderAmounts(paymentGroup)
-						)
-				);
-				break;
-			} catch (ConflictException exception) {
-				log.warn("PayOS order code {} already exists while recreating payment for order {}", payosOrderCode, primaryOrder.getId());
-			}
-		}
-
-		if (paymentLinkData == null || payosOrderCode == null) {
-			throw new ConflictException("Could not create a new payOS payment session");
-		}
+		PayOsPaymentSessionCreationResult paymentSession = createPaymentLinkWithRetry(
+				nextPayOsOrderCode(),
+				payosOrderCode -> {
+					primaryOrder.setPaymentExpiresAt(Instant.now().plusSeconds(resolvePaymentExpirySeconds()));
+					return buildPaymentLinkRequest(
+							payosOrderCode,
+							primaryOrder,
+							orderItems,
+							sumOrderAmounts(paymentGroup)
+					);
+				},
+				"recreating payment",
+				primaryOrder.getId()
+		);
+		Long payosOrderCode = paymentSession.payosOrderCode();
+		PayOsPaymentLinkData paymentLinkData = paymentSession.paymentLinkData();
 		validateRecreatedPaymentLink(primaryOrder, oldPaymentCheckoutUrl, payosOrderCode, paymentLinkData);
 
 		for (Order groupOrder : paymentGroup) {
@@ -1194,7 +1613,13 @@ public class OrderService {
 		return true;
 	}
 
-	private void applyStatusUpdate(Order order, OrderStatus targetStatus, User operator) {
+	private void applyStatusUpdate(
+			Order order,
+			OrderStatus targetStatus,
+			User operator,
+			Long visibleStoreId,
+			Long deliveringShipperId
+	) {
 		if (targetStatus == OrderStatus.CANCELLED) {
 			cancelOrder(order);
 			return;
@@ -1203,13 +1628,80 @@ public class OrderService {
 			applyConfirmation(order, operator);
 			return;
 		}
-		order.setStatus(targetStatus);
+		if (targetStatus == OrderStatus.PREPARING) {
+			applyPreparingStage(order, operator);
+			return;
+		}
+		if (targetStatus == OrderStatus.READY_FOR_SHIPPER) {
+			assignShipperAndMarkReady(order, operator, visibleStoreId, deliveringShipperId);
+			return;
+		}
+		throw new BadRequestException("Unsupported direct order status update");
 	}
 
 	private void applyConfirmation(Order order, User operator) {
-		order.setStatus(OrderStatus.CONFIRMED);
+		if (order.getPaymentStatus() != PaymentStatus.PAID) {
+			throw new BadRequestException("Only paid orders can be confirmed");
+		}
+		if (order.getStatus() != OrderStatus.PENDING && order.getStatus() != OrderStatus.CONFIRMED) {
+			throw new BadRequestException("Order is not waiting for store confirmation");
+		}
+		order.setStatus(OrderStatus.PREPARING);
 		order.setConfirmedByUser(operator);
 		order.setConfirmedAt(Instant.now());
+		order.setPreparingStaff(operator);
+		order.setDeliveringShipper(null);
+	}
+
+	private void applyPreparingStage(Order order, User operator) {
+		if (order.getPaymentStatus() != PaymentStatus.PAID) {
+			throw new BadRequestException("Only paid orders can move into preparation");
+		}
+		if (order.getStatus() != OrderStatus.PENDING
+				&& order.getStatus() != OrderStatus.CONFIRMED
+				&& order.getStatus() != OrderStatus.PREPARING) {
+			throw new BadRequestException("Order cannot move into preparation from the current status");
+		}
+		order.setStatus(OrderStatus.PREPARING);
+		order.setPreparingStaff(operator);
+		order.setDeliveringShipper(null);
+		if (order.getConfirmedByUser() == null) {
+			order.setConfirmedByUser(operator);
+		}
+		if (order.getConfirmedAt() == null) {
+			order.setConfirmedAt(Instant.now());
+		}
+	}
+
+	private void assignShipperAndMarkReady(Order order, User operator, Long visibleStoreId, Long deliveringShipperId) {
+		if (order.getPaymentStatus() != PaymentStatus.PAID) {
+			throw new BadRequestException("Only paid orders can be handed over to a shipper");
+		}
+		if (order.getStatus() != OrderStatus.PREPARING && order.getStatus() != OrderStatus.READY_FOR_SHIPPER) {
+			throw new BadRequestException("Order must be preparing before a shipper can be assigned");
+		}
+		if (deliveringShipperId != null) {
+			order.setDeliveringShipper(resolveAssignedUser(
+					deliveringShipperId,
+					Role.SHIPPER,
+					order,
+					visibleStoreId,
+					"deliveringShipperId"
+			));
+		}
+		if (order.getDeliveringShipper() == null) {
+			throw new BadRequestException("A shipper must be assigned before moving to waiting-for-shipper");
+		}
+		order.setStatus(OrderStatus.READY_FOR_SHIPPER);
+		if (order.getPreparingStaff() == null) {
+			order.setPreparingStaff(operator);
+		}
+		if (order.getConfirmedByUser() == null) {
+			order.setConfirmedByUser(operator);
+		}
+		if (order.getConfirmedAt() == null) {
+			order.setConfirmedAt(Instant.now());
+		}
 	}
 
 	private boolean applyPaymentStatusUpdate(List<Order> orders, PaymentStatus targetPaymentStatus) {
@@ -1246,6 +1738,8 @@ public class OrderService {
 		order.setPaymentStatus(PaymentStatus.PENDING);
 		order.setPaidAt(null);
 		order.setStatus(OrderStatus.PENDING);
+		order.setConfirmedByUser(null);
+		order.setConfirmedAt(null);
 		order.setPreparingStaff(null);
 		order.setDeliveringShipper(null);
 		clearInvoiceData(order);
@@ -1308,6 +1802,7 @@ public class OrderService {
 		}
 		promotionRepository.findByCodeIgnoreCase(order.getPromotionCode())
 				.ifPresent(promotionService::decrementUsage);
+		promotionService.restoreVoucherForOrder(order);
 	}
 
 	private void sendPendingPaymentReminder(List<Order> orders) {
@@ -1386,7 +1881,9 @@ public class OrderService {
 	}
 
 	private int calculateCreditPointsForOrder(Order order) {
-		BigDecimal brandPaidAmount = calculateBrandPaidAmount(order);
+		BigDecimal paidAmount = order.getTotalAmount() == null ? BigDecimal.ZERO : order.getTotalAmount();
+		return paidAmount
+BigDecimal brandPaidAmount = calculateBrandPaidAmount(order);
 		return brandPaidAmount
 				.max(BigDecimal.ZERO)
 				.divideToIntegralValue(BigDecimal.valueOf(1000))
@@ -1412,7 +1909,6 @@ public class OrderService {
 		}
 		return signatureSubtotal;
 	}
-
 	private int resolveCreditPointsAwarded(Order order) {
 		return order.getCreditPointsAwarded() == null ? 0 : Math.max(order.getCreditPointsAwarded(), 0);
 	}
@@ -1499,7 +1995,9 @@ public class OrderService {
 		if (!orderItemRepository.existsByOrderIdAndStoreId(order.getId(), workingStoreId)) {
 			throw new ForbiddenException("Order does not belong to your store");
 		}
-		if (employee.getRole() == Role.MANAGER) {
+		if (employee.getRole() == Role.STAFF) {
+			throw new ForbiddenException("Store preparation is managed by manager accounts in the current workflow");
+if (employee.getRole() == Role.MANAGER) {
 			ensureManagerCanAccessPreparingOrder(employee, order);
 			return;
 		}
@@ -1508,7 +2006,8 @@ public class OrderService {
 
 	private void ensureManagerCanAccessPreparingOrder(User manager, Order order) {
 		if (order.getPaymentStatus() != PaymentStatus.PAID) {
-			throw new ForbiddenException("Only paid orders are available for manager preparation workflow");
+			throw new ForbiddenException("Only paid orders are available for staff preparation workflow");
+throw new ForbiddenException("Only paid orders are available for manager preparation workflow");
 		}
 		Long assignedStaffId = order.getPreparingStaff() != null ? order.getPreparingStaff().getId() : null;
 		boolean canAccess = switch (order.getStatus()) {
@@ -1517,7 +2016,8 @@ public class OrderService {
 			default -> false;
 		};
 		if (!canAccess) {
-			throw new ForbiddenException("Order is not available for your manager preparation workflow");
+			throw new ForbiddenException("Order is not available for your staff preparation workflow");
+throw new ForbiddenException("Order is not available for your manager preparation workflow");
 		}
 	}
 
@@ -1527,7 +2027,7 @@ public class OrderService {
 		}
 		Long assignedShipperId = order.getDeliveringShipper() != null ? order.getDeliveringShipper().getId() : null;
 		boolean canAccess = switch (order.getStatus()) {
-			case READY_FOR_SHIPPER -> assignedShipperId == null || assignedShipperId.equals(shipper.getId());
+			case READY_FOR_SHIPPER -> assignedShipperId != null && assignedShipperId.equals(shipper.getId());
 			case OUT_FOR_DELIVERY, COMPLETED -> assignedShipperId != null && assignedShipperId.equals(shipper.getId());
 			default -> false;
 		};
@@ -1670,8 +2170,8 @@ public class OrderService {
 			rows.append("<tr>")
 					.append("<td>").append(escapeHtml(item.getDish().getName())).append("</td>")
 					.append("<td>").append(item.getQuantity()).append("</td>")
-					.append("<td>").append(escapeHtml(item.getUnitPrice().toPlainString())).append("</td>")
-					.append("<td>").append(escapeHtml(lineTotal.toPlainString())).append("</td>")
+					.append("<td>").append(escapeHtml(formatMoney(item.getUnitPrice()))).append("</td>")
+					.append("<td>").append(escapeHtml(formatMoney(lineTotal))).append("</td>")
 					.append("</tr>");
 		}
 
@@ -1753,12 +2253,13 @@ public class OrderService {
 				        </div>
 				        <div class="qr-copy">
 				          <strong>Scan QR To Open Invoice</strong>
-				          <div class="muted">Users can open order status in the Tea Matcha mobile app. Managers and shippers can scan the same QR to continue the fulfillment workflow.</div>
+				          <div class="muted">Users can open order status in the Kamatcha mobile app. Managers and shippers can scan the same QR to continue the fulfillment workflow.</div>
+<div class="muted">Users can open order status in the Tea Matcha mobile app. Managers and shippers can scan the same QR to continue the fulfillment workflow.</div>
 				          <div class="qr-link"><a href="%s">Open invoice in browser</a></div>
 				        </div>
 				      </div>
 				    </div>
-				    <div class="footer">Printable invoice generated by Tea Matcha backend.</div>
+				    <div class="footer">Printable invoice generated by Kamatcha backend.</div>
 				  </div>
 				</body>
 				</html>
@@ -1775,7 +2276,11 @@ public class OrderService {
 				escapeHtml(String.valueOf(order.getPaymentStatus())),
 				escapeHtml(String.valueOf(order.getStatus())),
 				rows.toString(),
-				escapeHtml(order.getSubtotalAmount().toPlainString()),
+				escapeHtml(formatMoney(order.getSubtotalAmount())),
+				escapeHtml(formatMoney(order.getDiscountAmount())),
+				escapeHtml(formatMoney(shippingFeeAmount)),
+				escapeHtml(formatMoney(order.getTotalAmount())),
+escapeHtml(order.getSubtotalAmount().toPlainString()),
 				escapeHtml(order.getDiscountAmount().toPlainString()),
 				escapeHtml(shippingFeeAmount.toPlainString()),
 				escapeHtml(order.getTotalAmount().toPlainString()),
@@ -1786,7 +2291,8 @@ public class OrderService {
 	}
 
 	private Order acceptPreparingOrderScan(Order order, User manager) {
-		if (manager.getRole() != Role.MANAGER) {
+		throw new ForbiddenException("Preparation workflow is now handled by manager accounts");
+if (manager.getRole() != Role.MANAGER) {
 			throw new ForbiddenException("Only manager can accept preparing orders");
 		}
 		if (order.getPaymentStatus() != PaymentStatus.PAID || order.getStatus() != OrderStatus.CONFIRMED) {
@@ -1795,7 +2301,6 @@ public class OrderService {
 		if (order.getPreparingStaff() != null && !order.getPreparingStaff().getId().equals(manager.getId())) {
 			throw new ConflictException("Order already claimed by another manager");
 		}
-
 		Map<Long, OrderStateSnapshot> previousStates = snapshotOrderStates(List.of(order));
 		order.setPreparingStaff(manager);
 		order.setStatus(OrderStatus.PREPARING);
@@ -1813,14 +2318,17 @@ public class OrderService {
 			throw new BadRequestException("Order must be paid before shipper can accept it");
 		}
 		if (order.getStatus() != OrderStatus.READY_FOR_SHIPPER) {
-			throw new BadRequestException("Order must be prepared by manager before shipper can accept it");
+			throw new BadRequestException("Order must be waiting for the assigned shipper before pickup can be confirmed");
+throw new BadRequestException("Order must be prepared by manager before shipper can accept it");
 		}
-		if (order.getDeliveringShipper() != null && !order.getDeliveringShipper().getId().equals(shipper.getId())) {
-			throw new ConflictException("Order already claimed by another shipper");
+		if (order.getDeliveringShipper() == null) {
+			throw new ConflictException("Manager must assign a shipper before pickup can be confirmed");
+		}
+		if (!order.getDeliveringShipper().getId().equals(shipper.getId())) {
+			throw new ConflictException("Order is assigned to another shipper");
 		}
 
 		Map<Long, OrderStateSnapshot> previousStates = snapshotOrderStates(List.of(order));
-		order.setDeliveringShipper(shipper);
 		order.setStatus(OrderStatus.OUT_FOR_DELIVERY);
 		Order savedOrder = orderRepository.save(order);
 		notifyEmployeeTaskChanges(List.of(savedOrder), previousStates);
@@ -1847,7 +2355,17 @@ public class OrderService {
 	}
 
 	private String formatInstant(Instant instant) {
-		return instant == null ? "-" : instant.toString();
+		return instant == null ? "-" : VIETNAM_DATE_TIME_FORMATTER.format(instant);
+	}
+
+	private String formatMoney(BigDecimal amount) {
+		if (amount == null) {
+			return "-";
+		}
+		NumberFormat formatter = NumberFormat.getNumberInstance(Locale.forLanguageTag("vi-VN"));
+		formatter.setMaximumFractionDigits(0);
+		formatter.setMinimumFractionDigits(0);
+		return formatter.format(amount) + " VND";
 	}
 
 	private String extractInvoiceQrToken(String rawValue) {
@@ -1970,6 +2488,10 @@ public class OrderService {
 				.orElseThrow(() -> new NotFoundException("Order not found"));
 	}
 
+	private User requireManagerOrderOperator(String authorizationHeader) {
+		return sessionAuthService.requireManager(authorizationHeader);
+	}
+
 	private Long resolveOrderListStoreId(User operator, Long requestedStoreId) {
 		if (operator.getRole() == Role.ADMIN) {
 			return requestedStoreId;
@@ -2011,7 +2533,9 @@ public class OrderService {
 			predicates.add(criteriaBuilder.equal(root.get("paymentStatus"), PaymentStatus.PAID));
 			predicates.add(buildStorePredicate(root, query, criteriaBuilder, storeId));
 
-			if (employee.getRole() == Role.MANAGER) {
+			if (employee.getRole() == Role.STAFF) {
+				predicates.add(criteriaBuilder.disjunction());
+if (employee.getRole() == Role.MANAGER) {
 				Join<Order, User> preparingStaff = root.join("preparingStaff", JoinType.LEFT);
 				if (mine) {
 					predicates.add(criteriaBuilder.equal(root.get("status"), OrderStatus.PREPARING));
@@ -2033,15 +2557,16 @@ public class OrderService {
 			} else {
 				Join<Order, User> deliveringShipper = root.join("deliveringShipper", JoinType.LEFT);
 				if (mine) {
-					predicates.add(criteriaBuilder.equal(root.get("status"), OrderStatus.OUT_FOR_DELIVERY));
+					predicates.add(root.get("status").in(
+							OrderStatus.READY_FOR_SHIPPER,
+							OrderStatus.OUT_FOR_DELIVERY,
+							OrderStatus.COMPLETED
+					));
 					predicates.add(criteriaBuilder.equal(deliveringShipper.get("id"), employee.getId()));
 				} else {
 					Predicate availableReady = criteriaBuilder.and(
 							criteriaBuilder.equal(root.get("status"), OrderStatus.READY_FOR_SHIPPER),
-							criteriaBuilder.or(
-									criteriaBuilder.isNull(deliveringShipper.get("id")),
-									criteriaBuilder.equal(deliveringShipper.get("id"), employee.getId())
-							)
+							criteriaBuilder.equal(deliveringShipper.get("id"), employee.getId())
 					);
 					Predicate myDelivery = criteriaBuilder.and(
 							criteriaBuilder.equal(root.get("status"), OrderStatus.OUT_FOR_DELIVERY),
@@ -2245,6 +2770,7 @@ public class OrderService {
 				order.getShippingFeeAmount(),
 				buildShippingFeeBreakdown(order, items),
 				order.getTotalAmount(),
+				resolveCreditPointsAwarded(order),
 				order.getPromotionCode(),
 				order.getPromotionScope(),
 				order.getPromotionEligibleAmount(),
@@ -2307,6 +2833,7 @@ public class OrderService {
 				response.shippingFeeAmount(),
 				response.shippingFeeBreakdown(),
 				response.totalAmount(),
+				response.creditPointsAwarded(),
 				response.promotionCode(),
 				response.promotionScope(),
 				response.promotionEligibleAmount(),
@@ -2393,8 +2920,16 @@ public class OrderService {
 		List<OrderAllowedAction> actions = new ArrayList<>();
 		switch (actor.getRole()) {
 			case ADMIN -> {
+				if (invoiceAvailable) {
+					actions.add(OrderAllowedAction.VIEW_INVOICE);
+				}
+			}
+			case MANAGER -> {
 				if (canConfirmOrder(order)) {
 					actions.add(OrderAllowedAction.CONFIRM_ORDER);
+				}
+				if (canMarkReadyForShipper(order)) {
+					actions.add(OrderAllowedAction.MARK_READY);
 				}
 				if (canCancelOrder(order)) {
 					actions.add(OrderAllowedAction.CANCEL_ORDER);
@@ -2409,7 +2944,8 @@ public class OrderService {
 					actions.add(OrderAllowedAction.VIEW_INVOICE);
 				}
 			}
-			case MANAGER -> {
+			case STAFF -> {
+case MANAGER -> {
 				if (canConfirmOrder(order)) {
 					actions.add(OrderAllowedAction.CONFIRM_ORDER);
 				}
@@ -2443,14 +2979,9 @@ public class OrderService {
 				if (visibleStoreId != null && actor.getWorkingStore() != null && visibleStoreId.equals(actor.getWorkingStore().getId())) {
 					if (order.getPaymentStatus() == PaymentStatus.PAID
 							&& order.getStatus() == OrderStatus.READY_FOR_SHIPPER
-							&& (order.getDeliveringShipper() == null || actor.getId().equals(order.getDeliveringShipper().getId()))) {
-						actions.add(OrderAllowedAction.ACCEPT_DELIVERY);
-					}
-					if (order.getPaymentStatus() == PaymentStatus.PAID
-							&& order.getStatus() == OrderStatus.OUT_FOR_DELIVERY
 							&& order.getDeliveringShipper() != null
 							&& actor.getId().equals(order.getDeliveringShipper().getId())) {
-						actions.add(OrderAllowedAction.MARK_COMPLETED);
+						actions.add(OrderAllowedAction.ACCEPT_DELIVERY);
 					}
 				}
 				if (invoiceAvailable) {
@@ -2471,6 +3002,11 @@ public class OrderService {
 
 	private boolean canConfirmOrder(Order order) {
 		return order.getPaymentStatus() == PaymentStatus.PAID && order.getStatus() == OrderStatus.PENDING;
+	}
+
+	private boolean canMarkReadyForShipper(Order order) {
+		return order.getPaymentStatus() == PaymentStatus.PAID
+				&& (order.getStatus() == OrderStatus.PREPARING || order.getStatus() == OrderStatus.READY_FOR_SHIPPER);
 	}
 
 	private boolean canCancelOrder(Order order) {
@@ -2535,7 +3071,7 @@ public class OrderService {
 	private String buildMobileOrderQrDeepLink(String qrToken) {
 		String base = appMobileProperties.getOrderQrDeepLinkBase();
 		if (!StringUtils.hasText(base)) {
-			return "teamatcha://order-qr/" + qrToken;
+			return "kamatcha://order-qr/" + qrToken;
 		}
 		String normalizedBase = base.endsWith("/") ? base : base + "/";
 		return normalizedBase + qrToken;
@@ -2563,11 +3099,25 @@ public class OrderService {
 		);
 	}
 
-	private MobileOrderQrResolveResponse resolveManagerMobileQr(User manager, Order order) {
-		Long visibleStoreId = requireWorkingStoreId(manager);
+	private MobileOrderQrResolveResponse resolveStaffMobileQr(User staff, Order order) {
+		Long visibleStoreId = requireWorkingStoreId(staff);
 		if (!orderItemRepository.existsByOrderIdAndStoreId(order.getId(), visibleStoreId)) {
 			throw new ForbiddenException("Order does not belong to your store");
 		}
+		recordScanAudit(order, staff, EmployeeOrderScanAction.ACCEPT_PREPARING, false, "Preparation workflow is managed by manager accounts");
+		return new MobileOrderQrResolveResponse(
+				staff.getRole(),
+				"EMPLOYEE_ORDER_DETAIL",
+				false,
+				"Preparation workflow is managed by manager accounts",
+				null,
+				order.getPreparingStaff() != null ? order.getPreparingStaff().getId() : null,
+				order.getPreparingStaff() != null ? order.getPreparingStaff().getFullName() : null,
+				order.getPreparingStaff() != null ? order.getPreparingStaff().getRole() : null,
+				toResponse(order, visibleStoreId, staff)
+		);
+private MobileOrderQrResolveResponse resolveManagerMobileQr(User manager, Order order) {
+		Long visibleStoreId = requireWorkingStoreId(manager);
 		try {
 			Order savedOrder = acceptPreparingOrderScan(order, manager);
 			recordScanAudit(savedOrder, manager, EmployeeOrderScanAction.ACCEPT_PREPARING, true, null);
@@ -2595,7 +3145,6 @@ public class OrderService {
 					order.getPreparingStaff() != null ? order.getPreparingStaff().getRole() : null,
 					toResponse(order, visibleStoreId, manager)
 			);
-		}
 	}
 
 	private MobileOrderQrResolveResponse resolveAdminMobileQr(User operator, Order order) {
@@ -2654,45 +3203,49 @@ public class OrderService {
 
 	private String resolveStatusSummary(Order order) {
 		if (order.getStatus() == OrderStatus.CANCELLED || order.getPaymentStatus() == PaymentStatus.CANCELLED) {
-			return "Don hang da huy";
+			return "Order cancelled";
 		}
 		if (order.getPaymentStatus() == PaymentStatus.FAILED) {
-			return "Thanh toan that bai";
+			return "Payment failed";
 		}
 		if (order.getPaymentStatus() != PaymentStatus.PAID) {
-			return "Cho thanh toan";
+			return "Awaiting payment";
 		}
 		if (order.getStatus() == OrderStatus.PENDING) {
-			return "Cho cua hang xac nhan";
+			return "Paid - waiting for manager confirmation";
 		}
 		if (order.getStatus() == OrderStatus.CONFIRMED) {
 			if (order.getConfirmedByUser() != null) {
-				return order.getConfirmedByUser().getFullName() + " da xac nhan don - cho quan ly nhan don";
+				return order.getConfirmedByUser().getFullName() + " confirmed the order - moving it into processing";
 			}
+			return "Order confirmed";
+return order.getConfirmedByUser().getFullName() + " da xac nhan don - cho quan ly nhan don";
 			return "Cho quan ly nhan don";
 		}
 		if (order.getStatus() == OrderStatus.READY_FOR_SHIPPER) {
-			if (order.getPreparingStaff() != null) {
-				return order.getPreparingStaff().getFullName() + " da lam xong - cho shipper";
+			if (order.getDeliveringShipper() != null) {
+				return "Assigned to shipper " + order.getDeliveringShipper().getFullName() + " - waiting for pickup";
 			}
-			return "Da lam xong - cho shipper";
+			return "Waiting for shipper pickup";
 		}
 		if (order.getStatus() == OrderStatus.OUT_FOR_DELIVERY) {
 			return order.getDeliveringShipper() != null
-					? order.getDeliveringShipper().getFullName() + " dang giao hang"
-					: "Shipper dang giao hang";
+					? order.getDeliveringShipper().getFullName() + " is delivering the order"
+					: "Shipper is delivering the order";
 		}
 		if (order.getStatus() == OrderStatus.PREPARING) {
 			return order.getPreparingStaff() != null
-					? "Quan ly " + order.getPreparingStaff().getFullName() + " dang xu ly don"
+					? order.getPreparingStaff().getFullName() + " is processing the order at the store"
+					: "The store is processing the order";
+? "Quan ly " + order.getPreparingStaff().getFullName() + " dang xu ly don"
 					: "Don hang dang lam mon";
 		}
 		if (order.getStatus() == OrderStatus.COMPLETED) {
 			return order.getDeliveringShipper() != null
-					? order.getDeliveringShipper().getFullName() + " da giao hang thanh cong"
-					: "Giao hang thanh cong";
+					? order.getDeliveringShipper().getFullName() + " delivered the order successfully"
+					: "Delivered successfully";
 		}
-		return "Khach da thanh toan";
+		return "Customer has paid";
 	}
 
 	private Long resolveStoreId(List<OrderItemResponse> items) {
@@ -2778,7 +3331,51 @@ public class OrderService {
 	}
 
 	private String buildPayOsDescription(Long payosOrderCode) {
-		return "TM" + payosOrderCode;
+		long normalizedOrderCode = payosOrderCode == null ? 0L : Math.abs(payosOrderCode);
+		long compactCode = normalizedOrderCode % 10_000_000L;
+		return "TM" + String.format("%07d", compactCode);
+	}
+
+	private String resolvePendingPaymentReference(String paymentLinkId, Long orderCode) {
+		if (StringUtils.hasText(paymentLinkId)) {
+			return paymentLinkId;
+		}
+		return orderCode == null ? null : String.valueOf(orderCode);
+	}
+
+	private String resolveDisplayPaymentReference(Order order) {
+		if (StringUtils.hasText(order.getPaymentReference())) {
+			return order.getPaymentReference();
+		}
+		return resolvePendingPaymentReference(order.getPaymentLinkId(), order.getPayosOrderCode());
+	}
+
+	private String resolveVisiblePaymentCheckoutUrl(Order order) {
+		return isPaymentLinkVisible(order) ? order.getPaymentCheckoutUrl() : null;
+	}
+
+	private String resolveVisiblePaymentQrCode(Order order) {
+		return isPaymentLinkVisible(order) ? order.getPaymentQrCode() : null;
+	}
+
+	private Instant resolveVisiblePaymentExpiresAt(Order order) {
+		return isPaymentLinkVisible(order) ? order.getPaymentExpiresAt() : null;
+	}
+
+	private boolean isPaymentLinkVisible(Order order) {
+		if (order == null) {
+			return false;
+		}
+		if (order.getStatus() == OrderStatus.CANCELLED) {
+			return false;
+		}
+		if (order.getPaymentStatus() != PaymentStatus.PENDING) {
+			return false;
+		}
+		if (!StringUtils.hasText(order.getPaymentCheckoutUrl()) && !StringUtils.hasText(order.getPaymentQrCode())) {
+			return false;
+		}
+		return order.getPaymentExpiresAt() == null || order.getPaymentExpiresAt().isAfter(Instant.now());
 	}
 
 	private String resolvePendingPaymentReference(String paymentLinkId, Long orderCode) {
@@ -2828,6 +3425,46 @@ public class OrderService {
 		return minutes * 60L;
 	}
 
+	private PayOsPaymentSessionCreationResult createPaymentLinkWithRetry(
+			Long initialPayosOrderCode,
+			PayOsPaymentLinkRequestFactory requestFactory,
+			String operationLabel,
+			Long orderId
+	) {
+		Long payosOrderCode = initialPayosOrderCode;
+		for (int attempt = 0; attempt < 5; attempt++) {
+			try {
+				PayOsPaymentLinkData paymentLinkData = payOsClient.createPaymentLink(requestFactory.build(payosOrderCode));
+				Long resolvedPayosOrderCode = paymentLinkData.orderCode() == null ? payosOrderCode : paymentLinkData.orderCode();
+				return new PayOsPaymentSessionCreationResult(resolvedPayosOrderCode, paymentLinkData);
+			} catch (RuntimeException exception) {
+				if (!isRetryablePayOsOrderCodeConflict(exception)) {
+					throw exception;
+				}
+				log.warn("PayOS order code {} already exists while {} for order {}", payosOrderCode, operationLabel, orderId);
+				payosOrderCode = nextPayOsOrderCode();
+			}
+		}
+		throw new ConflictException("Could not create a new payOS payment session");
+	}
+
+	private boolean isRetryablePayOsOrderCodeConflict(RuntimeException exception) {
+		if (exception instanceof ConflictException) {
+			return true;
+		}
+		if (!(exception instanceof BadRequestException) || !StringUtils.hasText(exception.getMessage())) {
+			return false;
+		}
+		String normalizedMessage = exception.getMessage().toLowerCase(Locale.ROOT);
+		String foldedMessage = Normalizer.normalize(normalizedMessage, Normalizer.Form.NFD)
+				.replaceAll("\\p{M}+", "");
+		return normalizedMessage.contains("payment request already exists")
+				|| normalizedMessage.contains("already exists")
+				|| normalizedMessage.contains("payos error 231")
+				
+				;
+	}
+
 	private Long nextPayOsOrderCode() {
 		long candidate = Math.max(System.currentTimeMillis(), Instant.now().toEpochMilli());
 		while (orderRepository.findByPayosOrderCode(candidate).isPresent()) {
@@ -2844,6 +3481,9 @@ public class OrderService {
 		return request.deliveryType() == null ? DeliveryType.IMMEDIATE : request.deliveryType();
 	}
 
+	private DeliveryType resolveDeliveryType(CheckoutPromotionSuggestionsRequest request) {
+		return request.deliveryType() == null ? DeliveryType.IMMEDIATE : request.deliveryType();
+	}
 	private Instant resolveScheduledDeliveryAt(CheckoutRequest request, DeliveryType deliveryType) {
 		if (deliveryType == DeliveryType.SCHEDULED) {
 			if (request.scheduledDeliveryAt() == null) {
@@ -2861,15 +3501,28 @@ public class OrderService {
 	}
 
 	private Instant resolveScheduledDeliveryAt(CheckoutPreviewRequest request, DeliveryType deliveryType) {
+		return resolveScheduledDeliveryAt(request.scheduledDeliveryAt(), deliveryType);
+	}
+
+	private Instant resolveScheduledDeliveryAt(CheckoutPromotionSuggestionsRequest request, DeliveryType deliveryType) {
+		return resolveScheduledDeliveryAt(request.scheduledDeliveryAt(), deliveryType);
+	}
+
+	private Instant resolveScheduledDeliveryAt(Instant scheduledDeliveryAt, DeliveryType deliveryType) {
 		if (deliveryType == DeliveryType.SCHEDULED) {
-			if (request.scheduledDeliveryAt() == null) {
+			if (scheduledDeliveryAt == null) {
 				throw new BadRequestException("scheduledDeliveryAt is required when deliveryType is SCHEDULED");
 			}
-			if (!request.scheduledDeliveryAt().isAfter(Instant.now())) {
+			if (!scheduledDeliveryAt.isAfter(Instant.now())) {
 				throw new BadRequestException("scheduledDeliveryAt must be in the future");
 			}
-			return request.scheduledDeliveryAt();
+			return scheduledDeliveryAt;
 		}
+		if (scheduledDeliveryAt != null) {
+if (deliveryType == DeliveryType.SCHEDULED) {
+			if (request.scheduledDeliveryAt() == null) {
+			if (!request.scheduledDeliveryAt().isAfter(Instant.now())) {
+			return request.scheduledDeliveryAt();
 		if (request.scheduledDeliveryAt() != null) {
 			throw new BadRequestException("scheduledDeliveryAt is only allowed when deliveryType is SCHEDULED");
 		}
@@ -2936,10 +3589,14 @@ public class OrderService {
 				.reduce(BigDecimal.ZERO, BigDecimal::add);
 	}
 
-	private Long resolveCurrentUserLevelId(User user, Store store) {
+	private List<Long> resolveCurrentUserLevelIds(User user) {
+		if (user == null || user.getId() == null) {
+			return List.of();
+		}
+		return userLevelService.resolveCurrentLevelDefinitionIds(user, Instant.now());
+private Long resolveCurrentUserLevelId(User user, Store store) {
 		if (user == null || store == null || store.getId() == null) {
 			return null;
-		}
 		UserLevelService.CurrentLevelSnapshot snapshot = userLevelService.resolveCurrentLevelSnapshot(user, store.getId(), Instant.now());
 		return snapshot.level() != null ? snapshot.level().getId() : null;
 	}
@@ -3014,7 +3671,10 @@ public class OrderService {
 			if (snapshot == null) {
 				continue;
 			}
-			if (snapshot.status() != OrderStatus.CONFIRMED
+			if (snapshot.paymentStatus() != PaymentStatus.PAID
+					&& order.getPaymentStatus() == PaymentStatus.PAID
+					&& order.getStatus() == OrderStatus.PENDING) {
+if (snapshot.status() != OrderStatus.CONFIRMED
 					&& order.getStatus() == OrderStatus.CONFIRMED
 					&& order.getPaymentStatus() == PaymentStatus.PAID) {
 				notificationService.notifyPaidOrderWaitingForManager(order);
@@ -3043,6 +3703,7 @@ public class OrderService {
 			Cart cart,
 			List<CartItem> cartItems,
 			Map<Long, StoreDish> storeDishByCartItemId,
+			List<PromotionService.StoreCheckoutContext> storeContexts,
 			Promotion sharedPromotion,
 			List<StoreOrderPlan> storeOrderPlans,
 			BigDecimal subtotalAmount,
@@ -3053,9 +3714,28 @@ public class OrderService {
 	) {
 	}
 
+	@FunctionalInterface
+	private interface PayOsPaymentLinkRequestFactory {
+
+		PayOsCreatePaymentLinkRequest build(Long payosOrderCode);
+	}
+
+	private record PayOsPaymentSessionCreationResult(
+			Long payosOrderCode,
+			PayOsPaymentLinkData paymentLinkData
+	) {
+	}
+
+	private record StoreDishRoutingKey(
+			Long storeId,
+			Long dishId
+	) {
+	}
+
 	private record OrderStateSnapshot(
 			OrderStatus status,
 			PaymentStatus paymentStatus
 	) {
 	}
 }
+

@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.List;
 
 import com.example.registrationotp.model.Promotion;
+import com.example.registrationotp.model.PromotionDiscountTarget;
 import com.example.registrationotp.model.PromotionDiscountType;
 import com.example.registrationotp.model.PromotionScope;
 
@@ -15,11 +16,13 @@ public record PromotionResponse(
 		String description,
 		PromotionScope scope,
 		PromotionDiscountType discountType,
+		PromotionDiscountTarget discountTarget,
 		BigDecimal discountValue,
 		BigDecimal minOrderAmount,
 		BigDecimal minimumOrderAmount,
 		BigDecimal maxDiscountAmount,
 		BigDecimal maximumDiscountAmount,
+		Integer creditCost,
 		BigDecimal minStoreBillAmount,
 		BigDecimal minCrossStoreBillAmount,
 		Integer usageLimit,
@@ -43,20 +46,22 @@ public record PromotionResponse(
 				promotion.getDescription(),
 				promotion.getScope(),
 				promotion.getDiscountType(),
+				promotion.getDiscountTarget(),
 				promotion.getDiscountValue(),
 				promotion.getMinOrderAmount(),
 				promotion.getMinOrderAmount(),
 				promotion.getMaxDiscountAmount(),
 				promotion.getMaxDiscountAmount(),
-				promotion.getMinStoreBillAmount(),
-				promotion.getMinCrossStoreBillAmount(),
+				promotion.getCreditCost(),
+				null,
+				null,
 				promotion.getUsageLimit(),
 				promotion.getUsedCount(),
 				promotion.getStartsAt(),
 				promotion.getEndsAt(),
 				List.copyOf(promotion.getApplicableDishIds()),
 				List.copyOf(promotion.getApplicableDishIds()),
-				List.copyOf(promotion.getEligibleStoreIds()),
+				List.of(),
 				List.copyOf(promotion.getEligibleUserLevelIds()),
 				promotion.isActive(),
 				promotion.getCreatedAt(),

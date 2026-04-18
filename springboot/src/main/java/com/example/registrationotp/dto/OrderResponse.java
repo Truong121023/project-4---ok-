@@ -32,6 +32,7 @@ public record OrderResponse(
 		BigDecimal shippingFeeAmount,
 		List<ShippingFeeBreakdownItemResponse> shippingFeeBreakdown,
 		BigDecimal totalAmount,
+		Integer creditPointsAwarded,
 		String promotionCode,
 		PromotionScope promotionScope,
 		BigDecimal promotionEligibleAmount,

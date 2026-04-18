@@ -46,7 +46,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Da xoa review')),
+        const SnackBar(content: Text('Review deleted')),
       );
     } catch (error) {
       if (!mounted) {
@@ -62,7 +62,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Review cua toi')),
+      appBar: AppBar(title: const Text('My reviews')),
       body: controller.isLoggedIn
           ? FutureBuilder<List<UserReview>>(
               future: _future,
@@ -87,8 +87,8 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                       padding: const EdgeInsets.all(16),
                       children: const [
                         EmptyStateCard(
-                          title: 'Chua co review',
-                          message: 'Vao store, dish hoac event detail de viet review theo dung doi tuong.',
+                          title: 'No reviews yet',
+                          message: 'Open a store, dish, or event detail page to write your first review.',
                         ),
                       ],
                     ),
@@ -119,7 +119,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                                           ?.copyWith(fontWeight: FontWeight.w800),
                                     ),
                                   ),
-                                  MetricChip(label: '${review.rating.toStringAsFixed(1)} sao'),
+                                  MetricChip(label: '${review.rating.toStringAsFixed(1)} stars'),
                                 ],
                               ),
                               const SizedBox(height: 8),
@@ -134,7 +134,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                                 spacing: 8,
                                 runSpacing: 8,
                                 children: [
-                                  MetricChip(label: review.approved ? 'Da duyet' : 'Cho duyet'),
+                                  MetricChip(label: review.approved ? 'Approved' : 'Pending approval'),
                                   MetricChip(label: Formatters.shortDate(review.updatedAt ?? review.createdAt)),
                                 ],
                               ),
@@ -160,11 +160,11 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                                         _refresh();
                                       }
                                     },
-                                    child: const Text('Sua'),
+                                    child: const Text('Edit'),
                                   ),
                                   TextButton(
                                     onPressed: () => _deleteReview(review),
-                                    child: const Text('Xoa'),
+                                    child: const Text('Delete'),
                                   ),
                                 ],
                               ),
@@ -180,9 +180,9 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
           : Padding(
               padding: const EdgeInsets.all(16),
               child: EmptyStateCard(
-                title: 'Can dang nhap',
-                message: 'Dang nhap de quan ly cac review ban da gui.',
-                actionLabel: 'Dang nhap',
+                title: 'Sign in required',
+                message: 'Sign in to manage the reviews you have submitted.',
+                actionLabel: 'Sign in',
                 onAction: () {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(builder: (_) => const LoginScreen()),

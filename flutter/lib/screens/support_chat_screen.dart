@@ -38,7 +38,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Ho tro')),
+      appBar: AppBar(title: const Text('Support')),
       body: controller.isLoggedIn
           ? FutureBuilder<List<SupportStore>>(
               future: _future,
@@ -63,8 +63,8 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
                       padding: const EdgeInsets.all(16),
                       children: const [
                         EmptyStateCard(
-                          title: 'Chua co cua hang ho tro',
-                          message: 'Khi cua hang san sang tiep nhan yeu cau, danh sach ho tro se hien o day.',
+                          title: 'No support stores yet',
+                          message: 'When stores are ready to accept support requests, they will appear here.',
                         ),
                       ],
                     ),
@@ -76,8 +76,8 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
                     children: [
                       const EmptyStateCard(
-                        title: 'Chon cua hang can ho tro',
-                        message: 'Mo tung cua hang de chat truc tiep voi team dang phu trach store do.',
+                        title: 'Choose a store for support',
+                        message: 'Open a store to chat directly with the team managing that branch.',
                       ),
                       const SizedBox(height: 16),
                       ...stores.map(
@@ -86,7 +86,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
                           child: ActionMenuCard(
                             icon: Icons.support_agent_outlined,
                             title: store.name,
-                            subtitle: 'Mo phien chat support theo dung cua hang ban muon duoc ho tro.',
+                            subtitle: 'Open the support chat for the exact store you want help from.',
                             onTap: () {
                               Navigator.of(context).push(
                                 MaterialPageRoute<void>(
@@ -105,9 +105,9 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
           : Padding(
               padding: const EdgeInsets.all(16),
               child: EmptyStateCard(
-                title: 'Can dang nhap',
-                message: 'Dang nhap de chat voi cua hang va theo doi phan hoi trong app.',
-                actionLabel: 'Dang nhap',
+                title: 'Sign in required',
+                message: 'Sign in to chat with the store and follow replies inside the app.',
+                actionLabel: 'Sign in',
                 onAction: () {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
@@ -183,8 +183,8 @@ class _SupportConversationScreenState extends State<SupportConversationScreen> {
         body: const Padding(
           padding: EdgeInsets.all(16),
           child: EmptyStateCard(
-            title: 'Can dang nhap',
-            message: 'Dang nhap de mo support chat.',
+            title: 'Sign in required',
+            message: 'Sign in to open support chat.',
           ),
         ),
       );
@@ -211,7 +211,7 @@ class _SupportConversationScreenState extends State<SupportConversationScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Trang thai ho tro',
+                              'Support status',
                               style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
                             ),
                             const SizedBox(height: 8),
@@ -222,7 +222,7 @@ class _SupportConversationScreenState extends State<SupportConversationScreen> {
                                 MetricChip(label: chatService.connectionLabel),
                                 MetricChip(label: widget.store.name),
                                 if ((chatState?.assignedAdminName ?? '').trim().isNotEmpty)
-                                  MetricChip(label: 'Dang duoc ho tro boi ${chatState!.assignedAdminName}'),
+                                  MetricChip(label: 'You are being helped by ${chatState!.assignedAdminName}'),
                               ],
                             ),
                             if ((chatService.errorMessage ?? '').trim().isNotEmpty) ...[
@@ -231,7 +231,7 @@ class _SupportConversationScreenState extends State<SupportConversationScreen> {
                               const SizedBox(height: 12),
                               FilledButton.tonal(
                                 onPressed: chatService.retry,
-                                child: const Text('Thu ket noi lai'),
+                                child: const Text('Reconnect'),
                               ),
                             ],
                           ],
@@ -241,8 +241,8 @@ class _SupportConversationScreenState extends State<SupportConversationScreen> {
                     const SizedBox(height: 16),
                     if (messages.isEmpty)
                       const EmptyStateCard(
-                        title: 'Dang mo phien chat',
-                        message: 'Khi cua hang nhan phien ho tro, tin nhan se hien ngay tai day.',
+                        title: 'Opening chat session',
+                        message: 'Messages will appear here as soon as the store joins the support session.',
                       )
                     else
                       ...messages.map(
@@ -275,7 +275,7 @@ class _SupportConversationScreenState extends State<SupportConversationScreen> {
                           textInputAction: TextInputAction.send,
                           onSubmitted: (_) => _sendMessage(),
                           decoration: const InputDecoration(
-                            hintText: 'Nhap noi dung can ho tro',
+                            hintText: 'Type your support message',
                           ),
                         ),
                       ),
@@ -283,7 +283,7 @@ class _SupportConversationScreenState extends State<SupportConversationScreen> {
                       FilledButton.icon(
                         onPressed: _sendMessage,
                         icon: const Icon(Icons.send),
-                        label: const Text('Gui'),
+                        label: const Text('Send'),
                       ),
                     ],
                   ),

@@ -46,7 +46,7 @@ class _BackofficeSupportChatScreenState extends State<BackofficeSupportChatScree
     final controller = AppScope.of(context);
     final session = controller.session;
     final chatService = _chatService;
-    final title = controller.isManager ? 'Support cua hang' : 'Support inbox';
+    final title = controller.isManager ? 'Store support' : 'Support inbox';
 
     if (session == null || chatService == null) {
       return Scaffold(
@@ -54,8 +54,8 @@ class _BackofficeSupportChatScreenState extends State<BackofficeSupportChatScree
         body: const Padding(
           padding: EdgeInsets.all(16),
           child: EmptyStateCard(
-            title: 'Can dang nhap',
-            message: 'Dang nhap lai de mo support inbox.',
+            title: 'Sign in required',
+            message: 'Sign in again to open the support inbox.',
           ),
         ),
       );
@@ -81,8 +81,8 @@ class _BackofficeSupportChatScreenState extends State<BackofficeSupportChatScree
                         runSpacing: 8,
                         children: [
                           MetricChip(label: chatService.connectionLabel),
-                          MetricChip(label: '${chatService.adminSessions.length} phien'),
-                          if (waitingCount > 0) MetricChip(label: '$waitingCount dang cho'),
+                          MetricChip(label: '${chatService.adminSessions.length} sessions'),
+                          if (waitingCount > 0) MetricChip(label: '$waitingCount waiting'),
                         ],
                       ),
                       if ((chatService.errorMessage ?? '').trim().isNotEmpty) ...[
@@ -91,7 +91,7 @@ class _BackofficeSupportChatScreenState extends State<BackofficeSupportChatScree
                         const SizedBox(height: 12),
                         FilledButton.tonal(
                           onPressed: chatService.retry,
-                          child: const Text('Thu ket noi lai'),
+                          child: const Text('Reconnect'),
                         ),
                       ],
                     ],
@@ -101,8 +101,8 @@ class _BackofficeSupportChatScreenState extends State<BackofficeSupportChatScree
               const SizedBox(height: 16),
               if (chatService.adminSessions.isEmpty)
                 const EmptyStateCard(
-                  title: 'Chua co phien chat',
-                  message: 'Khi user mo support chat, phien ho tro se hien o day.',
+                  title: 'No chat sessions yet',
+                  message: 'Support sessions will appear here when users open support chat.',
                 )
               else
                 ...chatService.adminSessions.map(
@@ -202,8 +202,8 @@ class _BackofficeSupportConversationScreenState extends State<BackofficeSupportC
             body: const Padding(
               padding: EdgeInsets.all(16),
               child: EmptyStateCard(
-                title: 'Phien chat da dong',
-                message: 'User da roi khoi chat hoac phien nay khong con tren server.',
+                title: 'Chat session closed',
+                message: 'The user left the chat or this session is no longer on the server.',
               ),
             ),
           );
@@ -234,9 +234,9 @@ class _BackofficeSupportConversationScreenState extends State<BackofficeSupportC
                               runSpacing: 8,
                               children: [
                                 MetricChip(label: widget.chatService.connectionLabel),
-                                if (session.waitingForAdmin) const MetricChip(label: 'Dang cho nhan'),
+                                if (session.waitingForAdmin) const MetricChip(label: 'Waiting for pickup'),
                                 if ((session.assignedAdminName ?? '').trim().isNotEmpty)
-                                  MetricChip(label: 'Phu trach: ${session.assignedAdminName}'),
+                                  MetricChip(label: 'Assigned: ${session.assignedAdminName}'),
                               ],
                             ),
                             const SizedBox(height: 10),
@@ -276,7 +276,7 @@ class _BackofficeSupportConversationScreenState extends State<BackofficeSupportC
                           textInputAction: TextInputAction.send,
                           onSubmitted: (_) => _sendMessage(),
                           decoration: const InputDecoration(
-                            hintText: 'Nhap noi dung tra loi',
+                            hintText: 'Type your reply',
                           ),
                         ),
                       ),
@@ -284,7 +284,7 @@ class _BackofficeSupportConversationScreenState extends State<BackofficeSupportC
                       FilledButton.icon(
                         onPressed: _sendMessage,
                         icon: const Icon(Icons.send),
-                        label: const Text('Gui'),
+                        label: const Text('Send'),
                       ),
                     ],
                   ),

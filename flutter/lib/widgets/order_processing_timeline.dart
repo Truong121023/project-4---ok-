@@ -6,8 +6,8 @@ import 'app_widgets.dart';
 class OrderProcessingTimeline extends StatelessWidget {
   const OrderProcessingTimeline({
     super.key,
-    this.title = 'Tien trinh xu ly',
-    this.subtitle = 'Theo doi nguoi xac nhan, bep va shipper theo thu tu xu ly.',
+    this.title = 'Order timeline',
+    this.subtitle = 'Track confirmation, preparation, pickup, and delivery in order.',
     this.confirmedByUserName,
     this.confirmedByUserRole,
     this.confirmedAt,
@@ -27,6 +27,82 @@ class OrderProcessingTimeline extends StatelessWidget {
   final String? deliveryStatus;
   final DateTime? deliveryProofCapturedAt;
 
+  String get _normalizedStatus => deliveryStatus?.trim().toUpperCase() ?? '';
+
+  bool get _hasConfirmedIdentity =>
+      (confirmedByUserName ?? '').trim().isNotEmpty;
+
+  bool get _hasPreparingIdentity =>
+      (preparingStaffName ?? '').trim().isNotEmpty;
+
+  bool get _hasShipperIdentity =>
+      (deliveringShipperName ?? '').trim().isNotEmpty;
+
+  bool _storeConfirmed() {
+    return _hasConfirmedIdentity ||
+        confirmedAt != null ||
+        const {
+          'CONFIRMED',
+          'PREPARING',
+          'READY_FOR_SHIPPER',
+          'OUT_FOR_DELIVERY',
+          'COMPLETED',
+        }.contains(_normalizedStatus);
+  }
+
+  bool _preparationStarted() {
+    return _hasPreparingIdentity ||
+        const {
+          'PREPARING',
+          'READY_FOR_SHIPPER',
+          'OUT_FOR_DELIVERY',
+          'COMPLETED',
+        }.contains(_normalizedStatus);
+  }
+
+  bool _preparationDone() {
+    return const {
+      'READY_FOR_SHIPPER',
+      'OUT_FOR_DELIVERY',
+      'COMPLETED',
+    }.contains(_normalizedStatus);
+  }
+
+  bool _deliveryStarted() {
+    return _hasShipperIdentity ||
+        const {
+          'READY_FOR_SHIPPER',
+          'OUT_FOR_DELIVERY',
+          'COMPLETED',
+        }.contains(_normalizedStatus);
+  }
+
+  _TimelineStageState _confirmationState() {
+    return _storeConfirmed()
+        ? _TimelineStageState.done
+        : _TimelineStageState.inactive;
+  }
+
+  _TimelineStageState _preparationState() {
+    if (_preparationDone()) {
+      return _TimelineStageState.done;
+    }
+    if (_preparationStarted()) {
+      return _TimelineStageState.current;
+    }
+    return _TimelineStageState.inactive;
+  }
+
+  _TimelineStageState _deliveryState() {
+    if (_deliveryDone()) {
+      return _TimelineStageState.done;
+    }
+    if (_deliveryStarted()) {
+      return _TimelineStageState.current;
+    }
+    return _TimelineStageState.inactive;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -44,34 +120,29 @@ class OrderProcessingTimeline extends StatelessWidget {
               children: [
                 _TimelineRow(
                   icon: Icons.verified_user_outlined,
-                  title: 'Xac nhan cua hang',
-                  subtitle: confirmedByUserName == null
-                      ? 'Dang cho manager/admin xac nhan don.'
-                      : _joinParts(
-                          [
-                            confirmedByUserRole == null || confirmedByUserRole!.trim().isEmpty
-                                ? confirmedByUserName!
-                                : '$confirmedByUserName ($confirmedByUserRole)',
-                            confirmedAt == null ? null : Formatters.fullDateTime(confirmedAt),
-                          ],
-                        ),
-                  done: confirmedByUserName != null,
+                  title: 'Store confirmation',
+                  subtitle: _confirmationSubtitle(),
+                  state: _confirmationState(),
                 ),
                 const SizedBox(height: 14),
                 _TimelineRow(
                   icon: Icons.local_cafe_outlined,
-                  title: 'Nhan vien bep',
-                  subtitle: preparingStaffName == null
-                      ? 'Dang cho staff nhan va xu ly don.'
-                      : '$preparingStaffName dang phu trach phan bep.',
-                  done: preparingStaffName != null,
+                  title: 'Store preparation',
+                  subtitle: _preparationSubtitle(),
+                  state: _preparationState(),
                 ),
                 const SizedBox(height: 14),
                 _TimelineRow(
                   icon: Icons.delivery_dining_outlined,
+<<<<<<< HEAD
+                  title: 'Delivery',
+                  subtitle: _deliverySubtitle(),
+                  state: _deliveryState(),
+=======
                   title: 'Shipper giao hang',
                   subtitle: _deliverySubtitle(),
                   done: _deliveryDone(),
+>>>>>>> origin/main
                 ),
               ],
             ),
@@ -85,6 +156,69 @@ class OrderProcessingTimeline extends StatelessWidget {
     return values.whereType<String>().where((value) => value.trim().isNotEmpty).join(' | ');
   }
 
+<<<<<<< HEAD
+  String _confirmationSubtitle() {
+    if (!_storeConfirmed()) {
+      return 'Waiting for the store manager to confirm the order.';
+    }
+
+    if (_hasConfirmedIdentity || confirmedAt != null) {
+      return _joinParts(
+        [
+          _hasConfirmedIdentity
+              ? confirmedByUserRole == null || confirmedByUserRole!.trim().isEmpty
+                  ? confirmedByUserName!
+                  : '${confirmedByUserName!} (${confirmedByUserRole!})'
+              : 'The store manager confirmed the order.',
+          confirmedAt == null
+              ? null
+              : 'Confirmed at ${Formatters.fullDateTime(confirmedAt)}',
+        ],
+      );
+    }
+
+    return 'The store manager confirmed the order.';
+  }
+
+  String _preparationSubtitle() {
+    final handlerName = preparingStaffName?.trim();
+
+    if (_preparationDone()) {
+      return handlerName == null || handlerName.isEmpty
+          ? 'The store finished preparing the order and handed it to delivery.'
+          : '$handlerName finished preparing the order for pickup.';
+    }
+
+    if (_preparationStarted()) {
+      return handlerName == null || handlerName.isEmpty
+          ? 'The store is preparing your order now.'
+          : '$handlerName is preparing your order now.';
+    }
+
+    return 'Waiting for the store team to begin preparing the order.';
+  }
+
+  String _deliverySubtitle() {
+    final shipperName = deliveringShipperName?.trim();
+    final normalizedStatus = _normalizedStatus;
+
+    if (!_deliveryStarted()) {
+      return 'Waiting for the store to finish preparation and assign a shipper.';
+    }
+
+    final identity =
+        shipperName == null || shipperName.isEmpty ? 'The assigned shipper' : shipperName;
+
+    return switch (normalizedStatus) {
+      'READY_FOR_SHIPPER' =>
+        '$identity has been assigned and is waiting to scan the pickup QR.',
+      'OUT_FOR_DELIVERY' => _joinParts(
+          [
+            '$identity is on the way with your order.',
+            deliveryProofCapturedAt == null
+                ? null
+                : 'Proof captured at ${Formatters.fullDateTime(deliveryProofCapturedAt)}',
+=======
   String _deliverySubtitle() {
     final shipperName = deliveringShipperName?.trim();
     final normalizedStatus = deliveryStatus?.trim().toUpperCase() ?? '';
@@ -101,28 +235,55 @@ class OrderProcessingTimeline extends StatelessWidget {
             deliveryProofCapturedAt == null
                 ? null
                 : 'Proof luc ${Formatters.fullDateTime(deliveryProofCapturedAt)}',
+>>>>>>> origin/main
           ],
         ),
       'COMPLETED' => _joinParts(
           [
+<<<<<<< HEAD
+            '$identity delivered the order successfully.',
+            deliveryProofCapturedAt == null
+                ? null
+                : 'Proof captured at ${Formatters.fullDateTime(deliveryProofCapturedAt)}',
+=======
             '$shipperName da giao hang thanh cong.',
             deliveryProofCapturedAt == null
                 ? null
                 : 'Proof luc ${Formatters.fullDateTime(deliveryProofCapturedAt)}',
+>>>>>>> origin/main
           ],
         ),
       _ => _joinParts(
           [
+<<<<<<< HEAD
+            '$identity is currently assigned to this order.',
+            deliveryProofCapturedAt == null
+                ? null
+                : 'Proof captured at ${Formatters.fullDateTime(deliveryProofCapturedAt)}',
+=======
             '$shipperName dang phu trach don nay.',
             deliveryProofCapturedAt == null
                 ? null
                 : 'Proof luc ${Formatters.fullDateTime(deliveryProofCapturedAt)}',
+>>>>>>> origin/main
           ],
         ),
     };
   }
 
   bool _deliveryDone() {
+<<<<<<< HEAD
+    final normalizedStatus = _normalizedStatus;
+    return normalizedStatus == 'COMPLETED' ||
+        deliveryProofCapturedAt != null;
+  }
+}
+
+enum _TimelineStageState {
+  inactive,
+  current,
+  done,
+=======
     final shipperName = deliveringShipperName?.trim();
     if (shipperName == null || shipperName.isEmpty) {
       return false;
@@ -132,6 +293,7 @@ class OrderProcessingTimeline extends StatelessWidget {
         normalizedStatus == 'COMPLETED' ||
         deliveryProofCapturedAt != null;
   }
+>>>>>>> origin/main
 }
 
 class _TimelineRow extends StatelessWidget {
@@ -139,29 +301,40 @@ class _TimelineRow extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
-    required this.done,
+    required this.state,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
-  final bool done;
+  final _TimelineStageState state;
 
   @override
   Widget build(BuildContext context) {
+    final isDone = state == _TimelineStageState.done;
+    final isCurrent = state == _TimelineStageState.current;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         DecoratedBox(
           decoration: BoxDecoration(
-            color: done ? const Color(0xFFE8F0E0) : const Color(0xFFF2F1EC),
+            color: isDone
+                ? const Color(0xFFE8F0E0)
+                : isCurrent
+                    ? const Color(0xFFF5EEDB)
+                    : const Color(0xFFF2F1EC),
             borderRadius: BorderRadius.circular(18),
           ),
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Icon(
-              done ? Icons.check_circle : icon,
-              color: done ? const Color(0xFF17332A) : null,
+              isDone ? Icons.check_circle : icon,
+              color: isDone
+                  ? const Color(0xFF17332A)
+                  : isCurrent
+                      ? const Color(0xFF8A5A11)
+                      : null,
             ),
           ),
         ),
@@ -172,7 +345,10 @@ class _TimelineRow extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: isCurrent ? const Color(0xFF6E4C18) : null,
+                    ),
               ),
               const SizedBox(height: 4),
               Text(subtitle),

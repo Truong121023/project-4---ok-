@@ -1531,7 +1531,7 @@ class RegistrationOtpApplicationTests {
 								{
 								  "title": "Khai truong Downtown Matcha House",
 								  "summary": "Chi nhanh moi da san sang don khach ngay trung tam.",
-								  "content": "Tea Matcha chinh thuc khai truong chi nhanh Downtown Matcha House voi tasting bar moi.",
+								  "content": "Kamatcha chinh thuc khai truong chi nhanh Downtown Matcha House voi tasting bar moi.",
 								  "relatedStoreId": %d,
 								  "tags": ["khai-truong", "chi-nhanh-moi", "downtown"],
 								  "imagePaths": ["/uploads/news/downtown-opening.jpg"],
@@ -2067,7 +2067,7 @@ class RegistrationOtpApplicationTests {
 						.contentType(APPLICATION_JSON)
 						.content("""
 								{
-								  "replyMessage": "Tea Matcha da ghi nhan va cam on ban."
+								  "replyMessage": "Kamatcha da ghi nhan va cam on ban."
 								}
 								"""))
 				.andExpect(status().isOk())
@@ -2078,7 +2078,7 @@ class RegistrationOtpApplicationTests {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.relatedStoreId").value(store.getId()))
 				.andExpect(jsonPath("$.relatedOrderId").value(order.getId()))
-				.andExpect(jsonPath("$.replyMessage").value("Tea Matcha da ghi nhan va cam on ban."));
+				.andExpect(jsonPath("$.replyMessage").value("Kamatcha da ghi nhan va cam on ban."));
 	}
 
 	@Test
@@ -2215,11 +2215,11 @@ class RegistrationOtpApplicationTests {
 						.contentType(APPLICATION_JSON)
 						.content("""
 								{
-								  "replyMessage": "Tea Matcha da ghi nhan va se ra soat lai chat luong mon."
+								  "replyMessage": "Kamatcha da ghi nhan va se ra soat lai chat luong mon."
 								}
 								"""))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.replyMessage").value("Tea Matcha da ghi nhan va se ra soat lai chat luong mon."))
+				.andExpect(jsonPath("$.replyMessage").value("Kamatcha da ghi nhan va se ra soat lai chat luong mon."))
 				.andExpect(jsonPath("$.repliedByUserId").value(adminUser.getId()))
 				.andExpect(jsonPath("$.repliedByUserName").value("Admin Reply"))
 				.andExpect(jsonPath("$.repliedByUserRole").value("ADMIN"));
@@ -2335,6 +2335,118 @@ class RegistrationOtpApplicationTests {
 				.andExpect(jsonPath("$.deliveryAddress").value("12 Nguyen Hue, Quan 1, TP HCM"));
 
 		assertThat(promotionRepository.findById(promotion.getId()).orElseThrow().getUsedCount()).isEqualTo(1);
+	}
+
+	@Test
+	void checkoutRetriesWhenPayOsReportsExistingPaymentRequest() throws Exception {
+		User buyerUser = saveUser("Retry Buyer", "retry-checkout@example.com", Role.USER, true);
+		String buyerToken = createSession(buyerUser);
+		Store store = saveStore("Retry Store", "12 Nguyen Hue", "retry-store@example.com", "0900001111");
+		Category category = saveSignatureCategory();
+		Dish dish = saveDish("Retry Matcha", category, new BigDecimal("65000"));
+		saveStoreDish(store, dish, 10, true, new BigDecimal("65000"));
+		com.example.registrationotp.model.UserDeliveryAddress deliveryAddress = saveDeliveryAddress(
+				buyerUser,
+				"Retry Buyer",
+				"0901234567",
+				"12 Nguyen Hue, Quan 1, TP HCM"
+		);
+
+		mockMvc.perform(post("/api/user/cart/items")
+						.header("Authorization", "Bearer " + buyerToken)
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "storeId": %d,
+								  "dishId": %d,
+								  "quantity": 1
+								}
+								""".formatted(store.getId(), dish.getId())))
+				.andExpect(status().isOk());
+
+		when(payOsClient.createPaymentLink(any()))
+				.thenThrow(new com.example.registrationotp.exception.BadRequestException("payOS payment request already exists"))
+				.thenReturn(new com.example.registrationotp.dto.PayOsPaymentLinkData(
+						"plink-retry",
+						"https://pay.payos.vn/web/plink-retry",
+						"qr-retry",
+						"PENDING",
+						99L,
+						65000
+				));
+
+		mockMvc.perform(post("/api/user/cart/checkout")
+						.header("Authorization", "Bearer " + buyerToken)
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "deliveryAddressId": %d,
+								  "returnUrl": "http://localhost:5173/payment/success",
+								  "cancelUrl": "http://localhost:5173/payment/cancel"
+								}
+								""".formatted(deliveryAddress.getId())))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.paymentReference").value("plink-retry"))
+				.andExpect(jsonPath("$.paymentCheckoutUrl").value("https://pay.payos.vn/web/plink-retry"))
+				.andExpect(jsonPath("$.paymentQrCode").value("qr-retry"));
+
+		verify(payOsClient, org.mockito.Mockito.times(2)).createPaymentLink(any());
+	}
+
+	@Test
+	void checkoutRetriesWhenPayOsReportsExistingPaymentRequestInVietnamese() throws Exception {
+		User buyerUser = saveUser("Retry Buyer Vi", "retry-checkout-vi@example.com", Role.USER, true);
+		String buyerToken = createSession(buyerUser);
+		Store store = saveStore("Retry Store Vi", "12 Nguyen Hue", "retry-store-vi@example.com", "0900001122");
+		Category category = saveSignatureCategory();
+		Dish dish = saveDish("Retry Matcha Vi", category, new BigDecimal("65000"));
+		saveStoreDish(store, dish, 10, true, new BigDecimal("65000"));
+		com.example.registrationotp.model.UserDeliveryAddress deliveryAddress = saveDeliveryAddress(
+				buyerUser,
+				"Retry Buyer Vi",
+				"0901234567",
+				"12 Nguyen Hue, Quan 1, TP HCM"
+		);
+
+		mockMvc.perform(post("/api/user/cart/items")
+						.header("Authorization", "Bearer " + buyerToken)
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "storeId": %d,
+								  "dishId": %d,
+								  "quantity": 1
+								}
+								""".formatted(store.getId(), dish.getId())))
+				.andExpect(status().isOk());
+
+		when(payOsClient.createPaymentLink(any()))
+				.thenThrow(new com.example.registrationotp.exception.BadRequestException("payOS error 231: Đơn thanh toán đã tồn tại"))
+				.thenReturn(new com.example.registrationotp.dto.PayOsPaymentLinkData(
+						"plink-retry-vi",
+						"https://pay.payos.vn/web/plink-retry-vi",
+						"qr-retry-vi",
+						"PENDING",
+						199L,
+						65000
+				));
+
+		mockMvc.perform(post("/api/user/cart/checkout")
+						.header("Authorization", "Bearer " + buyerToken)
+						.contentType(APPLICATION_JSON)
+						.content("""
+								{
+								  "deliveryAddressId": %d,
+								  "returnUrl": "http://localhost:5173/payment/success",
+								  "cancelUrl": "http://localhost:5173/payment/cancel"
+								}
+								""".formatted(deliveryAddress.getId())))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.paymentReference").value("plink-retry-vi"))
+				.andExpect(jsonPath("$.paymentCheckoutUrl").value("https://pay.payos.vn/web/plink-retry-vi"))
+				.andExpect(jsonPath("$.paymentQrCode").value("qr-retry-vi"));
+
+		verify(payOsClient, org.mockito.Mockito.times(2)).createPaymentLink(any());
 	}
 
 	@Test
@@ -3346,7 +3458,7 @@ class RegistrationOtpApplicationTests {
 		User buyerUser = saveUser("Employee Flow Buyer", "employee-order-buyer@example.com", Role.USER, true);
 		String buyerToken = createSession(buyerUser);
 
-		Store store = saveStore("District 1 Tea Matcha", "12 Nguyen Hue", "store@example.com", "0900000000");
+		Store store = saveStore("District 1 Kamatcha", "12 Nguyen Hue", "store@example.com", "0900000000");
 		Category category = saveCategory("Signature Latte", store);
 		Dish dish = saveDish("Iced Matcha Latte", category, new BigDecimal("65000"));
 
@@ -3469,7 +3581,8 @@ class RegistrationOtpApplicationTests {
 		String adminToken = createSession(adminUser);
 		User buyerUser = saveUser("Auto Shipper Buyer", "auto-shipper-buyer@example.com", Role.USER, true);
 
-		Store store = saveStore("District 3 Tea Matcha", "45 Vo Van Tan", "district3@example.com", "0900001111");
+		Store store = saveStore("District 3 Kamatcha", "45 Vo Van Tan", "district3@example.com", "0900001111");
+Store store = saveStore("District 3 Tea Matcha", "45 Vo Van Tan", "district3@example.com", "0900001111");
 		Category category = saveCategory("Latte", store);
 		Dish dish = saveDish("Hot Matcha Latte", category, new BigDecimal("70000"));
 

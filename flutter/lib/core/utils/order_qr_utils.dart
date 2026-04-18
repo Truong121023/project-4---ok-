@@ -14,7 +14,7 @@ String? extractOrderQrToken(String rawValue) {
     return null;
   }
 
-  if (uri.scheme == 'teamatcha') {
+  if (uri.scheme == 'kamatcha') {
     return _lastMeaningfulSegment(uri.pathSegments);
   }
 

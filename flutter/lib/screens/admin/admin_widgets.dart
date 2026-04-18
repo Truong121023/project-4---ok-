@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../app/app.dart';
 import '../../core/models/models.dart';
@@ -413,7 +413,7 @@ List<Widget> buildAdminDetailSections(
       SectionHeader(
         title: 'Sections',
         subtitle:
-            'Noi dung dai ma admin da nhap cho ${module.title.toLowerCase()}.',
+            'Long-form content entered by admin for ${module.title.toLowerCase()}.',
       ),
     );
     widgets.add(const SizedBox(height: 12));
@@ -584,3 +584,4 @@ List<Widget> buildAdminDetailSections(
 
   return widgets;
 }
+

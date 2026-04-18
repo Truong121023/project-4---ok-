@@ -3,7 +3,9 @@ package com.example.registrationotp.service;
 import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -26,6 +28,7 @@ import com.example.registrationotp.dto.PublicEventCardResponse;
 import com.example.registrationotp.dto.PublicHomeResponse;
 import com.example.registrationotp.dto.PublicNewsCardResponse;
 import com.example.registrationotp.dto.PublicNewsDetailResponse;
+import com.example.registrationotp.dto.PublicPromotionCardResponse;
 import com.example.registrationotp.dto.PublicReviewItemResponse;
 import com.example.registrationotp.dto.PublicStoreCardResponse;
 import com.example.registrationotp.dto.PublicStoreDetailResponse;
@@ -42,6 +45,7 @@ import com.example.registrationotp.model.Favorite;
 import com.example.registrationotp.model.FavoriteTargetType;
 import com.example.registrationotp.model.NewsArticle;
 import com.example.registrationotp.model.OrderItem;
+import com.example.registrationotp.model.Promotion;
 import com.example.registrationotp.model.Review;
 import com.example.registrationotp.model.ReviewTargetType;
 import com.example.registrationotp.model.Store;
@@ -62,7 +66,7 @@ public class PublicService {
 
 	private static final int DEFAULT_PAGE_SIZE = 10;
 	private static final int MAX_PAGE_SIZE = 100;
-	private static final String BRAND_NAME = "Tea Matcha";
+	private static final String BRAND_NAME = "Kamatcha";
 	private static final Locale VI_LOCALE = Locale.forLanguageTag("vi-VN");
 
 	private final StoreRepository storeRepository;
@@ -75,6 +79,7 @@ public class PublicService {
 	private final FavoriteRepository favoriteRepository;
 	private final OrderItemRepository orderItemRepository;
 	private final CatalogAvailabilityService catalogAvailabilityService;
+	private final PromotionService promotionService;
 
 	public PublicService(
 			StoreRepository storeRepository,
@@ -86,7 +91,8 @@ public class PublicService {
 			ReviewRepository reviewRepository,
 			FavoriteRepository favoriteRepository,
 			OrderItemRepository orderItemRepository,
-			CatalogAvailabilityService catalogAvailabilityService
+			CatalogAvailabilityService catalogAvailabilityService,
+			PromotionService promotionService
 	) {
 		this.storeRepository = storeRepository;
 		this.categoryRepository = categoryRepository;
@@ -98,13 +104,15 @@ public class PublicService {
 		this.favoriteRepository = favoriteRepository;
 		this.orderItemRepository = orderItemRepository;
 		this.catalogAvailabilityService = catalogAvailabilityService;
+		this.promotionService = promotionService;
 	}
 
 	@Transactional(readOnly = true)
 	public PublicHomeResponse home() {
 		CatalogSnapshot snapshot = snapshot();
+		List<Store> stores = storeRepository.findAll();
 
-		List<PublicStoreCardResponse> featuredStores = storeRepository.findAll().stream()
+		List<PublicStoreCardResponse> featuredStores = stores.stream()
 				.map(store -> toStoreCard(store, null, null, snapshot))
 				.sorted(Comparator.comparingDouble(PublicStoreCardResponse::averageRating).reversed()
 						.thenComparing(Comparator.comparingLong(PublicStoreCardResponse::reviewCount).reversed())
@@ -112,12 +120,47 @@ public class PublicService {
 				.limit(6)
 				.toList();
 
-		List<PublicDishCardResponse> featuredDishes = dishRepository.findAll().stream()
+		Comparator<PublicDishCardResponse> featuredDishComparator = Comparator
+				.comparingLong(PublicDishCardResponse::orderCount).reversed()
+				.thenComparing(Comparator.comparingDouble(PublicDishCardResponse::averageRating).reversed())
+				.thenComparing(Comparator.comparingLong(PublicDishCardResponse::favoriteCount).reversed())
+				.thenComparing(PublicDishCardResponse::name, String.CASE_INSENSITIVE_ORDER);
+		List<Dish> allDishes = dishRepository.findAll();
+		List<PublicDishCardResponse> rankedAllDishes = allDishes.stream()
 				.map(dish -> toDishCard(dish, null, null, snapshot))
-				.sorted(Comparator.comparingDouble(PublicDishCardResponse::averageRating).reversed()
-						.thenComparing(Comparator.comparingLong(PublicDishCardResponse::reviewCount).reversed())
-						.thenComparing(PublicDishCardResponse::name, String.CASE_INSENSITIVE_ORDER))
-				.limit(6)
+				.sorted(featuredDishComparator)
+				.toList();
+		List<PublicDishCardResponse> featuredDishes = new ArrayList<>(allDishes.stream()
+				.filter(this::isFeaturedSignatureDish)
+				.map(dish -> toDishCard(dish, null, null, snapshot))
+				.sorted(featuredDishComparator)
+				.limit(8)
+				.toList());
+		if (featuredDishes.size() < 4) {
+			for (PublicDishCardResponse candidate : rankedAllDishes) {
+				boolean alreadyIncluded = featuredDishes.stream()
+						.anyMatch(existing -> Objects.equals(existing.id(), candidate.id()));
+				if (!alreadyIncluded) {
+					featuredDishes.add(candidate);
+				}
+				if (featuredDishes.size() >= 8) {
+					break;
+				}
+			}
+		}
+		if (featuredDishes.isEmpty()) {
+			featuredDishes = rankedAllDishes.stream()
+					.limit(8)
+					.toList();
+		}
+
+		List<PublicPromotionCardResponse> promotions = promotionService.listCurrentlyAvailablePromotions().stream()
+				.sorted(Comparator.comparing(
+						Promotion::getEndsAt,
+						Comparator.nullsLast(Comparator.naturalOrder()))
+						.thenComparing(Promotion::getUpdatedAt, Comparator.reverseOrder()))
+				.map(this::toPromotionCard)
+				.limit(8)
 				.toList();
 
 		List<PublicEventCardResponse> upcomingEvents = eventItemRepository.findAll().stream()
@@ -127,7 +170,7 @@ public class PublicService {
 				.limit(6)
 				.toList();
 
-		List<PublicStoreLocationResponse> storeLocations = storeRepository.findAll().stream()
+		List<PublicStoreLocationResponse> storeLocations = stores.stream()
 				.map(store -> new PublicStoreLocationResponse(
 						store.getId(),
 						store.getSlug(),
@@ -147,7 +190,14 @@ public class PublicService {
 				.limit(6)
 				.toList();
 
-		return new PublicHomeResponse(BRAND_NAME, featuredStores, featuredDishes, upcomingEvents, storeLocations, latestNews);
+		return new PublicHomeResponse(
+				BRAND_NAME,
+				featuredStores,
+				featuredDishes,
+				promotions,
+				upcomingEvents,
+				storeLocations,
+				latestNews);
 	}
 
 	@Transactional(readOnly = true)
@@ -440,6 +490,26 @@ public class PublicService {
 				storeName,
 				bestStore
 		);
+	}
+
+	private PublicPromotionCardResponse toPromotionCard(Promotion promotion) {
+		return new PublicPromotionCardResponse(
+				promotion.getId(),
+				promotion.getCode(),
+				promotion.getName(),
+				promotion.getDescription(),
+				promotion.getScope(),
+				promotion.getDiscountType(),
+				promotion.getDiscountTarget(),
+				promotion.getDiscountValue(),
+				promotion.getMinOrderAmount(),
+				promotion.getMaxDiscountAmount(),
+				promotion.getCreditCost(),
+				List.copyOf(promotion.getApplicableDishIds()),
+				List.of(),
+				promotion.getStartsAt(),
+				promotion.getEndsAt(),
+				null);
 	}
 
 	private PublicEventCardResponse toEventCard(EventItem eventItem, Double lat, Double lng, CatalogSnapshot snapshot) {
@@ -746,6 +816,15 @@ public class PublicService {
 				.thenComparing(PublicNewsCardResponse::createdAt, Comparator.reverseOrder());
 	}
 
+	private boolean isFeaturedSignatureDish(Dish dish) {
+		if (dish == null || dish.getCategory() == null || dish.getCategory().getName() == null) {
+			return false;
+		}
+		String normalizedCategoryName = dish.getCategory().getName().trim().toUpperCase(VI_LOCALE);
+		return normalizedCategoryName.equals("SIGNATURE")
+				|| normalizedCategoryName.contains("SIGNATURE");
+	}
+
 	private boolean matchesStore(Store store, String search) {
 		String normalized = normalize(search);
 		if (normalized == null) {
@@ -929,7 +1008,7 @@ public class PublicService {
 	private String formatPrice(BigDecimal value) {
 		NumberFormat numberFormat = NumberFormat.getNumberInstance(VI_LOCALE);
 		numberFormat.setMaximumFractionDigits(0);
-		return numberFormat.format(value) + " đ";
+		return numberFormat.format(value) + " VND";
 	}
 
 	private double ratingAverage(CatalogSnapshot snapshot, ReviewTargetType targetType, Long targetId) {
@@ -1041,3 +1120,4 @@ public class PublicService {
 	) {
 	}
 }
+

@@ -38,7 +38,7 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Chi tiet tin tuc')),
+      appBar: AppBar(title: const Text('News details')),
       body: FutureBuilder<NewsDetail>(
         future: _future,
         builder: (context, snapshot) {

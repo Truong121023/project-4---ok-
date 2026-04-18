@@ -114,7 +114,7 @@ public class AdminService {
 	private static final int MAX_PAGE_SIZE = 100;
 	private static final Sort DEFAULT_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
 	private static final String SIGNATURE_CATEGORY_NAME = "SIGNATURE";
-	private static final Collection<Role> MANAGED_EMPLOYEE_ROLES = List.of(Role.SHIPPER);
+	private static final Collection<Role> MANAGED_EMPLOYEE_ROLES = List.of(Role.STAFF, Role.SHIPPER);
 
 	private final SessionAuthService sessionAuthService;
 	private final UserRepository userRepository;
@@ -238,7 +238,7 @@ public class AdminService {
 			Long workingStoreId = requireManagerWorkingStoreId(operator);
 			specification = specification.and((root, query, criteriaBuilder) -> criteriaBuilder.and(
 					criteriaBuilder.equal(root.join("workingStore", JoinType.LEFT).get("id"), workingStoreId),
-					root.get("role").in(Role.SHIPPER)
+					root.get("role").in(MANAGED_EMPLOYEE_ROLES)
 			));
 		}
 		return PageResponse.from(userRepository.findAll(specification, buildPageable(page, size))
@@ -1215,6 +1215,7 @@ public class AdminService {
 				order.getShippingFeeAmount(),
 				shippingFeeBreakdown,
 				order.getTotalAmount(),
+				order.getCreditPointsAwarded(),
 				order.getPromotionCode(),
 				order.getPromotionScope(),
 				order.getPromotionEligibleAmount(),
@@ -1723,7 +1724,7 @@ public class AdminService {
 	private void applyWorkingStore(User user, Role role, Long workingStoreId) {
 		if (role.requiresWorkingStore()) {
 			if (workingStoreId == null) {
-				throw new BadRequestException("workingStoreId is required for MANAGER and SHIPPER");
+				throw new BadRequestException("workingStoreId is required for MANAGER, STAFF, and SHIPPER");
 			}
 			user.setWorkingStore(findStore(workingStoreId));
 			return;
@@ -2228,8 +2229,8 @@ public class AdminService {
 		if (operator.getRole() != Role.MANAGER) {
 			return;
 		}
-		if (request.role() != Role.SHIPPER) {
-			throw new ForbiddenException("Manager can only create or update SHIPPER accounts");
+		if (!MANAGED_EMPLOYEE_ROLES.contains(request.role())) {
+			throw new ForbiddenException("Manager can only create or update STAFF and SHIPPER accounts");
 		}
 		if (!Objects.equals(requireManagerWorkingStoreId(operator), request.workingStoreId())) {
 			throw new ForbiddenException("Manager can only assign employees to their own store");
@@ -2240,8 +2241,8 @@ public class AdminService {
 		if (operator.getRole() != Role.MANAGER) {
 			return;
 		}
-		if (managedUser.getRole() != Role.SHIPPER) {
-			throw new ForbiddenException("Manager can only manage SHIPPER accounts");
+		if (!MANAGED_EMPLOYEE_ROLES.contains(managedUser.getRole())) {
+			throw new ForbiddenException("Manager can only manage STAFF and SHIPPER accounts");
 		}
 		if (managedUser.getWorkingStore() == null || managedUser.getWorkingStore().getId() == null) {
 			throw new ForbiddenException("Managed user does not belong to your store");

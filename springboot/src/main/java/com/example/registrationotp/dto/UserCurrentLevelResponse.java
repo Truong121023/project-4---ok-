@@ -14,6 +14,15 @@ public record UserCurrentLevelResponse(
 		Long levelId,
 		String levelCode,
 		String levelName,
-		BigDecimal levelMinPaidAmount
+		BigDecimal levelMinPaidAmount,
+		int creditPoints,
+		BigDecimal levelMinCreditPoints,
+		Long nextLevelId,
+		String nextLevelCode,
+		String nextLevelName,
+		BigDecimal nextLevelMinCreditPoints,
+		int membershipPoints,
+		BigDecimal levelMinMembershipPoints,
+		BigDecimal nextLevelMinMembershipPoints
 ) {
 }

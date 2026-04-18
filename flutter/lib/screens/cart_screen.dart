@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app/app.dart';
 import '../core/utils/formatters.dart';
 import '../widgets/app_widgets.dart';
+import 'address_book_screen.dart';
 import 'checkout_screen.dart';
 import 'login_screen.dart';
 
@@ -33,10 +34,10 @@ class CartScreen extends StatelessWidget {
             children: [
               if (isGuestCart) ...[
                 EmptyStateCard(
-                  title: 'Ban dang dung gio hang tam',
+                  title: 'You are using a temporary cart',
                   message:
-                      'Ban van co the them mon khi chua dang nhap. Dang nhap de dong bo gio hang va tiep tuc checkout.',
-                  actionLabel: 'Dang nhap',
+                      'You can still add items before signing in. Sign in to sync the cart and continue to checkout.',
+                  actionLabel: 'Sign in',
                   onAction: () {
                     Navigator.of(context).push(
                       MaterialPageRoute<void>(
@@ -51,30 +52,65 @@ class CartScreen extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16),
                   child: Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Dia chi mac dinh',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(24),
+                      onTap: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const AddressBookScreen(),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '${controller.primaryDeliveryAddress!.fullName} - ${controller.primaryDeliveryAddress!.phoneNumber}',
-                          ),
-                          const SizedBox(height: 4),
-                          Text(controller.primaryDeliveryAddress!.deliveryAddress),
-                        ],
+                        );
+                        if (!context.mounted) {
+                          return;
+                        }
+                        try {
+                          await controller.loadDeliveryAddresses();
+                        } catch (_) {
+                          // Keep cart usable even if address refresh fails here.
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Default address',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w800),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '${controller.primaryDeliveryAddress!.fullName} - ${controller.primaryDeliveryAddress!.phoneNumber}',
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              controller.primaryDeliveryAddress!
+                                  .deliveryAddress,
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              'Tap to open saved addresses and change the default one',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: const Color(0xFF6E6259),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
               if (cart.items.isEmpty)
                 const EmptyStateCard(
-                  title: 'Gio hang dang trong',
-                  message: 'Them mon tu Home, Store hoac Dish de bat dau.',
+                  title: 'Your cart is empty',
+                  message: 'Add items from Home, Store, or Dish pages to get started.',
                 )
               else
                 ...cart.items.map(
@@ -143,7 +179,7 @@ class CartScreen extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        'Tong cong',
+                        'Subtotal',
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                       ),
                       const Spacer(),
@@ -156,7 +192,7 @@ class CartScreen extends StatelessWidget {
                   const SizedBox(height: 10),
                   if (isGuestCart && cart.items.isNotEmpty) ...[
                     Text(
-                      'Dang nhap de dong bo gio hang va chon dia chi giao hang.',
+                      'Sign in to sync your cart and choose a delivery address.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: const Color(0xFF6E6259),
                       ),
@@ -184,7 +220,7 @@ class CartScreen extends StatelessWidget {
                               );
                             },
                       child: Text(
-                        isGuestCart ? 'Dang nhap de checkout' : 'Chon dia chi va checkout',
+                        isGuestCart ? 'Sign in to checkout' : 'Choose an address and checkout',
                       ),
                     ),
                   ),

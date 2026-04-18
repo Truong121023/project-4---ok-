@@ -75,7 +75,7 @@ class _EmployeeCompletedOrdersScreenState extends State<EmployeeCompletedOrdersS
             itemBuilder: (_) => const [
               PopupMenuItem<String>(
                 value: 'logout',
-                child: Text('Dang xuat'),
+                child: Text('Sign out'),
               ),
             ],
           ),
@@ -115,6 +115,10 @@ class _EmployeeCompletedOrdersScreenState extends State<EmployeeCompletedOrdersS
                 rightProof?.completedAt ?? asDateTime(right['updatedAt']) ?? DateTime.fromMillisecondsSinceEpoch(0);
             return rightTime.compareTo(leftTime);
           });
+          final proofCount = currentUserProofs.where((record) {
+            final path = record.photoPath?.trim();
+            return path != null && path.isNotEmpty;
+          }).length;
 
           return RefreshIndicator(
             onRefresh: _refresh,
@@ -123,19 +127,40 @@ class _EmployeeCompletedOrdersScreenState extends State<EmployeeCompletedOrdersS
               children: [
                 Card(
                   child: Padding(
-                    padding: const EdgeInsets.all(18),
+                    padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Lich su da hoan thanh',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                          widget.kind == EmployeeRoleKind.shipper
+                              ? 'Delivery history'
+                              : 'Completed history',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           widget.kind == EmployeeRoleKind.shipper
-                              ? 'Don sau khi chot giao xong se nhay vao day, kem anh proof da chup tren may.'
-                              : 'Don sau khi ban giao xong se duoc luu vao day de doi chieu nhanh.',
+                              ? 'Finished deliveries appear here with saved proof photos and completion time.'
+                              : 'Completed records are stored here for quick review.',
+                        ),
+                        const SizedBox(height: 14),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            MetricChip(
+                              label: '${mergedOrders.length} orders',
+                              icon: Icons.history_outlined,
+                            ),
+                            if (widget.kind == EmployeeRoleKind.shipper)
+                              MetricChip(
+                                label: '$proofCount proof photos',
+                                backgroundColor: const Color(0xFFE7F1E3),
+                              ),
+                          ],
                         ),
                       ],
                     ),
@@ -144,8 +169,8 @@ class _EmployeeCompletedOrdersScreenState extends State<EmployeeCompletedOrdersS
                 const SizedBox(height: 20),
                 if (mergedOrders.isEmpty)
                   const EmptyStateCard(
-                    title: 'Chua co don hoan thanh',
-                    message: 'Sau khi xu ly xong don, lich su se tu dong chuyen vao day.',
+                    title: 'No completed deliveries yet',
+                    message: 'Completed orders will appear here automatically after delivery is finished.',
                   )
                 else
                   ...mergedOrders.map((order) {
@@ -156,7 +181,7 @@ class _EmployeeCompletedOrdersScreenState extends State<EmployeeCompletedOrdersS
                       child: EmployeeCompletedCard(
                         kind: widget.kind,
                         order: order,
-                        completedAtLabel: completedAt == null ? 'Moi xong' : Formatters.fullDateTime(completedAt),
+                        completedAtLabel: completedAt == null ? 'Just completed' : Formatters.fullDateTime(completedAt),
                         photoPath: proof?.photoPath,
                         onTap: () => _openDetail(order),
                       ),

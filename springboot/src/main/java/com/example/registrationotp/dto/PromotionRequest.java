@@ -8,6 +8,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import com.example.registrationotp.model.PromotionDiscountTarget;
 import com.example.registrationotp.model.PromotionDiscountType;
 import com.example.registrationotp.model.PromotionScope;
 
@@ -23,6 +24,7 @@ public record PromotionRequest(
 		PromotionScope scope,
 		@NotNull(message = "discountType is required")
 		PromotionDiscountType discountType,
+		PromotionDiscountTarget discountTarget,
 		@NotNull(message = "discountValue is required")
 		@DecimalMin(value = "0.01", message = "discountValue must be greater than 0")
 		BigDecimal discountValue,
@@ -34,6 +36,7 @@ public record PromotionRequest(
 		BigDecimal maxDiscountAmount,
 		@DecimalMin(value = "0.00", message = "maximumDiscountAmount must be at least 0")
 		BigDecimal maximumDiscountAmount,
+		Integer creditCost,
 		@DecimalMin(value = "0.00", message = "minStoreBillAmount must be at least 0")
 		BigDecimal minStoreBillAmount,
 		@DecimalMin(value = "0.00", message = "minCrossStoreBillAmount must be at least 0")

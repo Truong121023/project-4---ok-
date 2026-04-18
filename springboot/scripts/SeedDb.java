@@ -148,9 +148,9 @@ public class SeedDb {
 			System.out.println("Seeded news: " + newsArticleRepository.count());
 			System.out.println("Seeded carts: " + cartRepository.count());
 			System.out.println("Demo images stored under: " + uploadRoot);
-			System.out.println("Admin login: admin@teamatcha.local / " + DEFAULT_PASSWORD);
-			System.out.println("Manager login: manager.d1@teamatcha.local / " + DEFAULT_PASSWORD);
-			System.out.println("Buyer login: user.anna@teamatcha.local / " + DEFAULT_PASSWORD);
+			System.out.println("Admin login: admin@kamatcha.local / " + DEFAULT_PASSWORD);
+			System.out.println("Manager login: manager.d1@kamatcha.local / " + DEFAULT_PASSWORD);
+			System.out.println("Buyer login: user.anna@kamatcha.local / " + DEFAULT_PASSWORD);
 		}
 
 		private void normalizeLegacySchema() throws Exception {
@@ -213,10 +213,10 @@ public class SeedDb {
 			Map<String, Store> stores = new LinkedHashMap<>();
 			stores.put("district-1", storeRepository.save(store(
 					"district-1",
-					"Tea Matcha District One",
+					"Kamatcha District One",
 					"Flagship store with a bright tasting bar and fast city-center pickup.",
 					"12 Nguyen Hue, District 1, Ho Chi Minh City",
-					"district1@teamatcha.local",
+					"district1@kamatcha.local",
 					"0901000101",
 					10.77690,
 					106.70090,
@@ -233,10 +233,10 @@ public class SeedDb {
 			)));
 			stores.put("riverside", storeRepository.save(store(
 					"riverside",
-					"Tea Matcha Riverside",
+					"Kamatcha Riverside",
 					"Calmer riverside branch focused on brunch pairings and events.",
 					"28 Tran Nao, Thu Duc City, Ho Chi Minh City",
-					"riverside@teamatcha.local",
+					"riverside@kamatcha.local",
 					"0901000102",
 					10.78750,
 					106.74210,
@@ -253,10 +253,10 @@ public class SeedDb {
 			)));
 			stores.put("airport", storeRepository.save(store(
 					"airport",
-					"Tea Matcha Airport Hub",
+					"Kamatcha Airport Hub",
 					"Travel-oriented branch for bottled drinks, quick tea, and grab-and-go food.",
 					"05 Truong Son, Tan Binh, Ho Chi Minh City",
-					"airport@teamatcha.local",
+					"airport@kamatcha.local",
 					"0901000103",
 					10.81230,
 					106.66470,
@@ -273,10 +273,10 @@ public class SeedDb {
 			)));
 			stores.put("garden", storeRepository.save(store(
 					"garden",
-					"Tea Matcha Garden",
+					"Kamatcha Garden",
 					"Leafy branch built for slow afternoons, cakes, and community workshops.",
 					"91 Le Van Sy, Phu Nhuan, Ho Chi Minh City",
-					"garden@teamatcha.local",
+					"garden@kamatcha.local",
 					"0901000104",
 					10.79740,
 					106.68140,
@@ -293,10 +293,10 @@ public class SeedDb {
 			)));
 			stores.put("sunset", storeRepository.save(store(
 					"sunset",
-					"Tea Matcha Sunset Lab",
+					"Kamatcha Sunset Lab",
 					"Experimental rooftop branch currently paused for menu revamp.",
 					"44 Vo Thi Sau, District 3, Ho Chi Minh City",
-					"sunset@teamatcha.local",
+					"sunset@kamatcha.local",
 					"0901000105",
 					10.78630,
 					106.69210,
@@ -318,22 +318,22 @@ public class SeedDb {
 
 		private Map<String, User> seedUsers(Map<String, Store> stores) {
 			Map<String, User> users = new LinkedHashMap<>();
-			users.put("admin", userRepository.save(user("Platform Admin", "admin@teamatcha.local", Role.ADMIN, null)));
-			users.put("manager-d1", userRepository.save(user("District Manager", "manager.d1@teamatcha.local", Role.MANAGER, stores.get("district-1"))));
-			users.put("manager-river", userRepository.save(user("Riverside Manager", "manager.riverside@teamatcha.local", Role.MANAGER, stores.get("riverside"))));
-			users.put("ops-manager-d1", userRepository.save(user("District Operations Manager", "ops.manager.d1@teamatcha.local", Role.MANAGER, stores.get("district-1"))));
-			users.put("ops-manager-garden", userRepository.save(user("Garden Operations Manager", "ops.manager.garden@teamatcha.local", Role.MANAGER, stores.get("garden"))));
-			users.put("shipper-d1", userRepository.save(user("District Shipper", "shipper.d1@teamatcha.local", Role.SHIPPER, stores.get("district-1"))));
-			users.put("shipper-airport", userRepository.save(user("Airport Shipper", "shipper.airport@teamatcha.local", Role.SHIPPER, stores.get("airport"))));
-			users.put("anna", userRepository.save(user("Anna Nguyen", "user.anna@teamatcha.local", Role.USER, null)));
-			users.put("bao", userRepository.save(user("Bao Tran", "user.bao@teamatcha.local", Role.USER, null)));
-			users.put("chi", userRepository.save(user("Chi Le", "user.chi@teamatcha.local", Role.USER, null)));
-			users.put("dan", userRepository.save(user("Dan Pham", "user.dan@teamatcha.local", Role.USER, null)));
-			users.put("em", userRepository.save(user("Em Vu", "user.em@teamatcha.local", Role.USER, null)));
-			users.put("gia", userRepository.save(user("Gia Ho", "user.gia@teamatcha.local", Role.USER, null)));
-			users.put("huy", userRepository.save(user("Huy Do", "user.huy@teamatcha.local", Role.USER, null)));
-			users.put("khanh", userRepository.save(user("Khanh Bui", "user.khanh@teamatcha.local", Role.USER, null)));
-			users.put("linh", userRepository.save(user("Linh Ha", "user.linh@teamatcha.local", Role.USER, null)));
+			users.put("admin", userRepository.save(user("Platform Admin", "admin@kamatcha.local", Role.ADMIN, null)));
+			users.put("manager-d1", userRepository.save(user("District Manager", "manager.d1@kamatcha.local", Role.MANAGER, stores.get("district-1"))));
+			users.put("manager-river", userRepository.save(user("Riverside Manager", "manager.riverside@kamatcha.local", Role.MANAGER, stores.get("riverside"))));
+			users.put("ops-manager-d1", userRepository.save(user("District Operations Manager", "ops.manager.d1@kamatcha.local", Role.MANAGER, stores.get("district-1"))));
+			users.put("ops-manager-garden", userRepository.save(user("Garden Operations Manager", "ops.manager.garden@kamatcha.local", Role.MANAGER, stores.get("garden"))));
+			users.put("shipper-d1", userRepository.save(user("District Shipper", "shipper.d1@kamatcha.local", Role.SHIPPER, stores.get("district-1"))));
+			users.put("shipper-airport", userRepository.save(user("Airport Shipper", "shipper.airport@kamatcha.local", Role.SHIPPER, stores.get("airport"))));
+			users.put("anna", userRepository.save(user("Anna Nguyen", "user.anna@kamatcha.local", Role.USER, null)));
+			users.put("bao", userRepository.save(user("Bao Tran", "user.bao@kamatcha.local", Role.USER, null)));
+			users.put("chi", userRepository.save(user("Chi Le", "user.chi@kamatcha.local", Role.USER, null)));
+			users.put("dan", userRepository.save(user("Dan Pham", "user.dan@kamatcha.local", Role.USER, null)));
+			users.put("em", userRepository.save(user("Em Vu", "user.em@kamatcha.local", Role.USER, null)));
+			users.put("gia", userRepository.save(user("Gia Ho", "user.gia@kamatcha.local", Role.USER, null)));
+			users.put("huy", userRepository.save(user("Huy Do", "user.huy@kamatcha.local", Role.USER, null)));
+			users.put("khanh", userRepository.save(user("Khanh Bui", "user.khanh@kamatcha.local", Role.USER, null)));
+			users.put("linh", userRepository.save(user("Linh Ha", "user.linh@kamatcha.local", Role.USER, null)));
 			return users;
 		}
 
@@ -575,9 +575,9 @@ public class SeedDb {
 
 		private void seedNews(Map<String, Store> stores, Map<String, EventItem> events) {
 			newsArticleRepository.save(news(
-					"Khai truong Tea Matcha Airport Hub",
-					"Tea Matcha chinh thuc khai truong chi nhanh moi gan san bay voi menu grab-and-go va bottled brew.",
-					"Tea Matcha chinh thuc khai truong Tea Matcha Airport Hub de phuc vu khach can mot diem dung nhanh, on dinh va de mang di. Chi nhanh moi tap trung vao bottled brew, tea fizz va cac set do an gon nhe cho hanh khach.",
+					"Kamatcha Airport Hub is now open",
+					"Kamatcha officially opens a new branch near the airport with a grab-and-go and bottled brew menu.",
+					"Kamatcha officially opens Kamatcha Airport Hub for guests who need a quick, reliable stop that is easy to take away. The new branch focuses on bottled brew, tea fizz, and compact snack sets for travelers.",
 					stores.get("airport"),
 					List.of("khai-truong", "chi-nhanh-moi", "san-bay"),
 					stores.get("airport").getImagePaths(),
@@ -586,9 +586,9 @@ public class SeedDb {
 					Instant.parse("2026-03-20T02:00:00Z")
 			));
 			newsArticleRepository.save(news(
-					"Tea Matcha mo rong workshop tai Garden",
-					"Chuoi workshop cuoi tuan tai Tea Matcha Garden duoc mo rong them nhieu khung gio moi.",
-					"Tu thang nay, Tea Matcha Garden se bo sung them cac buoi workshop vao cuoi tuan de phuc vu nhom khach yeu thich trai nghiem matcha cham. Khach co the theo doi lich moi va dat cho thong qua trang su kien.",
+					"Kamatcha mo rong workshop tai Garden",
+					"Chuoi workshop cuoi tuan tai Kamatcha Garden duoc mo rong them nhieu khung gio moi.",
+					"Starting this month, Kamatcha Garden will add more weekend workshops for guests who enjoy a slower matcha experience. Guests can follow the new schedule and reserve spots through the event page.",
 					stores.get("garden"),
 					List.of("workshop", "community", "garden"),
 					events.get("garden-workshop").getImagePaths(),
@@ -597,9 +597,9 @@ public class SeedDb {
 					Instant.parse("2026-03-18T02:00:00Z")
 			));
 			newsArticleRepository.save(news(
-					"Menu mua he 2026 sap ra mat",
-					"Thuong hieu dang chuan bi loat mon mua he moi voi huong vi trai cay va bottled tea.",
-					"Tea Matcha dang hoan thien menu mua he 2026, tap trung vao nhom do uong thanh mat, it ngot va phu hop di chuyen. Bai viet nay duoc cap nhat de thong bao truoc cho khach hang ve dot ra mat toi.",
+					"Summer menu 2026 is coming soon",
+					"The brand is preparing a new summer lineup built around fruit flavors and bottled tea.",
+					"Kamatcha is finalizing the 2026 summer menu, focusing on refreshing, lower-sugar drinks that work well on the go. This article was updated early to announce the upcoming launch.",
 					null,
 					List.of("menu-moi", "mua-he", "coming-soon"),
 					List.of(),
@@ -608,9 +608,9 @@ public class SeedDb {
 					Instant.parse("2026-03-17T02:00:00Z")
 			));
 			newsArticleRepository.save(news(
-					"Ban nhap noi bo ve rooftop concept",
-					"Noi dung ban nhap de doi ngu noi bo chuan bi cho giai doan thu nghiem tiep theo.",
-					"Noi dung noi bo, chua cong khai ra ngoai.",
+					"Internal draft for the rooftop concept",
+					"A draft document for the internal team to prepare the next testing phase.",
+					"Internal content only, not published externally.",
 					stores.get("sunset"),
 					List.of("draft", "internal"),
 					List.of(),
@@ -729,7 +729,7 @@ public class SeedDb {
 				try {
 					HttpRequest request = HttpRequest.newBuilder()
 							.uri(URI.create("https://loremflickr.com/1200/900/" + candidateTags + "?lock=" + lock))
-							.header("User-Agent", "TeaMatchaSeeder/1.0")
+							.header("User-Agent", "KamatchaSeeder/1.0")
 							.GET()
 							.build();
 					HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());

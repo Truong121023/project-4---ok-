@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/config/app_config.dart';
 import '../core/models/models.dart';
+import '../core/services/address_search_service.dart';
 import '../core/services/api_service.dart';
 import '../core/services/mock_data.dart';
 import '../core/services/session_store.dart';
@@ -30,6 +31,7 @@ class AppController extends ChangeNotifier {
   final AppConfig config;
   final ApiService api;
   final SessionStore sessionStore;
+  final AddressSearchService _addressSearchService = AddressSearchService();
 
   UserSession? session;
   Cart cart = Cart.empty();
@@ -40,6 +42,8 @@ class AppController extends ChangeNotifier {
   CheckoutResult? lastCheckout;
   String? pendingOrderQrToken;
   int userNotificationUnreadCount = 0;
+  final Map<int, AiChatThreadDetail> _mockAiChatThreadsById = {};
+  int _nextMockAiChatThreadId = 1;
 
   bool initialized = false;
   bool authBusy = false;
@@ -53,6 +57,7 @@ class AppController extends ChangeNotifier {
 
   bool get isLoggedIn => session != null;
   String get currentRole => session?.user.role.toUpperCase() ?? 'GUEST';
+  bool get isUser => session?.user.role.toUpperCase() == 'USER';
   bool get isAdmin => session?.user.role.toUpperCase() == 'ADMIN';
   bool get isManager => session?.user.role.toUpperCase() == 'MANAGER';
   bool get isStaff => session?.user.role.toUpperCase() == 'STAFF';
@@ -64,7 +69,9 @@ class AppController extends ChangeNotifier {
     if (currentUserId == 0) {
       return const [];
     }
-    final filtered = orderProofRecords.where((record) => record.userId == currentUserId).toList()
+    final filtered = orderProofRecords
+        .where((record) => record.userId == currentUserId)
+        .toList()
       ..sort((left, right) => right.completedAt.compareTo(left.completedAt));
     return filtered;
   }
@@ -97,8 +104,9 @@ class AppController extends ChangeNotifier {
       if (session != null) {
         orders = MockData.orders;
         favoriteItems = MockData.favorites;
-        userNotificationUnreadCount =
-            MockData.notifications.where((notification) => !notification.read).length;
+        userNotificationUnreadCount = MockData.notifications
+            .where((notification) => !notification.read)
+            .length;
       }
       deliveryAddresses = const [];
       initialized = true;
@@ -112,8 +120,17 @@ class AppController extends ChangeNotifier {
         session = session!.copyWith(user: currentUser);
         await sessionStore.saveSession(session!);
         hadAuthenticatedSession = true;
-        await _syncLocalCartIntoAccount(session!.accessToken);
-        await _loadProtectedState();
+        if (_supportsBuyerFeatures(session)) {
+          await _syncLocalCartIntoAccount(session!.accessToken);
+          await _loadProtectedState(
+            loadOrders: false,
+            loadFavorites: false,
+            loadUnreadCount: false,
+            loadDeliveryAddresses: false,
+          );
+        } else {
+          _resetBuyerOnlyState();
+        }
       } catch (_) {
         await _clearSessionLocally(
           clearHadAuthenticatedSession: pendingSessionInterruption == null,
@@ -153,29 +170,92 @@ class AppController extends ChangeNotifier {
   Future<AiChatResponse> queryAiChat({
     required String message,
     List<AiChatHistoryEntry> history = const [],
+    int? threadId,
   }) async {
     final trimmed = message.trim();
     if (trimmed.isEmpty) {
-      throw ApiException('Nhap noi dung de hoi AI.');
+      throw ApiException('Enter a message to ask AI.');
     }
     if (config.useMockData) {
-      return _mockAiChatResponse(trimmed);
+      return _mockAiChatResponse(
+        trimmed,
+        history: history,
+        threadId: threadId,
+      );
     }
     return api.queryAiChat(
       token: _requireAuthenticatedToken(),
       message: trimmed,
       history: history,
+      threadId: threadId,
+    );
+  }
+
+  Future<List<AiChatThreadSummary>> loadAiChatThreads({
+    int page = 0,
+    int size = 20,
+  }) async {
+    if (config.useMockData) {
+      final items = _mockAiChatThreadsById.values
+          .map(_mockThreadSummaryFromDetail)
+          .toList()
+        ..sort((left, right) {
+          final leftTime =
+              (left.updatedAt ?? left.lastMessageAt ?? DateTime(2000))
+                  .millisecondsSinceEpoch;
+          final rightTime =
+              (right.updatedAt ?? right.lastMessageAt ?? DateTime(2000))
+                  .millisecondsSinceEpoch;
+          return rightTime.compareTo(leftTime);
+        });
+      final start = page * size;
+      if (start >= items.length) {
+        return const [];
+      }
+      final end = start + size > items.length ? items.length : start + size;
+      return items.sublist(start, end);
+    }
+    return api.getAiChatThreads(
+      token: _requireAuthenticatedToken(),
+      page: page,
+      size: size,
+    );
+  }
+
+  Future<AiChatThreadDetail> loadAiChatThreadDetail(int threadId) async {
+    if (config.useMockData) {
+      final detail = _mockAiChatThreadsById[threadId];
+      if (detail != null) {
+        return detail;
+      }
+      throw ApiException('Saved chat history could not be found.');
+    }
+    return api.getAiChatThreadDetail(
+      token: _requireAuthenticatedToken(),
+      threadId: threadId,
     );
   }
 
   Future<List<StoreCard>> browseStores({
     String search = '',
     String sort = 'rating_desc',
+    double? latitude,
+    double? longitude,
   }) async {
     if (config.useMockData) {
-      return MockData.browseStores(search: search);
+      return MockData.browseStores(
+        search: search,
+        sort: sort,
+        latitude: latitude,
+        longitude: longitude,
+      );
     }
-    return api.getStores(search: search, sort: sort);
+    return api.getStores(
+      search: search,
+      sort: sort,
+      latitude: latitude,
+      longitude: longitude,
+    );
   }
 
   Future<StoreDetail> loadStoreDetail(String storeKey) async {
@@ -405,7 +485,8 @@ class AppController extends ChangeNotifier {
     required String path,
   }) {
     if (config.useMockData) {
-      return Future.value(const MessageResponse(message: 'Mock delete successful'));
+      return Future.value(
+          const MessageResponse(message: 'Mock delete successful'));
     }
     return api.deleteAdminResource(
       token: _requireBackofficeToken(),
@@ -553,12 +634,13 @@ class AppController extends ChangeNotifier {
   }
 
   Future<MobileOrderQrResolveResponse> resolveOrderQr(String qrToken) async {
-      if (config.useMockData) {
-        throw ApiException('Tinh nang QR chi san sang khi app dang ket noi may chu that.');
-      }
+    if (config.useMockData) {
+      throw ApiException(
+          'QR handling is only available when the app is connected to the real server.');
+    }
     final currentSession = session;
     if (currentSession == null) {
-      throw ApiException('Can dang nhap truoc khi xu ly QR don hang.');
+      throw ApiException('Sign in before handling the order QR flow.');
     }
     final result = await api.resolveMobileOrderQr(
       token: currentSession.accessToken,
@@ -595,7 +677,7 @@ class AppController extends ChangeNotifier {
   }) async {
     final currentUserId = session?.user.id ?? 0;
     if (currentUserId == 0) {
-      throw ApiException('Can dang nhap de luu lich su giao don.');
+      throw ApiException('Sign in to save delivery history.');
     }
     final nextRecord = OrderProofRecord(
       orderId: asInt(orderSnapshot['id']),
@@ -607,10 +689,9 @@ class AppController extends ChangeNotifier {
     );
     final remaining = orderProofRecords
         .where(
-          (record) =>
-              !(record.userId == currentUserId &&
-                  record.orderId == nextRecord.orderId &&
-                  record.role == nextRecord.role),
+          (record) => !(record.userId == currentUserId &&
+              record.orderId == nextRecord.orderId &&
+              record.role == nextRecord.role),
         )
         .toList();
     orderProofRecords = [nextRecord, ...remaining]
@@ -776,7 +857,8 @@ class AppController extends ChangeNotifier {
 
   Future<MessageResponse> markAllEmployeeNotificationsRead() {
     if (config.useMockData) {
-      return Future.value(const MessageResponse(message: 'Mock notifications marked as read'));
+      return Future.value(
+          const MessageResponse(message: 'Mock notifications marked as read'));
     }
     return api.markAllEmployeeNotificationsRead(_requireEmployeeToken());
   }
@@ -844,7 +926,8 @@ class AppController extends ChangeNotifier {
 
   Future<MessageResponse> markAllAdminNotificationsRead() {
     if (config.useMockData) {
-      return Future.value(const MessageResponse(message: 'Mock notifications marked as read'));
+      return Future.value(
+          const MessageResponse(message: 'Mock notifications marked as read'));
     }
     return api.markAllAdminNotificationsRead(_requireBackofficeToken());
   }
@@ -865,23 +948,31 @@ class AppController extends ChangeNotifier {
         hadAuthenticatedSession = true;
         orders = MockData.orders;
         favoriteItems = MockData.favorites;
-        userNotificationUnreadCount =
-            MockData.notifications.where((notification) => !notification.read).length;
+        userNotificationUnreadCount = MockData.notifications
+            .where((notification) => !notification.read)
+            .length;
         cart = sessionStore.loadLocalCart();
       } else {
-        final loggedIn = await api.login(email: email, password: password);
-        final currentUser = await api.getCurrentUser(loggedIn.accessToken);
-        session = loggedIn.copyWith(user: currentUser);
+        session = await api.login(email: email, password: password);
         await sessionStore.saveSession(session!);
         hadAuthenticatedSession = true;
-        await _syncLocalCartIntoAccount(session!.accessToken);
-        await _loadProtectedState();
+        if (_supportsBuyerFeatures(session)) {
+          await _syncLocalCartIntoAccount(session!.accessToken);
+          await _loadProtectedState(
+            loadOrders: false,
+            loadFavorites: false,
+            loadUnreadCount: false,
+            loadDeliveryAddresses: false,
+          );
+        } else {
+          _resetBuyerOnlyState();
+        }
       }
     } on ApiException catch (error) {
       authError = error.message;
       rethrow;
     } catch (_) {
-      authError = 'Khong the dang nhap luc nay.';
+      authError = 'Unable to sign in right now.';
       rethrow;
     } finally {
       authBusy = false;
@@ -904,22 +995,32 @@ class AppController extends ChangeNotifier {
         hadAuthenticatedSession = true;
         orders = MockData.orders;
         favoriteItems = MockData.favorites;
-        userNotificationUnreadCount =
-            MockData.notifications.where((notification) => !notification.read).length;
+        userNotificationUnreadCount = MockData.notifications
+            .where((notification) => !notification.read)
+            .length;
         cart = sessionStore.loadLocalCart();
       } else {
         session = await api.googleLogin(idToken: idToken);
         await sessionStore.saveSession(session!);
         hadAuthenticatedSession = true;
-        await _syncLocalCartIntoAccount(session!.accessToken);
-        await _loadProtectedState();
+        if (_supportsBuyerFeatures(session)) {
+          await _syncLocalCartIntoAccount(session!.accessToken);
+          await _loadProtectedState(
+            loadOrders: false,
+            loadFavorites: false,
+            loadUnreadCount: false,
+            loadDeliveryAddresses: false,
+          );
+        } else {
+          _resetBuyerOnlyState();
+        }
       }
       return session!;
     } on ApiException catch (error) {
       authError = error.message;
       rethrow;
     } catch (_) {
-      authError = 'Khong the dang nhap bang Google luc nay.';
+      authError = 'Unable to sign in with Google right now.';
       rethrow;
     } finally {
       authBusy = false;
@@ -1013,7 +1114,9 @@ class AppController extends ChangeNotifier {
 
   bool isFavorite(String targetType, int targetId) {
     return favoriteItems.any(
-      (item) => item.targetType.toUpperCase() == targetType.toUpperCase() && item.targetId == targetId,
+      (item) =>
+          item.targetType.toUpperCase() == targetType.toUpperCase() &&
+          item.targetId == targetId,
     );
   }
 
@@ -1028,7 +1131,9 @@ class AppController extends ChangeNotifier {
     if (config.useMockData) {
       if (exists) {
         favoriteItems = favoriteItems
-            .where((item) => !(item.targetType.toUpperCase() == normalizedType && item.targetId == targetId))
+            .where((item) =>
+                !(item.targetType.toUpperCase() == normalizedType &&
+                    item.targetId == targetId))
             .toList();
       } else {
         favoriteItems = [
@@ -1057,7 +1162,8 @@ class AppController extends ChangeNotifier {
         targetId: targetId,
       );
       favoriteItems = favoriteItems
-          .where((item) => !(item.targetType.toUpperCase() == normalizedType && item.targetId == targetId))
+          .where((item) => !(item.targetType.toUpperCase() == normalizedType &&
+              item.targetId == targetId))
           .toList();
       notifyListeners();
       return false;
@@ -1071,7 +1177,8 @@ class AppController extends ChangeNotifier {
     favoriteItems = [
       favorite,
       ...favoriteItems.where(
-        (item) => !(item.targetType.toUpperCase() == normalizedType && item.targetId == targetId),
+        (item) => !(item.targetType.toUpperCase() == normalizedType &&
+            item.targetId == targetId),
       ),
     ];
     notifyListeners();
@@ -1105,7 +1212,7 @@ class AppController extends ChangeNotifier {
         id: existing?.id ?? DateTime.now().microsecondsSinceEpoch,
         userId: session?.user.id ?? 0,
         userName: session?.user.fullName ?? 'Guest',
-        userEmail: session?.user.email ?? 'guest@teamatcha.local',
+        userEmail: session?.user.email ?? 'guest@kamatcha.local',
         targetType: targetType,
         targetId: targetId,
         targetSlug: existing?.targetSlug,
@@ -1142,7 +1249,8 @@ class AppController extends ChangeNotifier {
 
   Future<MessageResponse> deleteUserReview(int reviewId) {
     if (config.useMockData) {
-      return Future.value(const MessageResponse(message: 'Mock review deleted'));
+      return Future.value(
+          const MessageResponse(message: 'Mock review deleted'));
     }
     return api.deleteUserReview(
       token: _requireUserToken(),
@@ -1179,7 +1287,8 @@ class AppController extends ChangeNotifier {
 
   Future<MessageResponse> deleteUserFeedback(int feedbackId) {
     if (config.useMockData) {
-      return Future.value(const MessageResponse(message: 'Mock feedback deleted'));
+      return Future.value(
+          const MessageResponse(message: 'Mock feedback deleted'));
     }
     return api.deleteUserFeedback(
       token: _requireUserToken(),
@@ -1201,12 +1310,14 @@ class AppController extends ChangeNotifier {
 
   Future<int> loadUserNotificationUnreadCount() async {
     if (config.useMockData) {
-      userNotificationUnreadCount =
-          MockData.notifications.where((notification) => !notification.read).length;
+      userNotificationUnreadCount = MockData.notifications
+          .where((notification) => !notification.read)
+          .length;
       notifyListeners();
       return userNotificationUnreadCount;
     }
-    userNotificationUnreadCount = await api.getUserNotificationUnreadCount(_requireUserToken());
+    userNotificationUnreadCount =
+        await api.getUserNotificationUnreadCount(_requireUserToken());
     notifyListeners();
     return userNotificationUnreadCount;
   }
@@ -1260,9 +1371,11 @@ class AppController extends ChangeNotifier {
     if (config.useMockData) {
       userNotificationUnreadCount = 0;
       notifyListeners();
-      return const MessageResponse(message: 'Mock notifications marked as read');
+      return const MessageResponse(
+          message: 'Mock notifications marked as read');
     }
-    final response = await api.markAllUserNotificationsRead(_requireUserToken());
+    final response =
+        await api.markAllUserNotificationsRead(_requireUserToken());
     await loadUserNotificationUnreadCount();
     return response;
   }
@@ -1275,6 +1388,110 @@ class AppController extends ChangeNotifier {
       token: _requireUserToken(),
       storeId: storeId,
     );
+  }
+
+  Future<List<UserLevelDefinition>> loadUserLevelDefinitions() async {
+    if (config.useMockData) {
+      return MockData.levelDefinitions;
+    }
+    return api.getUserLevelDefinitions(
+      token: _requireUserToken(),
+    );
+  }
+
+  Future<List<PromotionCard>> loadUserVouchers() async {
+    if (config.useMockData) {
+      return MockData.userVouchers;
+    }
+    return api.getUserVouchers(
+      token: _requireUserToken(),
+    );
+  }
+
+  Future<VoucherRedemptionResult> redeemVoucher(int promotionId) async {
+    final currentSession = session;
+    if (currentSession == null) {
+      throw ApiException('Sign in before redeeming a voucher.');
+    }
+    final result = config.useMockData
+        ? MockData.redeemVoucher(
+            promotionId: promotionId,
+            currentCreditPoints: currentSession.user.creditPoints,
+          )
+        : await api.redeemUserVoucher(
+            token: currentSession.accessToken,
+            promotionId: promotionId,
+          );
+    if (session?.accessToken == currentSession.accessToken) {
+      session = currentSession.copyWith(
+        user: currentSession.user.copyWith(
+          creditPoints: result.remainingCreditPoints,
+        ),
+      );
+      await sessionStore.saveSession(session!);
+      notifyListeners();
+    }
+    return result;
+  }
+
+  Future<CheckoutPreview> previewCheckout({
+    required int deliveryAddressId,
+    String promotionCode = '',
+    String deliveryType = 'DELIVERY',
+    DateTime? scheduledDeliveryAt,
+  }) async {
+    if (config.useMockData) {
+      throw ApiException(
+        'Checkout preview is only available when the app is connected to the real server.',
+      );
+    }
+    final currentSession = session;
+    if (currentSession == null) {
+      throw ApiException('Sign in to preview checkout.');
+    }
+    try {
+      await _ensureCheckoutAddressCoordinates(
+        token: currentSession.accessToken,
+        deliveryAddressId: deliveryAddressId,
+      );
+      return await api.checkoutPreview(
+        token: currentSession.accessToken,
+        deliveryAddressId: deliveryAddressId,
+        promotionCode: promotionCode,
+        deliveryType: deliveryType,
+        scheduledDeliveryAt: scheduledDeliveryAt,
+      );
+    } on ApiException catch (error) {
+      throw _mapCheckoutError(error);
+    }
+  }
+
+  Future<List<CheckoutPromotionSuggestion>> loadEligibleCheckoutPromotions({
+    required int deliveryAddressId,
+    String deliveryType = 'DELIVERY',
+    DateTime? scheduledDeliveryAt,
+  }) async {
+    if (config.useMockData) {
+      return const [];
+    }
+    final currentSession = session;
+    if (currentSession == null) {
+      throw ApiException('Sign in to view eligible vouchers.');
+    }
+    try {
+      await _ensureCheckoutAddressCoordinates(
+        token: currentSession.accessToken,
+        deliveryAddressId: deliveryAddressId,
+      );
+      return await api.getEligibleCheckoutPromotions(
+        token: currentSession.accessToken,
+        deliveryAddressId: deliveryAddressId,
+        deliveryType: deliveryType,
+        scheduledDeliveryAt: scheduledDeliveryAt,
+      );
+    } on ApiException catch (error) {
+      throw _mapCheckoutError(error);
+    }
   }
 
   Future<List<SupportStore>> loadSupportStores() async {
@@ -1384,9 +1601,10 @@ class AppController extends ChangeNotifier {
         await _clearSessionLocally();
         pendingSessionInterruption = const SessionInterruptionNotice(
           kind: SessionInterruptionKind.loginRequired,
-          title: 'Mat khau da duoc thay doi',
-          message: 'Ban vua doi mat khau thanh cong. Vui long dang nhap lai de tiep tuc su dung app.',
-          primaryActionLabel: 'Dang nhap lai',
+          title: 'Password changed',
+          message:
+              'Your password was changed successfully. Please sign in again to keep using the app.',
+          primaryActionLabel: 'Sign in again',
         );
         notifyListeners();
       }
@@ -1410,7 +1628,8 @@ class AppController extends ChangeNotifier {
     try {
       final currentSession = session;
       if (currentSession == null) {
-        throw ApiException('Can dang nhap bang Google truoc khi bo sung ho so.');
+        throw ApiException(
+            'Sign in with Google before completing the profile.');
       }
 
       if (config.useMockData) {
@@ -1474,7 +1693,8 @@ class AppController extends ChangeNotifier {
     addressBusy = true;
     notifyListeners();
     try {
-      deliveryAddresses = await api.getDeliveryAddresses(currentSession.accessToken);
+      deliveryAddresses =
+          await api.getDeliveryAddresses(currentSession.accessToken);
     } finally {
       addressBusy = false;
       notifyListeners();
@@ -1486,6 +1706,8 @@ class AppController extends ChangeNotifier {
     required String fullName,
     required String phoneNumber,
     required String deliveryAddress,
+    double? latitude,
+    double? longitude,
     bool primary = false,
   }) async {
     if (config.useMockData) {
@@ -1493,7 +1715,21 @@ class AppController extends ChangeNotifier {
     }
     final currentSession = session;
     if (currentSession == null) {
-      throw ApiException('Can dang nhap de quan ly dia chi.');
+      throw ApiException('Sign in to manage addresses.');
+    }
+    final normalizedDeliveryAddress =
+        _addressSearchService.normalizeVietnameseAddress(deliveryAddress);
+    final addressToSave = normalizedDeliveryAddress.isEmpty
+        ? deliveryAddress.trim()
+        : normalizedDeliveryAddress;
+    var resolvedLatitude = latitude;
+    var resolvedLongitude = longitude;
+    if ((resolvedLatitude == null || resolvedLongitude == null) &&
+        addressToSave.isNotEmpty) {
+      final resolvedCoordinates =
+          await _resolveCoordinatesOrThrow(addressToSave);
+      resolvedLatitude = resolvedCoordinates.latitude;
+      resolvedLongitude = resolvedCoordinates.longitude;
     }
     addressBusy = true;
     notifyListeners();
@@ -1503,7 +1739,9 @@ class AppController extends ChangeNotifier {
           token: currentSession.accessToken,
           fullName: fullName,
           phoneNumber: phoneNumber,
-          deliveryAddress: deliveryAddress,
+          deliveryAddress: addressToSave,
+          latitude: resolvedLatitude,
+          longitude: resolvedLongitude,
           primary: primary,
         );
       } else {
@@ -1512,11 +1750,14 @@ class AppController extends ChangeNotifier {
           addressId: existing.id,
           fullName: fullName,
           phoneNumber: phoneNumber,
-          deliveryAddress: deliveryAddress,
+          deliveryAddress: addressToSave,
+          latitude: resolvedLatitude,
+          longitude: resolvedLongitude,
           primary: primary,
         );
       }
-      deliveryAddresses = await api.getDeliveryAddresses(currentSession.accessToken);
+      deliveryAddresses =
+          await api.getDeliveryAddresses(currentSession.accessToken);
     } finally {
       addressBusy = false;
       notifyListeners();
@@ -1529,7 +1770,7 @@ class AppController extends ChangeNotifier {
     }
     final currentSession = session;
     if (currentSession == null) {
-      throw ApiException('Can dang nhap de doi dia chi mac dinh.');
+      throw ApiException('Sign in to change the default address.');
     }
     addressBusy = true;
     notifyListeners();
@@ -1538,7 +1779,8 @@ class AppController extends ChangeNotifier {
         token: currentSession.accessToken,
         addressId: addressId,
       );
-      deliveryAddresses = await api.getDeliveryAddresses(currentSession.accessToken);
+      deliveryAddresses =
+          await api.getDeliveryAddresses(currentSession.accessToken);
     } finally {
       addressBusy = false;
       notifyListeners();
@@ -1551,7 +1793,7 @@ class AppController extends ChangeNotifier {
     }
     final currentSession = session;
     if (currentSession == null) {
-      throw ApiException('Can dang nhap de xoa dia chi.');
+      throw ApiException('Sign in to delete the address.');
     }
     addressBusy = true;
     notifyListeners();
@@ -1560,7 +1802,42 @@ class AppController extends ChangeNotifier {
         token: currentSession.accessToken,
         addressId: addressId,
       );
-      deliveryAddresses = await api.getDeliveryAddresses(currentSession.accessToken);
+      deliveryAddresses =
+          await api.getDeliveryAddresses(currentSession.accessToken);
+    } finally {
+      addressBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<DeliveryAddress> ensureDeliveryAddressCoordinates(
+    int deliveryAddressId,
+  ) async {
+    if (config.useMockData) {
+      throw ApiException(
+        'Coordinate updates are only available when the app is connected to the real server.',
+      );
+    }
+    final currentSession = session;
+    if (currentSession == null) {
+      throw ApiException('Sign in to update the delivery address.');
+    }
+    addressBusy = true;
+    notifyListeners();
+    try {
+      final resolvedAddress = await _ensureCheckoutAddressCoordinates(
+        token: currentSession.accessToken,
+        deliveryAddressId: deliveryAddressId,
+      );
+      if (resolvedAddress != null) {
+        return resolvedAddress;
+      }
+      for (final address in deliveryAddresses) {
+        if (address.id == deliveryAddressId) {
+          return address;
+        }
+      }
+      throw ApiException('The selected delivery address could not be found.');
     } finally {
       addressBusy = false;
       notifyListeners();
@@ -1573,16 +1850,21 @@ class AppController extends ChangeNotifier {
     String deliveryType = 'DELIVERY',
     DateTime? scheduledDeliveryAt,
   }) async {
-      if (config.useMockData) {
-        throw ApiException('Checkout that chi san sang khi app dang ket noi may chu that.');
-      }
+    if (config.useMockData) {
+      throw ApiException(
+          'Checkout is only available when the app is connected to the real server.');
+    }
     final currentSession = session;
     if (currentSession == null) {
-      throw ApiException('Can dang nhap truoc khi checkout.');
+      throw ApiException('Sign in before checkout.');
     }
     checkoutBusy = true;
     notifyListeners();
     try {
+      await _ensureCheckoutAddressCoordinates(
+        token: currentSession.accessToken,
+        deliveryAddressId: deliveryAddressId,
+      );
       final result = await api.checkout(
         token: currentSession.accessToken,
         deliveryAddressId: deliveryAddressId,
@@ -1602,10 +1884,97 @@ class AppController extends ChangeNotifier {
         }
       }
       return result;
+    } on ApiException catch (error) {
+      throw _mapCheckoutError(error);
     } finally {
       checkoutBusy = false;
       notifyListeners();
     }
+  }
+
+  Future<DeliveryAddress?> _ensureCheckoutAddressCoordinates({
+    required String token,
+    required int deliveryAddressId,
+  }) async {
+    final selectedAddress = deliveryAddresses
+        .where((address) => address.id == deliveryAddressId)
+        .cast<DeliveryAddress?>()
+        .firstWhere(
+          (address) => address != null,
+          orElse: () => null,
+        );
+    if (selectedAddress == null || selectedAddress.hasCoordinates) {
+      return selectedAddress;
+    }
+    final coordinates =
+        await _resolveCoordinatesOrThrow(selectedAddress.deliveryAddress);
+    final updatedAddress = await api.updateDeliveryAddress(
+      token: token,
+      addressId: selectedAddress.id,
+      fullName: selectedAddress.fullName,
+      phoneNumber: selectedAddress.phoneNumber,
+      deliveryAddress: selectedAddress.deliveryAddress,
+      latitude: coordinates.latitude,
+      longitude: coordinates.longitude,
+      primary: selectedAddress.primary,
+    );
+    deliveryAddresses = deliveryAddresses
+        .map((address) =>
+            address.id == updatedAddress.id ? updatedAddress : address)
+        .toList();
+    notifyListeners();
+    return updatedAddress;
+  }
+
+  Future<({double latitude, double longitude})> _resolveCoordinatesOrThrow(
+    String deliveryAddress,
+  ) async {
+    final normalizedAddress =
+        _addressSearchService.normalizeVietnameseAddress(deliveryAddress);
+
+    try {
+      final matches = await _addressSearchService.search(normalizedAddress);
+      if (matches.isNotEmpty) {
+        final firstMatch = matches.first;
+        return (
+          latitude: firstMatch.latitude,
+          longitude: firstMatch.longitude,
+        );
+      }
+    } catch (error) {
+      final message = '$error';
+      if (message.contains('IO_ERROR') ||
+          message.contains('SocketException') ||
+          message.contains('Failed host lookup')) {
+        throw ApiException(
+          'The geocoding service is temporarily busy. Try again in a few minutes or provide a more detailed address.',
+        );
+      }
+    }
+    throw ApiException(
+      'We could not resolve coordinates for this address automatically. Please add the ward, district, or city, or choose the location on the map.',
+    );
+  }
+
+  ApiException _mapCheckoutError(ApiException error) {
+    final normalizedMessage = error.message.trim().toLowerCase();
+    if (normalizedMessage == 'delivery address is missing coordinates') {
+      return ApiException(
+        'This delivery address does not have coordinates yet. Tap "Fetch coordinates automatically" or edit the address to add more detail.',
+        statusCode: error.statusCode,
+      );
+    }
+    if (normalizedMessage.contains('payos error 231') ||
+        normalizedMessage.contains('da ton tai') ||
+        normalizedMessage.contains('ton tai') ||
+        normalizedMessage.contains('payment request already exists') ||
+        normalizedMessage.contains('already exists')) {
+      return ApiException(
+        'PayOS reported that this payment request already exists. Please wait a moment and try again. If it keeps happening, restart the backend so the automatic retry logic can take effect.',
+        statusCode: error.statusCode,
+      );
+    }
+    return error;
   }
 
   Future<void> addToCart({
@@ -1629,7 +1998,8 @@ class AppController extends ChangeNotifier {
         );
         if (index >= 0) {
           final current = items[index];
-          items[index] = current.copyWith(quantity: current.quantity + quantity);
+          items[index] =
+              current.copyWith(quantity: current.quantity + quantity);
         } else {
           items.add(
             CartItem(
@@ -1677,7 +2047,9 @@ class AppController extends ChangeNotifier {
       final currentSession = session;
       if (config.useMockData || currentSession == null) {
         final items = cart.items
-            .map((cartItem) => cartItem.id == item.id ? cartItem.copyWith(quantity: quantity) : cartItem)
+            .map((cartItem) => cartItem.id == item.id
+                ? cartItem.copyWith(quantity: quantity)
+                : cartItem)
             .toList();
         cart = cart.copyWith(items: items);
         await sessionStore.saveLocalCart(cart);
@@ -1703,7 +2075,8 @@ class AppController extends ChangeNotifier {
     try {
       final currentSession = session;
       if (config.useMockData || currentSession == null) {
-        final items = cart.items.where((cartItem) => cartItem.id != item.id).toList();
+        final items =
+            cart.items.where((cartItem) => cartItem.id != item.id).toList();
         cart = cart.copyWith(items: items);
         await sessionStore.saveLocalCart(cart);
       } else {
@@ -1737,7 +2110,13 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  Future<void> _loadProtectedState() async {
+  Future<void> _loadProtectedState({
+    bool loadCart = true,
+    bool loadOrders = true,
+    bool loadFavorites = true,
+    bool loadUnreadCount = true,
+    bool loadDeliveryAddresses = true,
+  }) async {
     final currentSession = session;
     if (currentSession == null) {
       cart = sessionStore.loadLocalCart();
@@ -1747,44 +2126,83 @@ class AppController extends ChangeNotifier {
       deliveryAddresses = const [];
       return;
     }
-    bool isSessionCurrent() => session?.accessToken == currentSession.accessToken;
-    try {
-      cart = await api.getCart(currentSession.accessToken);
-    } catch (_) {
-      cart = Cart.empty();
+    if (!_supportsBuyerFeatures(currentSession)) {
+      _resetBuyerOnlyState();
+      return;
+    }
+    bool isSessionCurrent() =>
+        session?.accessToken == currentSession.accessToken;
+    if (loadCart) {
+      try {
+        cart = await api.getCart(currentSession.accessToken);
+      } catch (_) {
+        cart = Cart.empty();
+      }
     }
     if (!isSessionCurrent()) {
       return;
     }
-    try {
-      orders = await api.getOrders(currentSession.accessToken);
-    } catch (_) {
+    if (loadOrders) {
+      try {
+        orders = await api.getOrders(currentSession.accessToken);
+      } catch (_) {
+        orders = const [];
+      }
+    } else {
       orders = const [];
     }
     if (!isSessionCurrent()) {
       return;
     }
-    try {
-      favoriteItems = await api.getFavorites(token: currentSession.accessToken);
-    } catch (_) {
+    if (loadFavorites) {
+      try {
+        favoriteItems =
+            await api.getFavorites(token: currentSession.accessToken);
+      } catch (_) {
+        favoriteItems = const [];
+      }
+    } else {
       favoriteItems = const [];
     }
     if (!isSessionCurrent()) {
       return;
     }
-    try {
-      userNotificationUnreadCount = await api.getUserNotificationUnreadCount(currentSession.accessToken);
-    } catch (_) {
+    if (loadUnreadCount) {
+      try {
+        userNotificationUnreadCount = await api.getUserNotificationUnreadCount(
+          currentSession.accessToken,
+        );
+      } catch (_) {
+        userNotificationUnreadCount = 0;
+      }
+    } else {
       userNotificationUnreadCount = 0;
     }
     if (!isSessionCurrent()) {
       return;
     }
-    try {
-      deliveryAddresses = await api.getDeliveryAddresses(currentSession.accessToken);
-    } catch (_) {
+    if (loadDeliveryAddresses) {
+      try {
+        deliveryAddresses =
+            await api.getDeliveryAddresses(currentSession.accessToken);
+      } catch (_) {
+        deliveryAddresses = const [];
+      }
+    } else {
       deliveryAddresses = const [];
     }
+  }
+
+  bool _supportsBuyerFeatures(UserSession? value) {
+    return value?.user.role.toUpperCase() == 'USER';
+  }
+
+  void _resetBuyerOnlyState() {
+    cart = Cart.empty();
+    orders = const [];
+    favoriteItems = const [];
+    userNotificationUnreadCount = 0;
+    deliveryAddresses = const [];
   }
 
   Future<void> _handleUnauthorizedSignal(ApiUnauthorizedSignal signal) async {
@@ -1805,26 +2223,28 @@ class AppController extends ChangeNotifier {
     if (normalizedMessage == 'Token is invalid') {
       notice = SessionInterruptionNotice(
         kind: SessionInterruptionKind.replaced,
-        title: 'Tai khoan dang dang nhap o noi khac',
+        title: 'This account is signed in somewhere else',
         message:
-            'Phien dang nhap hien tai khong con hop le. Tai khoan cua ban co the vua duoc dang nhap tren thiet bi khac hoac phien dang nhap da bi thay the. Neu day khong phai ban, vui long dung Quen mat khau de doi mat khau ngay.',
-        primaryActionLabel: 'Dang nhap lai',
-        secondaryActionLabel: 'Quen mat khau',
+            'This session is no longer valid. Your account may have just been signed in on another device or the session was replaced. If that was not you, use Forgot password to change your password right away.',
+        primaryActionLabel: 'Sign in again',
+        secondaryActionLabel: 'Forgot password',
         email: session?.user.email,
       );
     } else if (normalizedMessage == 'Token has expired') {
       notice = const SessionInterruptionNotice(
         kind: SessionInterruptionKind.expired,
-        title: 'Phien dang nhap da het han',
-        message: 'Vui long dang nhap lai de tiep tuc su dung app.',
-        primaryActionLabel: 'Dang nhap lai',
+        title: 'Session expired',
+        message: 'Please sign in again to keep using the app.',
+        primaryActionLabel: 'Sign in again',
       );
-    } else if (normalizedMessage == 'Authorization header must be Bearer token') {
+    } else if (normalizedMessage ==
+        'Authorization header must be Bearer token') {
       notice = const SessionInterruptionNotice(
         kind: SessionInterruptionKind.loginRequired,
-        title: 'Can dang nhap lai',
-        message: 'Phien dang nhap hien tai khong con hop le. Vui long dang nhap lai de tiep tuc.',
-        primaryActionLabel: 'Dang nhap lai',
+        title: 'Sign in again',
+        message:
+            'This session is no longer valid. Please sign in again to continue.',
+        primaryActionLabel: 'Sign in again',
       );
     }
 
@@ -1881,11 +2301,11 @@ class AppController extends ChangeNotifier {
   String _requireBackofficeToken() {
     final currentSession = session;
     if (currentSession == null) {
-      throw ApiException('Can dang nhap de vao backoffice app.');
+      throw ApiException('Sign in to open the backoffice app.');
     }
     final role = currentSession.user.role.toUpperCase();
     if (role != 'ADMIN' && role != 'MANAGER') {
-      throw ApiException('Tai khoan hien tai khong co quyen backoffice.');
+      throw ApiException('This account does not have backoffice access.');
     }
     return currentSession.accessToken;
   }
@@ -1893,11 +2313,11 @@ class AppController extends ChangeNotifier {
   String _requireEmployeeToken() {
     final currentSession = session;
     if (currentSession == null) {
-      throw ApiException('Can dang nhap de vao employee app.');
+      throw ApiException('Sign in to open the employee app.');
     }
     final role = currentSession.user.role.toUpperCase();
     if (role != 'STAFF' && role != 'SHIPPER') {
-      throw ApiException('Tai khoan hien tai khong co quyen employee.');
+      throw ApiException('This account does not have employee access.');
     }
     return currentSession.accessToken;
   }
@@ -1905,10 +2325,10 @@ class AppController extends ChangeNotifier {
   String _requireUserToken() {
     final currentSession = session;
     if (currentSession == null) {
-      throw ApiException('Can dang nhap de vao khu vuc khach hang.');
+      throw ApiException('Sign in to open the customer area.');
     }
     if (currentSession.user.role.toUpperCase() != 'USER') {
-      throw ApiException('Tai khoan hien tai khong thuoc role USER.');
+      throw ApiException('This account does not have USER access.');
     }
     return currentSession.accessToken;
   }
@@ -1916,14 +2336,19 @@ class AppController extends ChangeNotifier {
   String _requireAuthenticatedToken() {
     final currentSession = session;
     if (currentSession == null) {
-      throw ApiException('Can dang nhap de mo AI chat.');
+      throw ApiException('Sign in to open AI chat.');
     }
     return currentSession.accessToken;
   }
 
-  AiChatResponse _mockAiChatResponse(String message) {
+  AiChatResponse _mockAiChatResponse(
+    String message, {
+    List<AiChatHistoryEntry> history = const [],
+    int? threadId,
+  }) {
     final currentUser = session?.user;
     final lower = message.toLowerCase();
+    final now = DateTime.now();
     final references = <AiChatReference>[
       const AiChatReference(
         referenceKey: 'store:1',
@@ -1956,45 +2381,197 @@ class AppController extends ChangeNotifier {
         entityType: 'NEWS',
         tableName: 'news_articles',
         id: 901,
-        slug: 'matcha-guide-thang-4',
-        title: 'Matcha Guide Thang 4',
-        subtitle: 'Bai viet moi cho nguoi muon tim hieu menu va cach pha',
+        slug: 'matcha-guide-april',
+        title: 'Matcha Guide April',
+        subtitle:
+            'A new article for guests who want to explore the menu and brewing style',
         imagePath: null,
-        publicApiPath: '/api/public/news/matcha-guide-thang-4',
+        publicApiPath: '/api/public/news/matcha-guide-april',
         adminApiPath: '/api/admin/news/901',
         userApiPath: null,
       ),
     ];
 
     String answer;
-    if (lower.contains('voucher') || lower.contains('khuyen mai')) {
+    if (lower.contains('voucher') || lower.contains('promotion')) {
       answer =
-          'Kamatcha Q1 dang la diem de bat dau. Ban co the mo nhanh store, mon Matcha Latte, va kiem tra bai viet hoac uu dai lien quan tu cac the tham chieu ben duoi.';
+          'Kamatcha Q1 is a good place to start. You can quickly open the store, the Matcha Latte item, and related articles or offers from the reference cards below.';
     } else if (lower.contains('tai khoan') || lower.contains('account')) {
       answer =
-          'Minh da lay tom tat trang thai tai khoan hien tai cua ban. Ban co the xem card tai khoan ngay ben duoi de kiem tra role, verify va store scope.';
+          'I pulled a quick summary of your current account status. You can open the account card below to check role, verification, and store scope.';
     } else {
       answer =
-          'Minh da tim duoc mot so du lieu lien quan trong he thong Kamatcha. Ban co the mo nhanh tung the tham chieu de xem chi tiet store, dish, news hoac record noi bo neu role cua ban duoc phep.';
+          'I found a few relevant records in the Kamatcha system. You can open each reference card to view store, dish, news, or internal record details if your role has access.';
     }
 
+    final currentStatus = currentUser == null
+        ? null
+        : AiChatCurrentUserStatus(
+            id: currentUser.id,
+            fullName: currentUser.fullName,
+            email: currentUser.email,
+            role: currentUser.role,
+            enabled: true,
+            verified: currentUser.verified,
+            profileCompleted: currentUser.profileCompleted,
+            workingStoreId: currentUser.workingStoreId,
+            workingStoreName: currentUser.workingStoreName,
+          );
+    final actions = _mockAiChatActions(references);
+    final effectiveThreadId = threadId ?? _nextMockAiChatThreadId++;
+    final existingDetail = _mockAiChatThreadsById[effectiveThreadId];
+    final threadTitle = existingDetail?.title ??
+        _mockAiChatThreadTitle(message, history: history);
+    final threadCreatedAt = existingDetail?.createdAt ?? now;
+    final userMessage = AiChatStoredMessage(
+      id: now.microsecondsSinceEpoch,
+      role: 'user',
+      content: message,
+      references: const [],
+      actions: const [],
+      model: null,
+      createdAt: now,
+    );
+    final assistantMessage = AiChatStoredMessage(
+      id: now.microsecondsSinceEpoch + 1,
+      role: 'assistant',
+      content: answer,
+      references: references,
+      actions: actions,
+      model: 'demo-ai',
+      createdAt: now,
+    );
+    _mockAiChatThreadsById[effectiveThreadId] = AiChatThreadDetail(
+      threadId: effectiveThreadId,
+      title: threadTitle,
+      messages: [
+        ...?existingDetail?.messages,
+        userMessage,
+        assistantMessage,
+      ],
+      createdAt: threadCreatedAt,
+      updatedAt: now,
+    );
+
     return AiChatResponse(
+      threadId: effectiveThreadId,
+      threadTitle: threadTitle,
       answer: answer,
       references: references,
-      currentUserStatus: currentUser == null
-          ? null
-          : AiChatCurrentUserStatus(
-              id: currentUser.id,
-              fullName: currentUser.fullName,
-              email: currentUser.email,
-              role: currentUser.role,
-              enabled: true,
-              verified: currentUser.verified,
-              profileCompleted: currentUser.profileCompleted,
-              workingStoreId: currentUser.workingStoreId,
-              workingStoreName: currentUser.workingStoreName,
-            ),
+      actions: actions,
+      currentUserStatus: currentStatus,
       model: 'demo-ai',
     );
+  }
+
+  AiChatThreadSummary _mockThreadSummaryFromDetail(AiChatThreadDetail detail) {
+    final lastMessage =
+        detail.messages.isNotEmpty ? detail.messages.last : null;
+    return AiChatThreadSummary(
+      threadId: detail.threadId,
+      title: detail.title,
+      messageCount: detail.messages.length,
+      lastMessageRole: lastMessage?.role ?? '',
+      lastMessagePreview: lastMessage?.content ?? '',
+      lastMessageAt: lastMessage?.createdAt,
+      updatedAt: detail.updatedAt,
+    );
+  }
+
+  String _mockAiChatThreadTitle(
+    String message, {
+    List<AiChatHistoryEntry> history = const [],
+  }) {
+    final seed = history.isNotEmpty ? history.first.content : message;
+    final normalized = seed.trim();
+    if (normalized.isEmpty) {
+      return 'Kamatcha chat';
+    }
+    return normalized.length <= 48
+        ? normalized
+        : '${normalized.substring(0, 45).trim()}...';
+  }
+
+  List<AiChatAction> _mockAiChatActions(List<AiChatReference> references) {
+    final actions = <AiChatAction>[
+      const AiChatAction(
+        actionKey: 'open-cart',
+        actionType: 'OPEN_CART',
+        label: 'Open cart',
+        description: 'View your cart and continue ordering.',
+        method: 'GET',
+        apiPath: '/api/user/cart',
+        referenceKey: null,
+        payload: null,
+      ),
+      const AiChatAction(
+        actionKey: 'open-orders',
+        actionType: 'OPEN_ORDERS',
+        label: 'View orders',
+        description: 'Open your recent order list.',
+        method: 'GET',
+        apiPath: '/api/user/orders',
+        referenceKey: null,
+        payload: null,
+      ),
+    ];
+    for (final reference in references) {
+      actions.add(
+        AiChatAction(
+          actionKey: 'open:${reference.referenceKey}',
+          actionType: switch (reference.entityType.toUpperCase()) {
+            'STORE' => 'OPEN_STORE',
+            'DISH' => 'OPEN_DISH',
+            'EVENT' => 'OPEN_EVENT',
+            'NEWS' => 'OPEN_NEWS',
+            'ORDER' => 'OPEN_ORDER',
+            'USER' => 'OPEN_ACCOUNT',
+            _ => 'OPEN_REFERENCE',
+          },
+          label: switch (reference.entityType.toUpperCase()) {
+            'STORE' => 'View store',
+            'DISH' => 'View item',
+            'EVENT' => 'View event',
+            'NEWS' => 'Read article',
+            'ORDER' => 'View order',
+            'USER' => 'View account',
+            _ => 'Open',
+          },
+          description: reference.subtitle,
+          method: 'GET',
+          apiPath: reference.userApiPath ??
+              reference.publicApiPath ??
+              reference.adminApiPath,
+          referenceKey: reference.referenceKey,
+          payload: reference.entityType.toUpperCase() == 'DISH'
+              ? <String, dynamic>{
+                  'dishId': reference.id,
+                  'storeId': 1,
+                  'quantity': 1,
+                }
+              : null,
+        ),
+      );
+      if (reference.entityType.toUpperCase() == 'DISH' &&
+          reference.id != null) {
+        actions.add(
+          AiChatAction(
+            actionKey: 'add-to-cart:${reference.id}',
+            actionType: 'ADD_TO_CART',
+            label: 'Add to cart',
+            description: 'Add ${reference.title} to the sample cart.',
+            method: 'POST',
+            apiPath: '/api/user/cart/items',
+            referenceKey: reference.referenceKey,
+            payload: <String, dynamic>{
+              'dishId': reference.id,
+              'storeId': 1,
+              'quantity': 1,
+            },
+          ),
+        );
+      }
+    }
+    return actions;
   }
 }

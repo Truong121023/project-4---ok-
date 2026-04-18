@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../app/app.dart';
 import '../../core/models/models.dart';
@@ -112,7 +112,7 @@ class _AdminResourceListScreenState extends State<AdminResourceListScreen> {
     if (id <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Record nay khong co id hop le de mo chi tiet.')),
+            content: Text('This record does not have a valid id to open the detail view.')),
       );
       return;
     }
@@ -233,7 +233,7 @@ class _AdminResourceListScreenState extends State<AdminResourceListScreen> {
                   const EmptyStateCard(
                     title: 'Khong co du lieu',
                     message:
-                        'Thu doi search/bo loc hoac kiem tra quyen cua tai khoan hien tai.',
+                        'Try changing the search or filters, or check the permissions of the current account.',
                   )
                 else ...[
                   ...result.items.map(
@@ -399,3 +399,4 @@ class _AdminFiltersSheetState extends State<_AdminFiltersSheet> {
     );
   }
 }
+

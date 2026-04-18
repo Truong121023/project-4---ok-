@@ -1,4 +1,5 @@
 import 'common_models.dart';
+import '../utils/ui_text.dart';
 
 bool isDeliveryOrderType(String deliveryType) {
   final normalized = deliveryType.trim().toUpperCase();
@@ -8,10 +9,10 @@ bool isDeliveryOrderType(String deliveryType) {
 String deliveryTypeLabel(String deliveryType) {
   final normalized = deliveryType.trim().toUpperCase();
   return switch (normalized) {
-    'DELIVERY' || 'IMMEDIATE' => 'Giao ngay',
-    'SCHEDULED' => 'Hen gio',
-    'PICKUP' => 'Tu den lay',
-    _ => normalized.isEmpty ? 'Dang cap nhat' : normalized,
+    'DELIVERY' || 'IMMEDIATE' => 'Delivery',
+    'SCHEDULED' => 'Scheduled',
+    'PICKUP' => 'Pickup',
+    _ => normalized.isEmpty ? 'Updating' : normalized,
   };
 }
 
@@ -36,6 +37,130 @@ class ShippingFeeBreakdownItem {
   final String storeName;
   final double? distanceKm;
   final double shippingFeeAmount;
+}
+
+class CheckoutPreview {
+  const CheckoutPreview({
+    required this.subtotalAmount,
+    required this.discountAmount,
+    required this.shippingFeeAmount,
+    required this.shippingFeeBreakdown,
+    required this.totalAmount,
+    required this.promotionCode,
+    required this.statusSummary,
+    this.shippingDistanceKm,
+  });
+
+  factory CheckoutPreview.fromJson(JsonMap json) {
+    return CheckoutPreview(
+      subtotalAmount: asDouble(json['subtotalAmount']),
+      discountAmount: asDouble(json['discountAmount']),
+      shippingDistanceKm:
+          json['shippingDistanceKm'] == null ? null : asDouble(json['shippingDistanceKm']),
+      shippingFeeAmount: asDouble(json['shippingFeeAmount']),
+      shippingFeeBreakdown:
+          asObjectList(json['shippingFeeBreakdown'], ShippingFeeBreakdownItem.fromJson),
+      totalAmount: asDouble(json['totalAmount']),
+      promotionCode: asString(json['promotionCode']),
+      statusSummary: UiText.translate(asString(json['statusSummary'])),
+    );
+  }
+
+  final double subtotalAmount;
+  final double discountAmount;
+  final double? shippingDistanceKm;
+  final double shippingFeeAmount;
+  final List<ShippingFeeBreakdownItem> shippingFeeBreakdown;
+  final double totalAmount;
+  final String promotionCode;
+  final String statusSummary;
+
+  bool get hasShippingSummary =>
+      shippingDistanceKm != null || shippingFeeAmount > 0 || shippingFeeBreakdown.isNotEmpty;
+}
+
+class CheckoutPromotionSuggestion {
+  const CheckoutPromotionSuggestion({
+    required this.id,
+    required this.code,
+    required this.name,
+    required this.description,
+    required this.scope,
+    required this.discountType,
+    required this.discountValue,
+    required this.minOrderAmount,
+    required this.maxDiscountAmount,
+    required this.estimatedDiscountAmount,
+    required this.eligibleAmount,
+    required this.matchedDishIds,
+    required this.storeId,
+    required this.storeName,
+    this.discountTarget = 'ITEMS',
+    this.startsAt,
+    this.endsAt,
+  });
+
+  factory CheckoutPromotionSuggestion.fromJson(JsonMap json) {
+    return CheckoutPromotionSuggestion(
+      id: asInt(json['id']),
+      code: asString(json['code']),
+      name: asString(json['name']),
+      description: asString(json['description']),
+      scope: asString(json['scope']),
+      discountType: asString(json['discountType']),
+      discountTarget: asString(json['discountTarget'], 'ITEMS'),
+      discountValue: asDouble(json['discountValue']),
+      minOrderAmount: json['minOrderAmount'] == null ? null : asDouble(json['minOrderAmount']),
+      maxDiscountAmount:
+          json['maxDiscountAmount'] == null ? null : asDouble(json['maxDiscountAmount']),
+      estimatedDiscountAmount: asDouble(json['estimatedDiscountAmount']),
+      eligibleAmount: asDouble(json['eligibleAmount']),
+      matchedDishIds: (json['matchedDishIds'] is List)
+          ? (json['matchedDishIds'] as List)
+              .map((item) => asInt(item))
+              .where((item) => item > 0)
+              .toList()
+          : const [],
+      storeId: asNullableInt(json['storeId']),
+      storeName: asNullableString(json['storeName']),
+      startsAt: asDateTime(json['startsAt']),
+      endsAt: asDateTime(json['endsAt']),
+    );
+  }
+
+  final int id;
+  final String code;
+  final String name;
+  final String description;
+  final String scope;
+  final String discountType;
+  final String discountTarget;
+  final double discountValue;
+  final double? minOrderAmount;
+  final double? maxDiscountAmount;
+  final double estimatedDiscountAmount;
+  final double eligibleAmount;
+  final List<int> matchedDishIds;
+  final int? storeId;
+  final String? storeName;
+  final DateTime? startsAt;
+  final DateTime? endsAt;
+
+  String get displayName => name.trim().isEmpty ? code : name;
+  bool get isPercentageDiscount => discountType.trim().toUpperCase() == 'PERCENT';
+
+  String get normalizedDiscountTarget {
+    final normalized = discountTarget.trim().toUpperCase();
+    return normalized.isEmpty ? 'ITEMS' : normalized;
+  }
+
+  bool get discountsItems =>
+      normalizedDiscountTarget == 'ITEMS' ||
+      normalizedDiscountTarget == 'BOTH';
+
+  bool get discountsShipping =>
+      normalizedDiscountTarget == 'SHIPPING' ||
+      normalizedDiscountTarget == 'BOTH';
 }
 
 class CartItem {
@@ -232,6 +357,7 @@ class OrderSummary {
     required this.totalAmount,
     required this.statusSummary,
     required this.createdAt,
+    this.creditPointsAwarded = 0,
     this.promotionCode,
     this.promotionEligibleAmount,
     this.confirmedByUserName,
@@ -250,8 +376,9 @@ class OrderSummary {
       status: asString(json['status']),
       paymentStatus: asString(json['paymentStatus']),
       totalAmount: asDouble(json['totalAmount']),
-      statusSummary: asString(json['statusSummary']),
+      statusSummary: UiText.translate(asString(json['statusSummary'])),
       createdAt: asDateTime(json['createdAt']),
+      creditPointsAwarded: asInt(json['creditPointsAwarded']),
       promotionCode: asNullableString(json['promotionCode']),
       promotionEligibleAmount:
           json['promotionEligibleAmount'] == null ? null : asDouble(json['promotionEligibleAmount']),
@@ -272,6 +399,7 @@ class OrderSummary {
   final double totalAmount;
   final String statusSummary;
   final DateTime? createdAt;
+  final int creditPointsAwarded;
   final String? promotionCode;
   final double? promotionEligibleAmount;
   final String? confirmedByUserName;
@@ -416,7 +544,7 @@ class CheckoutResult {
       deliveryFullName: asString(json['deliveryFullName']),
       deliveryPhoneNumber: asString(json['deliveryPhoneNumber']),
       deliveryAddress: asString(json['deliveryAddress']),
-      statusSummary: asString(json['statusSummary']),
+      statusSummary: UiText.translate(asString(json['statusSummary'])),
       orders: asObjectList(json['orders'], OrderSummary.fromJson),
       scheduledDeliveryAt: asDateTime(json['scheduledDeliveryAt']),
       paymentExpiresAt: asDateTime(json['paymentExpiresAt']),

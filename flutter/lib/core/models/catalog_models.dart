@@ -150,6 +150,8 @@ class StoreCard {
     required this.open,
     required this.disabled,
     required this.sections,
+    this.latitude,
+    this.longitude,
     this.distanceKm,
   });
 
@@ -162,6 +164,8 @@ class StoreCard {
       address: asString(json['address']),
       area: asString(json['area']),
       positionLabel: asString(json['positionLabel']),
+      latitude: json['latitude'] == null ? null : asDouble(json['latitude']),
+      longitude: json['longitude'] == null ? null : asDouble(json['longitude']),
       imagePaths: asStringList(json['imagePaths']),
       highlightSummary: asString(json['highlightSummary']),
       highlightTags: asStringList(json['highlightTags']),
@@ -183,6 +187,8 @@ class StoreCard {
   final String address;
   final String area;
   final String positionLabel;
+  final double? latitude;
+  final double? longitude;
   final List<String> imagePaths;
   final String highlightSummary;
   final List<String> highlightTags;
@@ -194,6 +200,119 @@ class StoreCard {
   final bool disabled;
   final List<ContentSection> sections;
   final double? distanceKm;
+}
+
+class PromotionCard {
+  const PromotionCard({
+    required this.id,
+    required this.code,
+    required this.name,
+    required this.description,
+    required this.scope,
+    required this.discountType,
+    required this.discountValue,
+    required this.storeNames,
+    required this.applicableDishIds,
+    this.discountTarget = 'ITEMS',
+    this.creditCost = 0,
+    this.availableRedemptions = 0,
+    this.minOrderAmount,
+    this.maxDiscountAmount,
+    this.startsAt,
+    this.endsAt,
+  });
+
+  factory PromotionCard.fromJson(JsonMap json) {
+    return PromotionCard(
+      id: asInt(json['id']),
+      code: asString(json['code']),
+      name: asString(json['name']),
+      description: asString(json['description']),
+      scope: asString(json['scope']),
+      discountType: asString(json['discountType']),
+      discountTarget: asString(json['discountTarget'], 'ITEMS'),
+      discountValue: asDouble(json['discountValue']),
+      creditCost: asInt(json['creditCost']),
+      availableRedemptions: asInt(json['availableRedemptions']),
+      minOrderAmount:
+          json['minOrderAmount'] == null ? null : asDouble(json['minOrderAmount']),
+      maxDiscountAmount: json['maxDiscountAmount'] == null
+          ? null
+          : asDouble(json['maxDiscountAmount']),
+      storeNames: asStringList(json['storeNames']),
+      applicableDishIds: (json['applicableDishIds'] is List)
+          ? (json['applicableDishIds'] as List)
+              .map((item) => asInt(item))
+              .where((item) => item > 0)
+              .toList()
+          : const [],
+      startsAt: asDateTime(json['startsAt']),
+      endsAt: asDateTime(json['endsAt']),
+    );
+  }
+
+  final int id;
+  final String code;
+  final String name;
+  final String description;
+  final String scope;
+  final String discountType;
+  final String discountTarget;
+  final double discountValue;
+  final int creditCost;
+  final int availableRedemptions;
+  final double? minOrderAmount;
+  final double? maxDiscountAmount;
+  final List<String> storeNames;
+  final List<int> applicableDishIds;
+  final DateTime? startsAt;
+  final DateTime? endsAt;
+
+  bool get isPercentDiscount =>
+      discountType.trim().toUpperCase() == 'PERCENT';
+
+  String get normalizedDiscountTarget {
+    final normalized = discountTarget.trim().toUpperCase();
+    return normalized.isEmpty ? 'ITEMS' : normalized;
+  }
+
+  bool get discountsItems =>
+      normalizedDiscountTarget == 'ITEMS' ||
+      normalizedDiscountTarget == 'BOTH';
+
+  bool get discountsShipping =>
+      normalizedDiscountTarget == 'SHIPPING' ||
+      normalizedDiscountTarget == 'BOTH';
+
+  bool get requiresCreditRedemption => creditCost > 0;
+
+  bool get hasAvailableRedemption => availableRedemptions > 0;
+}
+
+class VoucherRedemptionResult {
+  const VoucherRedemptionResult({
+    required this.message,
+    required this.promotionId,
+    required this.promotionCode,
+    required this.remainingCreditPoints,
+    required this.availableRedemptions,
+  });
+
+  factory VoucherRedemptionResult.fromJson(JsonMap json) {
+    return VoucherRedemptionResult(
+      message: asString(json['message']),
+      promotionId: asInt(json['promotionId']),
+      promotionCode: asString(json['promotionCode']),
+      remainingCreditPoints: asInt(json['remainingCreditPoints']),
+      availableRedemptions: asInt(json['availableRedemptions']),
+    );
+  }
+
+  final String message;
+  final int promotionId;
+  final String promotionCode;
+  final int remainingCreditPoints;
+  final int availableRedemptions;
 }
 
 class StoreStats {
@@ -605,6 +724,7 @@ class HomeBundle {
     required this.brand,
     required this.featuredStores,
     required this.featuredDishes,
+    required this.promotions,
     required this.upcomingEvents,
     required this.storeLocations,
     required this.latestNews,
@@ -615,6 +735,7 @@ class HomeBundle {
       brand: asString(json['brand'], 'Kamatcha'),
       featuredStores: asObjectList(json['featuredStores'], StoreCard.fromJson),
       featuredDishes: asObjectList(json['featuredDishes'], DishCard.fromJson),
+      promotions: asObjectList(json['promotions'], PromotionCard.fromJson),
       upcomingEvents: asObjectList(json['upcomingEvents'], EventCard.fromJson),
       storeLocations: asObjectList(json['storeLocations'], StoreCard.fromJson),
       latestNews: asObjectList(json['latestNews'], NewsCard.fromJson),
@@ -624,6 +745,7 @@ class HomeBundle {
   final String brand;
   final List<StoreCard> featuredStores;
   final List<DishCard> featuredDishes;
+  final List<PromotionCard> promotions;
   final List<EventCard> upcomingEvents;
   final List<StoreCard> storeLocations;
   final List<NewsCard> latestNews;

@@ -40,7 +40,7 @@ CartShippingEstimate estimateCartShipping({
       shippingDistanceKm: null,
       shippingFeeAmount: 0,
       shippingFeeBreakdown: [],
-      pendingMessage: 'Chon dia chi giao hang de preview shipping fee.',
+      pendingMessage: 'Choose a delivery address to preview the shipping fee.',
     );
   }
 

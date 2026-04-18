@@ -1,7 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
+<<<<<<< HEAD
+import 'package:kamatcha_mobile/core/models/auth_models.dart';
+import 'package:kamatcha_mobile/core/models/commerce_models.dart';
+import 'package:kamatcha_mobile/core/utils/formatters.dart';
+=======
 import 'package:tea_matcha_mobile/core/models/auth_models.dart';
 import 'package:tea_matcha_mobile/core/models/commerce_models.dart';
 import 'package:tea_matcha_mobile/core/utils/formatters.dart';
+>>>>>>> origin/main
 
 void main() {
   test('formatters return stable mobile-friendly strings', () {
@@ -28,7 +34,11 @@ void main() {
   test('order summary parses promotion checkout metadata', () {
     final summary = OrderSummary.fromJson({
       'id': 201,
+<<<<<<< HEAD
+      'storeName': 'Kamatcha Q1',
+=======
       'storeName': 'Tea Matcha Q1',
+>>>>>>> origin/main
       'status': 'PENDING',
       'paymentStatus': 'PENDING',
       'totalAmount': 110000,

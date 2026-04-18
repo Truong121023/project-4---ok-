@@ -68,6 +68,16 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
 			from Order o
 			where o.user.id = :userId
 			  and o.paymentStatus = com.example.registrationotp.model.PaymentStatus.PAID
+			""")
+	BigDecimal sumPaidTotalAmountByUserId(
+			@Param("userId") Long userId
+	);
+
+	@Query("""
+			select coalesce(sum(o.totalAmount), 0)
+			from Order o
+			where o.user.id = :userId
+			  and o.paymentStatus = com.example.registrationotp.model.PaymentStatus.PAID
 			  and o.paidAt >= :start
 			  and o.paidAt < :end
 			  and exists (

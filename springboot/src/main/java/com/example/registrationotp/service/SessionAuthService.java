@@ -59,6 +59,15 @@ public class SessionAuthService {
 		return user;
 	}
 
+	@Transactional(readOnly = true)
+	public User requireManager(String authorizationHeader) {
+		User user = requireUser(authorizationHeader);
+		if (user.getRole() != Role.MANAGER) {
+			throw new ForbiddenException("Manager role is required");
+		}
+		return user;
+	}
+
 	private String extractBearerToken(String authorizationHeader) {
 		if (authorizationHeader == null || !authorizationHeader.startsWith(TOKEN_TYPE + " ")) {
 			throw new UnauthorizedException("Authorization header must be Bearer token");

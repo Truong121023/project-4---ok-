@@ -1,6 +1,7 @@
 import 'catalog_models.dart';
 import 'commerce_models.dart';
 import 'common_models.dart';
+import '../utils/ui_text.dart';
 
 class FeaturedDishPreview {
   const FeaturedDishPreview({
@@ -60,7 +61,9 @@ class EventDetail extends EventCard {
 
   factory EventDetail.fromJson(JsonMap json) {
     final card = EventCard.fromJson(json);
-    final storeMap = json['store'] is Map ? Map<String, dynamic>.from(json['store'] as Map) : null;
+    final storeMap = json['store'] is Map
+        ? Map<String, dynamic>.from(json['store'] as Map)
+        : null;
     return EventDetail(
       id: card.id,
       slug: card.slug,
@@ -77,9 +80,14 @@ class EventDetail extends EventCard {
       reviewCount: card.reviewCount,
       remainingSlots: card.remainingSlots,
       sections: card.sections,
-      storeId: asInt(json['storeId'], storeMap == null ? 0 : asInt(storeMap['id'])),
+      storeId:
+          asInt(json['storeId'], storeMap == null ? 0 : asInt(storeMap['id'])),
       storeSlug: asString(json['storeSlug']).isEmpty
-          ? (storeMap == null ? '' : asString(storeMap['storeSlug']).isEmpty ? asString(storeMap['slug']) : asString(storeMap['storeSlug']))
+          ? (storeMap == null
+              ? ''
+              : asString(storeMap['storeSlug']).isEmpty
+                  ? asString(storeMap['slug'])
+                  : asString(storeMap['storeSlug']))
           : asString(json['storeSlug']),
       storeAddress: asString(json['storeAddress']).isEmpty
           ? (storeMap == null ? '' : asString(storeMap['address']))
@@ -93,10 +101,12 @@ class EventDetail extends EventCard {
       bookedCount: asInt(json['bookedCount']),
       disabled: asBool(json['disabled']),
       disabledReason: asNullableString(json['disabledReason']),
-      distanceKm: json['distanceKm'] == null ? null : asDouble(json['distanceKm']),
+      distanceKm:
+          json['distanceKm'] == null ? null : asDouble(json['distanceKm']),
       store: storeMap == null ? null : StoreCard.fromJson(storeMap),
       reviews: asObjectList(json['reviews'], ReviewItem.fromJson),
-      featuredDishes: asObjectList(json['featuredDishes'], FeaturedDishPreview.fromJson),
+      featuredDishes:
+          asObjectList(json['featuredDishes'], FeaturedDishPreview.fromJson),
     );
   }
 
@@ -219,6 +229,7 @@ class OrderDetail {
     required this.shippingFeeAmount,
     required this.shippingFeeBreakdown,
     required this.totalAmount,
+    required this.creditPointsAwarded,
     required this.promotionCode,
     required this.promotionScope,
     required this.promotionEligibleAmount,
@@ -268,10 +279,14 @@ class OrderDetail {
       paidAt: asDateTime(json['paidAt']),
       subtotalAmount: asDouble(json['subtotalAmount']),
       discountAmount: asDouble(json['discountAmount']),
-      shippingDistanceKm: json['shippingDistanceKm'] == null ? null : asDouble(json['shippingDistanceKm']),
+      shippingDistanceKm: json['shippingDistanceKm'] == null
+          ? null
+          : asDouble(json['shippingDistanceKm']),
       shippingFeeAmount: asDouble(json['shippingFeeAmount']),
-      shippingFeeBreakdown: asObjectList(json['shippingFeeBreakdown'], ShippingFeeBreakdownItem.fromJson),
+      shippingFeeBreakdown: asObjectList(
+          json['shippingFeeBreakdown'], ShippingFeeBreakdownItem.fromJson),
       totalAmount: asDouble(json['totalAmount']),
+      creditPointsAwarded: asInt(json['creditPointsAwarded']),
       promotionCode: asString(json['promotionCode']),
       promotionScope: asString(json['promotionScope']),
       promotionEligibleAmount: asDouble(json['promotionEligibleAmount']),
@@ -293,7 +308,7 @@ class OrderDetail {
       deliveryProofCapturedAt: asDateTime(json['deliveryProofCapturedAt']),
       deliveryProofUploadedAt: asDateTime(json['deliveryProofUploadedAt']),
       deliveryProofNote: asNullableString(json['deliveryProofNote']),
-      statusSummary: asString(json['statusSummary']),
+      statusSummary: UiText.translate(asString(json['statusSummary'])),
       items: asObjectList(json['items'], OrderLineItem.fromJson),
       createdAt: asDateTime(json['createdAt']),
       updatedAt: asDateTime(json['updatedAt']),
@@ -324,6 +339,7 @@ class OrderDetail {
   final double shippingFeeAmount;
   final List<ShippingFeeBreakdownItem> shippingFeeBreakdown;
   final double totalAmount;
+  final int creditPointsAwarded;
   final String promotionCode;
   final String promotionScope;
   final double promotionEligibleAmount;
@@ -356,9 +372,12 @@ class OrderDetail {
   final List<String> allowedActions;
 
   bool get canRefreshPayment => allowedActions.contains('REFRESH_PAYMENT');
-  bool get canViewInvoice => invoiceAvailable || allowedActions.contains('VIEW_INVOICE');
+  bool get canViewInvoice =>
+      invoiceAvailable || allowedActions.contains('VIEW_INVOICE');
   bool get hasShippingSummary =>
-      shippingDistanceKm != null || shippingFeeAmount > 0 || shippingFeeBreakdown.isNotEmpty;
+      shippingDistanceKm != null ||
+      shippingFeeAmount > 0 ||
+      shippingFeeBreakdown.isNotEmpty;
 }
 
 class UserLevel {
@@ -375,13 +394,45 @@ class UserLevel {
     required this.levelCode,
     required this.levelName,
     required this.levelMinPaidAmount,
+    this.creditPoints,
+    this.levelMinCreditPoints,
+    this.membershipPoints,
+    this.levelMinMembershipPoints,
+    this.nextLevelId,
+    this.nextLevelCode,
+    this.nextLevelName,
+    this.nextLevelMinCreditPoints,
+    this.nextLevelMinMembershipPoints,
   });
 
   factory UserLevel.fromJson(JsonMap json) {
+    final creditPoints = json['creditPoints'] == null
+        ? 0
+        : asInt(json['creditPoints']);
+    final levelMinCreditPoints = json['levelMinCreditPoints'] == null
+        ? (json['levelMinPaidAmount'] == null
+            ? null
+            : asDouble(json['levelMinPaidAmount']))
+        : asDouble(json['levelMinCreditPoints']);
+    final membershipPoints = json['membershipPoints'] == null
+        ? (json['qualifyingPaidAmount'] == null
+            ? 0
+            : (asDouble(json['qualifyingPaidAmount']) / 1000).floor())
+        : asInt(json['membershipPoints']);
+    final levelMinMembershipPoints = json['levelMinMembershipPoints'] == null
+        ? levelMinCreditPoints
+        : asDouble(json['levelMinMembershipPoints']);
+    final nextLevelMinCreditPoints = json['nextLevelMinCreditPoints'] == null
+        ? null
+        : asDouble(json['nextLevelMinCreditPoints']);
+    final nextLevelMinMembershipPoints =
+        json['nextLevelMinMembershipPoints'] == null
+            ? nextLevelMinCreditPoints
+            : asDouble(json['nextLevelMinMembershipPoints']);
     return UserLevel(
-      storeId: asInt(json['storeId']),
-      storeSlug: asString(json['storeSlug']),
-      storeName: asString(json['storeName']),
+      storeId: json['storeId'] == null ? 0 : asInt(json['storeId']),
+      storeSlug: asNullableString(json['storeSlug']) ?? 'global',
+      storeName: asNullableString(json['storeName']) ?? 'Toan he thong',
       currentYear: asInt(json['currentYear']),
       currentQuarter: asInt(json['currentQuarter']),
       evaluatedYear: asInt(json['evaluatedYear']),
@@ -390,7 +441,18 @@ class UserLevel {
       levelId: asNullableInt(json['levelId']),
       levelCode: asNullableString(json['levelCode']),
       levelName: asNullableString(json['levelName']),
-      levelMinPaidAmount: json['levelMinPaidAmount'] == null ? null : asDouble(json['levelMinPaidAmount']),
+      levelMinPaidAmount: json['levelMinPaidAmount'] == null
+          ? null
+          : asDouble(json['levelMinPaidAmount']),
+      creditPoints: creditPoints,
+      levelMinCreditPoints: levelMinCreditPoints,
+      membershipPoints: membershipPoints,
+      levelMinMembershipPoints: levelMinMembershipPoints,
+      nextLevelId: asNullableInt(json['nextLevelId']),
+      nextLevelCode: asNullableString(json['nextLevelCode']),
+      nextLevelName: asNullableString(json['nextLevelName']),
+      nextLevelMinCreditPoints: nextLevelMinCreditPoints,
+      nextLevelMinMembershipPoints: nextLevelMinMembershipPoints,
     );
   }
 
@@ -406,6 +468,96 @@ class UserLevel {
   final String? levelCode;
   final String? levelName;
   final double? levelMinPaidAmount;
+  final int? creditPoints;
+  final double? levelMinCreditPoints;
+  final int? membershipPoints;
+  final double? levelMinMembershipPoints;
+  final int? nextLevelId;
+  final String? nextLevelCode;
+  final String? nextLevelName;
+  final double? nextLevelMinCreditPoints;
+  final double? nextLevelMinMembershipPoints;
+
+  bool get hasLevel => levelId != null;
+
+  String get levelBadgeLabel => levelCode ?? levelName ?? 'Chua dat moc';
+
+  String get levelDisplayName => levelName ?? levelCode ?? 'Chua dat moc';
+
+  int get resolvedCreditPoints => creditPoints ?? 0;
+
+  int get resolvedMembershipPoints =>
+      membershipPoints ?? (qualifyingPaidAmount / 1000).floor();
+
+  double? get resolvedLevelThreshold =>
+      levelMinMembershipPoints ?? levelMinCreditPoints ?? levelMinPaidAmount;
+
+  String get nextLevelDisplayName =>
+      nextLevelName ?? nextLevelCode ?? 'Chua co moc tiep theo';
+
+  bool get hasNextLevel =>
+      nextLevelId != null ||
+      nextLevelMinMembershipPoints != null ||
+      nextLevelMinCreditPoints != null;
+}
+
+class UserLevelDefinition {
+  const UserLevelDefinition({
+    required this.id,
+    required this.storeId,
+    required this.storeSlug,
+    required this.storeName,
+    required this.code,
+    required this.name,
+    required this.minPaidAmount,
+    required this.minCreditPoints,
+    required this.minMembershipPoints,
+    required this.active,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory UserLevelDefinition.fromJson(JsonMap json) {
+    final minCreditPoints = json['minCreditPoints'] == null
+        ? asDouble(json['minPaidAmount'])
+        : asDouble(json['minCreditPoints']);
+    final minMembershipPoints = json['minMembershipPoints'] == null
+        ? minCreditPoints
+        : asDouble(json['minMembershipPoints']);
+    return UserLevelDefinition(
+      id: asInt(json['id']),
+      storeId: asNullableInt(json['storeId']),
+      storeSlug: asNullableString(json['storeSlug']) ?? 'global',
+      storeName: asNullableString(json['storeName']) ?? 'Toan he thong',
+      code: asString(json['code']),
+      name: asString(json['name']),
+      minPaidAmount: json['minPaidAmount'] == null
+          ? null
+          : asDouble(json['minPaidAmount']),
+      minCreditPoints: minCreditPoints,
+      minMembershipPoints: minMembershipPoints,
+      active: asBool(json['active'], true),
+      createdAt: asDateTime(json['createdAt']),
+      updatedAt: asDateTime(json['updatedAt']),
+    );
+  }
+
+  final int id;
+  final int? storeId;
+  final String storeSlug;
+  final String storeName;
+  final String code;
+  final String name;
+  final double? minPaidAmount;
+  final double minCreditPoints;
+  final double minMembershipPoints;
+  final bool active;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  String get displayName => name.trim().isEmpty ? code : name;
+
+  String get badgeLabel => code.trim().isEmpty ? displayName : code;
 }
 
 class UserReview {
@@ -503,8 +655,10 @@ class CustomerFeedback {
       relatedStoreAddress: asNullableString(json['relatedStoreAddress']),
       relatedOrderId: asNullableInt(json['relatedOrderId']),
       relatedOrderStatus: asNullableString(json['relatedOrderStatus']),
-      relatedOrderPaymentStatus: asNullableString(json['relatedOrderPaymentStatus']),
-      relatedOrderPaymentReference: asNullableString(json['relatedOrderPaymentReference']),
+      relatedOrderPaymentStatus:
+          asNullableString(json['relatedOrderPaymentStatus']),
+      relatedOrderPaymentReference:
+          asNullableString(json['relatedOrderPaymentReference']),
       subject: asString(json['subject']),
       message: asString(json['message']),
       replyMessage: asNullableString(json['replyMessage']),

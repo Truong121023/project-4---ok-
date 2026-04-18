@@ -21,13 +21,72 @@ class EmployeeShell extends StatefulWidget {
 
 class _EmployeeShellState extends State<EmployeeShell> {
   int _index = 0;
+  final Set<int> _activatedIndexes = {0};
 
-  List<Widget> get _pages => [
-        EmployeeScanScreen(kind: widget.kind),
-        EmployeeActiveOrdersScreen(kind: widget.kind),
-        EmployeeCompletedOrdersScreen(kind: widget.kind),
-        EmployeeNotificationsScreen(kind: widget.kind),
+  Widget _buildPage(int index) {
+    switch (index) {
+      case 0:
+        return EmployeeScanScreen(kind: widget.kind);
+      case 1:
+        return EmployeeNotificationsScreen(kind: widget.kind);
+      case 2:
+        return EmployeeActiveOrdersScreen(kind: widget.kind);
+      case 3:
+        return EmployeeCompletedOrdersScreen(kind: widget.kind);
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  List<NavigationDestination> get _destinations {
+    if (widget.kind == EmployeeRoleKind.shipper) {
+      return const [
+        NavigationDestination(
+          icon: Icon(Icons.qr_code_scanner_outlined),
+          selectedIcon: Icon(Icons.qr_code_scanner),
+          label: 'Scan',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.local_shipping_outlined),
+          selectedIcon: Icon(Icons.local_shipping),
+          label: 'Inbox',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.delivery_dining_outlined),
+          selectedIcon: Icon(Icons.delivery_dining),
+          label: 'Active',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.history_outlined),
+          selectedIcon: Icon(Icons.history),
+          label: 'History',
+        ),
       ];
+    }
+
+    return const [
+      NavigationDestination(
+        icon: Icon(Icons.qr_code_scanner_outlined),
+        selectedIcon: Icon(Icons.qr_code_scanner),
+        label: 'Scan',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.notifications_active_outlined),
+        selectedIcon: Icon(Icons.notifications_active),
+        label: 'Inbox',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.local_cafe_outlined),
+        selectedIcon: Icon(Icons.local_cafe),
+        label: 'Active',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.inventory_2_outlined),
+        selectedIcon: Icon(Icons.inventory_2),
+        label: 'Completed',
+      ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,35 +95,26 @@ class _EmployeeShellState extends State<EmployeeShell> {
         bottom: false,
         child: IndexedStack(
           index: _index,
-          children: _pages,
+          children: List<Widget>.generate(4, (index) {
+            if (!_activatedIndexes.contains(index)) {
+              return const SizedBox.shrink();
+            }
+            return KeyedSubtree(
+              key: ValueKey('employee-shell-${widget.kind}-$index'),
+              child: _buildPage(index),
+            );
+          }),
         ),
       ),
-      floatingActionButton: const AiChatFab(),
+      floatingActionButton:
+          widget.kind == EmployeeRoleKind.shipper ? null : const AiChatFab(),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        destinations: [
-          NavigationDestination(
-            icon: Icon(Icons.qr_code_scanner_outlined),
-            selectedIcon: Icon(Icons.qr_code_scanner),
-            label: 'Scan',
-          ),
-          NavigationDestination(
-            icon: Icon(employeeRoleIcon(widget.kind)),
-            selectedIcon: Icon(employeeRoleIcon(widget.kind)),
-            label: employeePrimaryQueueLabel(widget.kind),
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.checklist_rtl_outlined),
-            selectedIcon: Icon(Icons.checklist_rtl),
-            label: employeeCompletedQueueLabel(widget.kind),
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.notifications_outlined),
-            selectedIcon: Icon(Icons.notifications),
-            label: 'Thong bao',
-          ),
-        ],
-        onDestinationSelected: (index) => setState(() => _index = index),
+        destinations: _destinations,
+        onDestinationSelected: (index) => setState(() {
+          _index = index;
+          _activatedIndexes.add(index);
+        }),
       ),
     );
   }

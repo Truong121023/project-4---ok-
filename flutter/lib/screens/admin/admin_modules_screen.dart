@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../widgets/app_widgets.dart';
 import 'admin_query_screen.dart';
@@ -31,7 +31,7 @@ class AdminModulesScreen extends StatelessWidget {
           const EmptyStateCard(
             title: 'Admin mobile v1',
             message:
-                'Ban nay uu tien dashboard, list, query va detail viewer cho tat ca module quan tri. CRUD form co the bo sung tiep ma khong can doi lai khung dieu huong.',
+                'This board prioritizes dashboard, list, query, and detail viewers for all admin modules. CRUD forms can continue to grow without redesigning the navigation shell.',
           ),
           const SizedBox(height: 24),
           ...groups.map(
@@ -48,8 +48,8 @@ class AdminModulesScreen extends StatelessWidget {
                     SectionHeader(
                       title: group,
                       subtitle: switch (group) {
-                        'Operations' => 'Nguoi dung, don hang, chi nhanh va feedback moderation.',
-                        'Catalog' => 'Mon, category, promotions va level logic.',
+                        'Operations' => 'Users, orders, branches, and feedback moderation.',
+                        'Catalog' => 'Items, categories, promotions, and level logic.',
                         'Content' => 'Event, news va review moderation.',
                         _ => '',
                       },
@@ -74,3 +74,4 @@ class AdminModulesScreen extends StatelessWidget {
     );
   }
 }
+

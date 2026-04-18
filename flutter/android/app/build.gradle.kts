@@ -15,7 +15,7 @@ if (localPropertiesFile.exists()) {
 val appLinkHost = localProperties.getProperty("app.link.host") ?: "192.168.123.9"
 
 android {
-    namespace = "com.example.tea_matcha_mobile"
+    namespace = "com.example.kamatcha_mobile"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -30,7 +30,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.tea_matcha_mobile"
+        applicationId = "com.example.kamatcha_mobile"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

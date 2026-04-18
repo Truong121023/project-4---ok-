@@ -59,6 +59,7 @@ public class AuthService {
 	private final TokenGenerator tokenGenerator;
 	private final SessionAuthService sessionAuthService;
 	private final GoogleIdTokenVerifierService googleIdTokenVerifierService;
+	private final UserLevelService userLevelService;
 
 	public AuthService(
 			UserRepository userRepository,
@@ -71,7 +72,8 @@ public class AuthService {
 			SessionProperties sessionProperties,
 			TokenGenerator tokenGenerator,
 			SessionAuthService sessionAuthService,
-			GoogleIdTokenVerifierService googleIdTokenVerifierService
+			GoogleIdTokenVerifierService googleIdTokenVerifierService,
+			UserLevelService userLevelService
 	) {
 		this.userRepository = userRepository;
 		this.emailOtpRepository = emailOtpRepository;
@@ -84,6 +86,7 @@ public class AuthService {
 		this.tokenGenerator = tokenGenerator;
 		this.sessionAuthService = sessionAuthService;
 		this.googleIdTokenVerifierService = googleIdTokenVerifierService;
+		this.userLevelService = userLevelService;
 	}
 
 	@Transactional
@@ -141,7 +144,7 @@ public class AuthService {
 
 		return new VerifyOtpResponse(
 				"OTP verified successfully",
-				UserResponse.from(user)
+				toUserResponse(user)
 		);
 	}
 
@@ -240,7 +243,7 @@ public class AuthService {
 		User savedUser = userRepository.save(user);
 		return new GoogleCompleteProfileResponse(
 				"Google profile completed successfully",
-				UserResponse.from(savedUser)
+				toUserResponse(savedUser)
 		);
 	}
 
@@ -250,7 +253,7 @@ public class AuthService {
 		return new MeResponse(
 				"Token is valid",
 				session.getExpiresAt(),
-				UserResponse.from(session.getUser())
+				toUserResponse(session.getUser())
 		);
 	}
 
@@ -402,7 +405,11 @@ public class AuthService {
 				"Bearer",
 				accessToken,
 				expiresAt,
-				UserResponse.from(user)
+				toUserResponse(user)
 		);
+	}
+
+	private UserResponse toUserResponse(User user) {
+		return UserResponse.from(user, userLevelService.resolveMembershipPoints(user));
 	}
 }

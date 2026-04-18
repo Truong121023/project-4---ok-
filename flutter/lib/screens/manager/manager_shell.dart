@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../app/app.dart';
 import '../ai_chat_screen.dart';
+import '../backoffice_notifications_screen.dart';
+import '../admin/admin_resource_list_screen.dart';
+import '../admin/admin_support.dart';
 import 'manager_account_screen.dart';
-import 'manager_operations_screen.dart';
 import 'manager_overview_screen.dart';
-import '../role_order_qr_scan_screen.dart';
 
 class ManagerShell extends StatefulWidget {
   const ManagerShell({super.key});
@@ -15,27 +17,49 @@ class ManagerShell extends StatefulWidget {
 
 class _ManagerShellState extends State<ManagerShell> {
   int _index = 0;
+  final Set<int> _activatedIndexes = {0};
 
-  static const _pages = [
-    ManagerOverviewScreen(),
-    ManagerOperationsScreen(),
-    RoleOrderQrScanScreen(
-      title: 'Manager QR',
-      headerTitle: 'Quet QR de kiem tra don',
-      headerSubtitle: 'Manager chi nhanh co the quet de xem va xac nhan thong tin don cua dung store.',
-      roleLabel: 'MANAGER',
-    ),
-    ManagerAccountScreen(),
-  ];
+  Widget _buildPage(BuildContext context, int index) {
+    final storeId = AppScope.of(context).session?.user.workingStoreId ?? 0;
+    switch (index) {
+      case 0:
+        return const ManagerOverviewScreen();
+      case 1:
+        return AdminResourceListScreen(
+          module: moduleById('orders'),
+          initialQuery: {'storeId': storeId > 0 ? '$storeId' : null},
+        );
+      case 2:
+        return AdminResourceListScreen(
+          module: moduleById('users'),
+          initialQuery: {'workingStoreId': storeId > 0 ? '$storeId' : null},
+        );
+      case 3:
+        return const BackofficeNotificationsScreen();
+      case 4:
+        return const ManagerAccountScreen();
+      default:
+        return const SizedBox.shrink();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final storeId = AppScope.of(context).session?.user.workingStoreId ?? 0;
     return Scaffold(
       body: SafeArea(
         bottom: false,
         child: IndexedStack(
           index: _index,
-          children: _pages,
+          children: List<Widget>.generate(5, (index) {
+            if (!_activatedIndexes.contains(index)) {
+              return const SizedBox.shrink();
+            }
+            return KeyedSubtree(
+              key: ValueKey('manager-shell-$storeId-$index'),
+              child: _buildPage(context, index),
+            );
+          }),
         ),
       ),
       floatingActionButton: const AiChatFab(),
@@ -48,22 +72,30 @@ class _ManagerShellState extends State<ManagerShell> {
             label: 'Today',
           ),
           NavigationDestination(
-            icon: Icon(Icons.dashboard_customize_outlined),
-            selectedIcon: Icon(Icons.dashboard_customize),
-            label: 'Ops',
+            icon: Icon(Icons.receipt_long_outlined),
+            selectedIcon: Icon(Icons.receipt_long),
+            label: 'Orders',
           ),
           NavigationDestination(
-            icon: Icon(Icons.qr_code_scanner_outlined),
-            selectedIcon: Icon(Icons.qr_code_scanner),
-            label: 'Scan',
+            icon: Icon(Icons.group_outlined),
+            selectedIcon: Icon(Icons.group),
+            label: 'Staff',
           ),
           NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Account',
+            icon: Icon(Icons.notifications_outlined),
+            selectedIcon: Icon(Icons.notifications),
+            label: 'Alerts',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.more_horiz_outlined),
+            selectedIcon: Icon(Icons.more_horiz),
+            label: 'More',
           ),
         ],
-        onDestinationSelected: (index) => setState(() => _index = index),
+        onDestinationSelected: (index) => setState(() {
+          _index = index;
+          _activatedIndexes.add(index);
+        }),
       ),
     );
   }

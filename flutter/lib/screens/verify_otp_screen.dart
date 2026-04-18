@@ -46,13 +46,13 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Xac thuc OTP thanh cong va da dang nhap.')),
+        const SnackBar(content: Text('OTP verified successfully and you are now signed in.')),
       );
       Navigator.of(context).popUntil((route) => route.isFirst);
     } on ApiException catch (error) {
       setState(() => _error = error.message);
     } catch (_) {
-      setState(() => _error = 'Xac thuc OTP chua thanh cong.');
+      setState(() => _error = 'OTP verification was not successful.');
     }
   }
 
@@ -60,7 +60,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Xac thuc OTP')),
+      appBar: AppBar(title: const Text('Verify OTP')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -71,18 +71,18 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'OTP da gui toi ${widget.email}',
+                    'OTP sent to ${widget.email}',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
                   ),
                   if (widget.expiresAt != null) ...[
                     const SizedBox(height: 8),
-                    Text('Het han: ${Formatters.fullDateTime(widget.expiresAt)}'),
+                    Text('Expires at: ${Formatters.fullDateTime(widget.expiresAt)}'),
                   ],
                   const SizedBox(height: 16),
                   TextField(
                     controller: _otpController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Nhap OTP'),
+                    decoration: const InputDecoration(labelText: 'Enter OTP'),
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 12),
@@ -96,7 +96,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: controller.authBusy ? null : _submit,
-                      child: Text(controller.authBusy ? 'Dang xu ly...' : 'Xac thuc va dang nhap'),
+                      child: Text(controller.authBusy ? 'Processing...' : 'Verify and sign in'),
                     ),
                   ),
                 ],

@@ -7,6 +7,7 @@ class AppUser {
     required this.email,
     required this.role,
     this.creditPoints = 0,
+    this.membershipPoints = 0,
     this.workingStoreId,
     this.workingStoreName,
     this.workingStoreAddress,
@@ -23,6 +24,7 @@ class AppUser {
       email: asString(json['email']),
       role: asString(json['role'], 'USER'),
       creditPoints: asInt(json['creditPoints']),
+      membershipPoints: asInt(json['membershipPoints']),
       workingStoreId: json['workingStoreId'] == null ? null : asInt(json['workingStoreId']),
       workingStoreName: asString(json['workingStoreName']).isEmpty ? null : asString(json['workingStoreName']),
       workingStoreAddress:
@@ -41,6 +43,7 @@ class AppUser {
   final String email;
   final String role;
   final int creditPoints;
+  final int membershipPoints;
   final int? workingStoreId;
   final String? workingStoreName;
   final String? workingStoreAddress;
@@ -55,6 +58,7 @@ class AppUser {
     String? email,
     String? role,
     int? creditPoints,
+    int? membershipPoints,
     int? workingStoreId,
     String? workingStoreName,
     String? workingStoreAddress,
@@ -69,6 +73,7 @@ class AppUser {
       email: email ?? this.email,
       role: role ?? this.role,
       creditPoints: creditPoints ?? this.creditPoints,
+      membershipPoints: membershipPoints ?? this.membershipPoints,
       workingStoreId: workingStoreId ?? this.workingStoreId,
       workingStoreName: workingStoreName ?? this.workingStoreName,
       workingStoreAddress: workingStoreAddress ?? this.workingStoreAddress,
@@ -86,6 +91,7 @@ class AppUser {
       'email': email,
       'role': role,
       'creditPoints': creditPoints,
+      'membershipPoints': membershipPoints,
       'workingStoreId': workingStoreId,
       'workingStoreName': workingStoreName,
       'workingStoreAddress': workingStoreAddress,

@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.registrationotp.dto.CartItemRequest;
 import com.example.registrationotp.dto.CartResponse;
+import com.example.registrationotp.dto.CheckoutPromotionSuggestionResponse;
+import com.example.registrationotp.dto.CheckoutPromotionSuggestionsRequest;
 import com.example.registrationotp.dto.CheckoutPreviewRequest;
 import com.example.registrationotp.dto.CheckoutPreviewResponse;
 import com.example.registrationotp.dto.CheckoutRequest;
@@ -88,5 +90,13 @@ public class CartController {
 			@Valid @RequestBody CheckoutPreviewRequest request
 	) {
 		return ResponseEntity.ok(orderService.checkoutPreview(authorizationHeader, request));
+	}
+
+	@PostMapping("/eligible-promotions")
+	public ResponseEntity<java.util.List<CheckoutPromotionSuggestionResponse>> listEligiblePromotions(
+			@RequestHeader("Authorization") String authorizationHeader,
+			@Valid @RequestBody CheckoutPromotionSuggestionsRequest request
+	) {
+		return ResponseEntity.ok(orderService.listEligiblePromotions(authorizationHeader, request));
 	}
 }

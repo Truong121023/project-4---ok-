@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import '../core/models/models.dart';
 import '../core/utils/order_qr_utils.dart';
 import '../core/theme/app_theme.dart';
-import '../screens/admin/admin_shell.dart';
 import '../screens/cart_screen.dart';
 import '../screens/employee/employee_shell.dart';
 import '../screens/employee/employee_support.dart';
@@ -14,21 +13,21 @@ import '../screens/explore_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/ai_chat_screen.dart';
 import '../screens/login_screen.dart';
-import '../screens/manager/manager_shell.dart';
+import '../screens/mobile_role_restricted_screen.dart';
 import '../screens/order_qr_navigation.dart';
 import '../screens/orders_screen.dart';
 import '../screens/password_reset_screen.dart';
 import '../screens/profile_screen.dart';
 import 'app_controller.dart';
 
-class TeaMatchaApp extends StatefulWidget {
-  const TeaMatchaApp({super.key});
+class KamatchaApp extends StatefulWidget {
+  const KamatchaApp({super.key});
 
   @override
-  State<TeaMatchaApp> createState() => _TeaMatchaAppState();
+  State<KamatchaApp> createState() => _KamatchaAppState();
 }
 
-class _TeaMatchaAppState extends State<TeaMatchaApp> {
+class _KamatchaAppState extends State<KamatchaApp> {
   late final Future<AppController> _controllerFuture;
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   final GlobalKey<ScaffoldMessengerState> _messengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -309,17 +308,11 @@ class RoleAwareAppShell extends StatelessWidget {
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) {
-        if (controller.isAdmin) {
-          return const AdminShell();
-        }
-        if (controller.isManager) {
-          return const ManagerShell();
-        }
-        if (controller.isStaff) {
-          return const EmployeeShell(kind: EmployeeRoleKind.staff);
-        }
         if (controller.isShipper) {
           return const EmployeeShell(kind: EmployeeRoleKind.shipper);
+        }
+        if (controller.isLoggedIn && !controller.isUser) {
+          return const MobileRoleRestrictedScreen();
         }
         return const CustomerShell();
       },
@@ -336,14 +329,24 @@ class CustomerShell extends StatefulWidget {
 
 class _CustomerShellState extends State<CustomerShell> {
   int _index = 0;
+  final Set<int> _activatedIndexes = {0};
 
-  late final List<Widget> _pages = const [
-    HomeScreen(),
-    ExploreScreen(),
-    OrdersScreen(),
-    CartScreen(),
-    ProfileScreen(),
-  ];
+  Widget _buildPage(int index) {
+    switch (index) {
+      case 0:
+        return const HomeScreen();
+      case 1:
+        return const ExploreScreen();
+      case 2:
+        return const OrdersScreen();
+      case 3:
+        return const CartScreen();
+      case 4:
+        return const ProfileScreen();
+      default:
+        return const SizedBox.shrink();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -352,7 +355,15 @@ class _CustomerShellState extends State<CustomerShell> {
         bottom: false,
         child: IndexedStack(
           index: _index,
-          children: _pages,
+          children: List<Widget>.generate(5, (index) {
+            if (!_activatedIndexes.contains(index)) {
+              return const SizedBox.shrink();
+            }
+            return KeyedSubtree(
+              key: ValueKey('customer-shell-$index'),
+              child: _buildPage(index),
+            );
+          }),
         ),
       ),
       floatingActionButton: const AiChatFab(),
@@ -365,7 +376,10 @@ class _CustomerShellState extends State<CustomerShell> {
           NavigationDestination(icon: Icon(Icons.shopping_bag_outlined), selectedIcon: Icon(Icons.shopping_bag), label: 'Cart'),
           NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Account'),
         ],
-        onDestinationSelected: (index) => setState(() => _index = index),
+        onDestinationSelected: (index) => setState(() {
+          _index = index;
+          _activatedIndexes.add(index);
+        }),
       ),
     );
   }

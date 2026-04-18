@@ -80,6 +80,13 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 public class AiChatService {
 
 	private static final Pattern SPLIT_PATTERN = Pattern.compile("[^\\p{L}\\p{Nd}]+");
+	private static final Pattern DANGEROUS_HTML_BLOCK_PATTERN = Pattern.compile("(?is)<(script|style|iframe|object|embed|form|button|textarea|select)[^>]*>.*?</\\1>");
+	private static final Pattern HTML_TAG_PATTERN = Pattern.compile("(?is)<\\s*(/)?\\s*([a-z0-9]+)(?:\\s+[^>]*)?>");
+	private static final Pattern HTML_LINE_BREAK_PATTERN = Pattern.compile("(?i)<br\\s*/?>");
+	private static final Pattern HTML_SPACE_PATTERN = Pattern.compile("(?is)</?(section|div|p|h2|h3|ul|ol|li|small)>");
+	private static final Set<String> ALLOWED_AI_HTML_TAGS = Set.of(
+			"section", "h2", "h3", "p", "ul", "ol", "li", "strong", "em", "small", "br", "code"
+	);
 	private static final Set<String> STOP_WORDS = Set.of(
 			"va", "la", "cho", "toi", "cua", "ve", "co", "khong", "nhung", "voi", "mot", "nhieu",
 			"hay", "gi", "nao", "the", "can", "muon", "xem", "hoi", "status", "trang", "thai"
@@ -155,10 +162,8 @@ public class AiChatService {
 		List<AiChatReferenceResponse> references = resolveReferenceResponses(aiResult.path("referenceKeys"), candidates);
 		references = enrichReferencesForUserAssistant(operator, request.message(), references, candidates);
 		List<AiChatActionResponse> actions = buildActions(operator, request.message(), references, candidates);
-		String answer = aiResult.path("answer").asText();
-		if (!StringUtils.hasText(answer)) {
-			answer = "Mình chưa có đủ dữ liệu để trả lời chính xác hơn. Bạn thử hỏi cụ thể hơn về cửa hàng, món, sự kiện, tin tức, voucher hoặc trạng thái tài khoản.";
-		}
+		String answer = sanitizeAiHtml(aiResult.path("answer").asText());
+		answer = StringUtils.hasText(toPlainText(answer)) ? answer : defaultHtmlFallback();
 		saveChatMessage(thread, "user", request.message(), List.of(), List.of(), null);
 		saveChatMessage(thread, "assistant", answer, references, actions, openAiProperties.getModel());
 		return new AiChatResponse(
@@ -236,7 +241,7 @@ public class AiChatService {
 		if (!persistedMessages.isEmpty()) {
 			int fromIndex = Math.max(0, persistedMessages.size() - 12);
 			return persistedMessages.subList(fromIndex, persistedMessages.size()).stream()
-					.map(message -> new AiChatHistoryItem(message.getRole(), message.getContent()))
+					.map(message -> new AiChatHistoryItem(message.getRole(), toPlainText(message.getContent())))
 					.toList();
 		}
 		return normalizeHistory(fallbackHistory);
@@ -271,10 +276,10 @@ public class AiChatService {
 	private void updateThreadAfterMessage(AiChatThread thread, AiChatMessage message) {
 		thread.setMessageCount(thread.getMessageCount() + 1);
 		thread.setLastMessageRole(message.getRole());
-		thread.setLastMessagePreview(truncatePreview(message.getContent(), 500));
+		thread.setLastMessagePreview(truncatePreview(toPlainText(message.getContent()), 500));
 		thread.setLastMessageAt(message.getCreatedAt());
 		if (!StringUtils.hasText(thread.getTitle())) {
-			thread.setTitle(buildThreadTitle(message.getContent()));
+			thread.setTitle(buildThreadTitle(toPlainText(message.getContent())));
 		}
 		aiChatThreadRepository.save(thread);
 	}
@@ -412,7 +417,7 @@ public class AiChatService {
 					null,
 					metricsSummary,
 					searchText,
-					scoreEntity(tokens, normalizedPrompt, searchText, List.of("cua hang", "chi nhanh", "store", "ban chay", "doanh thu", "don hang", "top"))
+					scoreEntity(tokens, normalizedPrompt, searchText, List.of("store", "branch", "best seller", "revenue", "order", "top"))
 			));
 		}
 	}
@@ -439,7 +444,7 @@ public class AiChatService {
 					null,
 					null,
 					buildSearchText(dish.getName(), dish.getDescription(), dish.getNote(), dish.getHighlightSummary(), storeName),
-					scoreEntity(tokens, normalizedPrompt, buildSearchText(dish.getName(), dish.getDescription(), dish.getNote(), dish.getHighlightSummary(), storeName), List.of("mon", "do uong", "dish", "menu"))
+					scoreEntity(tokens, normalizedPrompt, buildSearchText(dish.getName(), dish.getDescription(), dish.getNote(), dish.getHighlightSummary(), storeName), List.of("item", "drink", "dish", "menu"))
 			));
 		}
 	}
@@ -464,7 +469,7 @@ public class AiChatService {
 					null,
 					null,
 					buildSearchText(event.getName(), event.getDescription(), event.getLocation(), event.getScheduleText(), event.getHighlightSummary()),
-					scoreEntity(tokens, normalizedPrompt, buildSearchText(event.getName(), event.getDescription(), event.getLocation(), event.getScheduleText(), event.getHighlightSummary()), List.of("su kien", "event"))
+					scoreEntity(tokens, normalizedPrompt, buildSearchText(event.getName(), event.getDescription(), event.getLocation(), event.getScheduleText(), event.getHighlightSummary()), List.of("event", "activity"))
 			));
 		}
 	}
@@ -492,7 +497,7 @@ public class AiChatService {
 					null,
 					null,
 					buildSearchText(article.getTitle(), article.getSummary(), article.getContent(), storeName, String.join(" ", article.getTags())),
-					scoreEntity(tokens, normalizedPrompt, buildSearchText(article.getTitle(), article.getSummary(), article.getContent(), storeName, String.join(" ", article.getTags())), List.of("tin tuc", "news", "bai viet"))
+					scoreEntity(tokens, normalizedPrompt, buildSearchText(article.getTitle(), article.getSummary(), article.getContent(), storeName, String.join(" ", article.getTags())), List.of("news", "article", "story"))
 			));
 		}
 	}
@@ -518,7 +523,7 @@ public class AiChatService {
 					null,
 					null,
 					buildSearchText(promotion.getCode(), promotion.getName(), promotion.getDescription(), promotion.getScope().name(), promotion.getDiscountType().name()),
-					scoreEntity(tokens, normalizedPrompt, buildSearchText(promotion.getCode(), promotion.getName(), promotion.getDescription(), promotion.getScope().name(), promotion.getDiscountType().name()), List.of("voucher", "giam gia", "khuyen mai", "promotion", "promo"))
+					scoreEntity(tokens, normalizedPrompt, buildSearchText(promotion.getCode(), promotion.getName(), promotion.getDescription(), promotion.getScope().name(), promotion.getDiscountType().name()), List.of("voucher", "discount", "promotion", "promo"))
 			));
 		}
 	}
@@ -537,14 +542,14 @@ public class AiChatService {
 					String subtitle = itemCount > 0
 							? itemCount + " item(s) - subtotal " + subtotal.toPlainString()
 							: "Empty cart";
-					String searchText = buildSearchText("gio hang", "cart", "checkout", subtitle);
+					String searchText = buildSearchText("cart", "checkout", subtitle);
 					candidates.add(new ReferenceCandidate(
 							"cart:" + cart.getId(),
 							"CART",
 							"carts",
 							cart.getId(),
 							null,
-							"Gio hang hien tai",
+							"Current cart",
 							subtitle,
 							null,
 							null,
@@ -552,7 +557,7 @@ public class AiChatService {
 							"/api/user/cart",
 							null,
 							searchText,
-							scoreEntity(tokens, normalizedPrompt, searchText, List.of("gio hang", "cart", "mua", "checkout"))
+							scoreEntity(tokens, normalizedPrompt, searchText, List.of("cart", "shopping", "checkout"))
 					));
 				});
 	}
@@ -571,7 +576,6 @@ public class AiChatService {
 							.orElse("Order");
 					String subtitle = joinNonBlank(storeName, order.getStatus().name() + " / " + order.getPaymentStatus().name());
 					String searchText = buildSearchText(
-							"don hang",
 							"order",
 							String.valueOf(order.getId()),
 							storeName,
@@ -584,7 +588,7 @@ public class AiChatService {
 							"orders",
 							order.getId(),
 							null,
-							"Don hang #" + order.getId(),
+							"Order #" + order.getId(),
 							subtitle,
 							null,
 							null,
@@ -592,7 +596,7 @@ public class AiChatService {
 							"/api/user/orders/" + order.getId(),
 							null,
 							searchText,
-							scoreEntity(tokens, normalizedPrompt, searchText, List.of("don hang", "order", "thanh toan", "giao hang", "trang thai"))
+							scoreEntity(tokens, normalizedPrompt, searchText, List.of("order", "payment", "delivery", "status"))
 					));
 				});
 	}
@@ -614,7 +618,7 @@ public class AiChatService {
 					self ? "/api/auth/me" : null,
 					null,
 					buildSearchText(user.getFullName(), user.getEmail(), user.getRole().name(), user.getWorkingStore() == null ? null : user.getWorkingStore().getName(), self ? "self current me account profile status" : "user account status"),
-					scoreEntity(tokens, normalizedPrompt, buildSearchText(user.getFullName(), user.getEmail(), user.getRole().name(), user.getWorkingStore() == null ? null : user.getWorkingStore().getName(), self ? "self current me account profile status" : "user account status"), List.of("tai khoan", "user", "account", "profile", "trang thai"))
+					scoreEntity(tokens, normalizedPrompt, buildSearchText(user.getFullName(), user.getEmail(), user.getRole().name(), user.getWorkingStore() == null ? null : user.getWorkingStore().getName(), self ? "self current me account profile status" : "user account status"), List.of("user", "account", "profile", "status"))
 			));
 		}
 	}
@@ -701,8 +705,8 @@ public class AiChatService {
 			return "";
 		}
 		String lower = value.toLowerCase(Locale.ROOT).trim()
-				.replace('đ', 'd')
-				.replace('Đ', 'd');
+				.replace('\u0111', 'd')
+				.replace('\u0110', 'd');
 		String decomposed = Normalizer.normalize(lower, Normalizer.Form.NFD);
 		return decomposed.replaceAll("\\p{M}+", "");
 	}
@@ -768,8 +772,14 @@ public class AiChatService {
 
 	private String buildSystemPrompt(User operator) {
 		return """
-				You are an assistant for the Tea Matcha system.
-				Answer in Vietnamese.
+				You are an assistant for the Kamatcha system.
+				Answer in English.
+				Return the answer as a clean HTML fragment, not Markdown and not a full HTML document.
+				Use only these HTML tags: section, h2, h3, p, ul, ol, li, strong, em, small, br, code.
+				Do not use inline styles, classes, ids, tables, images, forms, buttons, anchors, or raw URLs.
+				Start with a <section> root and keep the structure compact, readable, and mobile-friendly.
+				Prefer a short opening paragraph, then optional subheadings and bullet lists when helpful.
+				Do not duplicate the reference list or quick actions inside the HTML because the client renders those separately.
 				Use only the provided candidate records and current user status.
 				Candidate records can include metricsSummary for ranking questions such as best-selling stores or revenue comparisons.
 				When the user asks which store is selling best, prioritize STORE candidates and compare their metricsSummary before saying data is insufficient.
@@ -831,6 +841,61 @@ public class AiChatService {
 		} catch (JsonProcessingException exception) {
 			throw new BadRequestException("Failed to build AI chat payload");
 		}
+	}
+
+	private String sanitizeAiHtml(String rawHtml) {
+		if (!StringUtils.hasText(rawHtml)) {
+			return defaultHtmlFallback();
+		}
+		String withoutDangerousBlocks = DANGEROUS_HTML_BLOCK_PATTERN.matcher(rawHtml).replaceAll("");
+		String sanitized = HTML_TAG_PATTERN.matcher(withoutDangerousBlocks).replaceAll(result -> {
+			String tagName = result.group(2) == null ? "" : result.group(2).toLowerCase(Locale.ROOT);
+			if (!ALLOWED_AI_HTML_TAGS.contains(tagName)) {
+				return "";
+			}
+			boolean closingTag = "/".equals(result.group(1));
+			if ("br".equals(tagName)) {
+				return "<br>";
+			}
+			return closingTag ? "</" + tagName + ">" : "<" + tagName + ">";
+		});
+		sanitized = sanitized
+				.replace("&nbsp;", " ")
+				.replaceAll("(?i)<section>\\s*</section>", "")
+				.trim();
+		if (!StringUtils.hasText(sanitized)) {
+			return defaultHtmlFallback();
+		}
+		if (!sanitized.startsWith("<section")) {
+			sanitized = "<section>" + sanitized + "</section>";
+		}
+		return sanitized;
+	}
+
+	private String toPlainText(String value) {
+		if (!StringUtils.hasText(value)) {
+			return "";
+		}
+		String normalized = HTML_LINE_BREAK_PATTERN.matcher(value).replaceAll("\n");
+		normalized = HTML_SPACE_PATTERN.matcher(normalized).replaceAll(" ");
+		normalized = normalized.replaceAll("(?is)<[^>]+>", " ");
+		normalized = normalized.replace("&amp;", "&")
+				.replace("&lt;", "<")
+				.replace("&gt;", ">")
+				.replace("&quot;", "\"")
+				.replace("&#39;", "'");
+		return normalized.replaceAll("[\\t\\x0B\\f\\r ]+", " ")
+				.replaceAll("\\s*\\n\\s*", "\n")
+				.trim();
+	}
+
+	private String defaultHtmlFallback() {
+		return """
+				<section>
+				  <p>I do not have enough data yet to answer more accurately.</p>
+				  <p>Please ask a more specific question about a store, dish, event, news article, voucher, or account status.</p>
+				</section>
+				""";
 	}
 
 	private List<AiChatHistoryItem> normalizeHistory(List<AiChatHistoryItem> history) {
@@ -972,7 +1037,7 @@ public class AiChatService {
 			latestUserOrder(operator).map(this::toOrderReference).ifPresent(reference -> ordered.putIfAbsent(reference.referenceKey(), reference));
 		}
 
-		if (isShoppingIntent(normalizedPrompt) || normalizedPrompt.contains("gio hang") || normalizedPrompt.contains("cart")) {
+		if (isShoppingIntent(normalizedPrompt) || normalizedPrompt.contains("cart")) {
 			currentCartReference(operator).ifPresent(reference -> ordered.putIfAbsent(reference.referenceKey(), reference));
 		}
 
@@ -1002,8 +1067,8 @@ public class AiChatService {
 							AiChatActionResponse action = new AiChatActionResponse(
 									"add-to-cart:" + storeDish.getStore().getId() + ":" + storeDish.getDish().getId(),
 									"ADD_TO_CART",
-									"Them vao gio",
-									"Them " + reference.title() + " vao gio tai " + storeDish.getStore().getName(),
+									"Add to cart",
+									"Add " + reference.title() + " to the cart at " + storeDish.getStore().getName(),
 									"POST",
 									"/api/user/cart/items",
 									reference.referenceKey(),
@@ -1020,8 +1085,8 @@ public class AiChatService {
 						new AiChatActionResponse(
 								"open-cart",
 								"OPEN_CART",
-								"Mo gio hang",
-								"Xem gio hang hien tai va tiep tuc dat mon",
+								"Open cart",
+								"View the current cart and continue ordering",
 								"GET",
 								"/api/user/cart",
 								null,
@@ -1036,8 +1101,8 @@ public class AiChatService {
 						new AiChatActionResponse(
 								"open-order:" + order.getId(),
 								"OPEN_ORDER",
-								"Xem don gan nhat",
-								"Theo doi don hang #" + order.getId(),
+								"View latest order",
+								"Track order #" + order.getId(),
 								"GET",
 								"/api/user/orders/" + order.getId(),
 								"order:" + order.getId(),
@@ -1049,8 +1114,8 @@ public class AiChatService {
 						new AiChatActionResponse(
 								"open-orders",
 								"OPEN_ORDERS",
-								"Xem tat ca don",
-								"Mo danh sach don hang cua ban",
+								"View all orders",
+								"Open your order list",
 								"GET",
 								"/api/user/orders",
 								null,
@@ -1077,15 +1142,15 @@ public class AiChatService {
 				default -> "OPEN_REFERENCE";
 			};
 			String label = switch (reference.entityType()) {
-				case "STORE" -> "Xem cua hang";
-				case "DISH" -> "Xem mon";
-				case "EVENT" -> "Xem su kien";
-				case "NEWS" -> "Doc tin";
-				case "PROMOTION" -> "Xem khuyen mai";
-				case "ORDER" -> "Xem don";
-				case "CART" -> "Xem gio";
-				case "USER" -> "Xem tai khoan";
-				default -> "Mo nhanh";
+				case "STORE" -> "View store";
+				case "DISH" -> "View item";
+				case "EVENT" -> "View event";
+				case "NEWS" -> "Read article";
+				case "PROMOTION" -> "View promotion";
+				case "ORDER" -> "View order";
+				case "CART" -> "View cart";
+				case "USER" -> "View account";
+				default -> "Open";
 			};
 			String actionKey = "open:" + reference.referenceKey();
 			actions.putIfAbsent(
@@ -1171,15 +1236,15 @@ public class AiChatService {
 	}
 
 	private boolean isShoppingIntent(String normalizedPrompt) {
-		return containsAny(normalizedPrompt, "mua", "dat", "order", "goi mon", "them gio", "checkout", "thanh toan", "gio hang");
+		return containsAny(normalizedPrompt, "buy", "order", "add to cart", "checkout", "payment", "cart");
 	}
 
 	private boolean isDrinkAdviceIntent(String normalizedPrompt) {
-		return containsAny(normalizedPrompt, "tu van", "goi y", "uong gi", "do uong", "matcha", "latte", "mon tuong tu", "mon nao ngon");
+		return containsAny(normalizedPrompt, "recommend", "suggest", "what to drink", "drink", "matcha", "latte", "similar item", "best item");
 	}
 
 	private boolean isOrderIntent(String normalizedPrompt) {
-		return containsAny(normalizedPrompt, "don hang", "order", "trang thai don", "giao hang", "thanh toan");
+		return containsAny(normalizedPrompt, "order", "order status", "delivery", "payment");
 	}
 
 	private boolean containsAny(String normalizedPrompt, String... keywords) {
@@ -1270,7 +1335,7 @@ public class AiChatService {
 				"carts",
 				cart.getId(),
 				null,
-				"Gio hang hien tai",
+				"Current cart",
 				itemCount > 0 ? itemCount + " item(s) - subtotal " + subtotal.toPlainString() : "Empty cart",
 				null,
 				null,
@@ -1290,7 +1355,7 @@ public class AiChatService {
 				"orders",
 				order.getId(),
 				null,
-				"Don hang #" + order.getId(),
+				"Order #" + order.getId(),
 				joinNonBlank(storeName, order.getStatus().name() + " / " + order.getPaymentStatus().name()),
 				null,
 				null,

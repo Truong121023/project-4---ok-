@@ -27,8 +27,8 @@ public class UserLevelDefinition {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@ManyToOne(fetch = FetchType.EAGER, optional = false)
-	@JoinColumn(name = "store_id", nullable = false)
+	@ManyToOne(fetch = FetchType.EAGER)
+	@JoinColumn(name = "store_id")
 	private Store store;
 
 	@Column(name = "code", nullable = false, length = 50)

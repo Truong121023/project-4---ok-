@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../ai_chat_screen.dart';
 import 'admin_account_screen.dart';
 import 'admin_dashboard_screen.dart';
-import 'admin_modules_screen.dart';
-import '../role_order_qr_scan_screen.dart';
+import 'admin_resource_list_screen.dart';
+import 'admin_support.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -15,18 +15,24 @@ class AdminShell extends StatefulWidget {
 
 class _AdminShellState extends State<AdminShell> {
   int _index = 0;
+  final Set<int> _activatedIndexes = {0};
 
-  late final List<Widget> _pages = const [
-    AdminDashboardScreen(),
-    AdminModulesScreen(),
-    RoleOrderQrScanScreen(
-      title: 'Admin QR',
-      headerTitle: 'Quet QR don hang',
-      headerSubtitle: 'Admin co the quet de xem nhanh thong tin don va ai da nhan xu ly.',
-      roleLabel: 'ADMIN',
-    ),
-    AdminAccountScreen(),
-  ];
+  Widget _buildPage(int index) {
+    switch (index) {
+      case 0:
+        return const AdminDashboardScreen();
+      case 1:
+        return AdminResourceListScreen(module: moduleById('orders'));
+      case 2:
+        return AdminResourceListScreen(module: moduleById('promotions'));
+      case 3:
+        return AdminResourceListScreen(module: moduleById('users'));
+      case 4:
+        return const AdminAccountScreen();
+      default:
+        return const SizedBox.shrink();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +41,15 @@ class _AdminShellState extends State<AdminShell> {
         bottom: false,
         child: IndexedStack(
           index: _index,
-          children: _pages,
+          children: List<Widget>.generate(5, (index) {
+            if (!_activatedIndexes.contains(index)) {
+              return const SizedBox.shrink();
+            }
+            return KeyedSubtree(
+              key: ValueKey('admin-shell-$index'),
+              child: _buildPage(index),
+            );
+          }),
         ),
       ),
       floatingActionButton: const AiChatFab(),
@@ -48,22 +62,30 @@ class _AdminShellState extends State<AdminShell> {
             label: 'Dashboard',
           ),
           NavigationDestination(
-            icon: Icon(Icons.dashboard_customize_outlined),
-            selectedIcon: Icon(Icons.dashboard_customize),
-            label: 'Modules',
+            icon: Icon(Icons.receipt_long_outlined),
+            selectedIcon: Icon(Icons.receipt_long),
+            label: 'Orders',
           ),
           NavigationDestination(
-            icon: Icon(Icons.qr_code_scanner_outlined),
-            selectedIcon: Icon(Icons.qr_code_scanner),
-            label: 'Scan',
+            icon: Icon(Icons.local_offer_outlined),
+            selectedIcon: Icon(Icons.local_offer),
+            label: 'Promos',
           ),
           NavigationDestination(
-            icon: Icon(Icons.admin_panel_settings_outlined),
-            selectedIcon: Icon(Icons.admin_panel_settings),
-            label: 'Account',
+            icon: Icon(Icons.group_outlined),
+            selectedIcon: Icon(Icons.group),
+            label: 'Customers',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.more_horiz_outlined),
+            selectedIcon: Icon(Icons.more_horiz),
+            label: 'More',
           ),
         ],
-        onDestinationSelected: (index) => setState(() => _index = index),
+        onDestinationSelected: (index) => setState(() {
+          _index = index;
+          _activatedIndexes.add(index);
+        }),
       ),
     );
   }

@@ -1,7 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
     <application
-        android:label="tea_matcha_mobile"
+        android:label="Kamatcha"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -32,7 +33,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <data
-                    android:scheme="teamatcha"
+                    android:scheme="kamatcha"
                     android:host="order-qr" />
             </intent-filter>
             <intent-filter android:autoVerify="false">
