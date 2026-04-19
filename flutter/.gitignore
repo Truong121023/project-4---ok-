@@ -10,7 +10,7 @@ build/
 .idea/
 .vscode/
 *.iml
-
+.env
 # OS
 Thumbs.db
 Desktop.ini
