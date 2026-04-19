@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { AdminPageHeader } from "../admin/admin-page-header";
 import OrderStatusTracker from "../OrderStatusTracker";
 import OrderQrCard from "../OrderQrCard";
@@ -28,6 +29,7 @@ export function EmployeeOrderDetailPanel({
   onProofNoteChange,
   onProofCapturedAtChange,
 }) {
+  const { t } = useTranslation("employee");
   const invoicePreviewUrl = orderDetail ? getOrderInvoicePreviewHref(orderDetail) : null;
   const canViewInvoice = orderDetail ? canViewOrderInvoice(orderDetail) : false;
   const deliveryProofPreviewUrl = resolveApiUrl(orderDetail?.deliveryProofImagePath);
@@ -36,12 +38,12 @@ export function EmployeeOrderDetailPanel({
   return (
     <article className={ui.panel}>
       <AdminPageHeader
-        eyebrow="Order detail"
-        title="Task details"
-        subtitle="Open a task from the list or from a notification to review details and act quickly."
+        eyebrow={t("orderDetail.eyebrow")}
+        title={t("orderDetail.title")}
+        subtitle={t("orderDetail.subtitle")}
         actions={
           <Link className={ui.secondaryButton} to="/employee">
-            Back to board
+            {t("orderDetail.backToBoard")}
           </Link>
         }
       />
@@ -54,7 +56,7 @@ export function EmployeeOrderDetailPanel({
 
       {loading ? (
         <div className="mt-4 rounded-lg border border-dashed border-ink-900/15 bg-cream-100/60 px-4 py-5 text-sm text-ink-400">
-          Loading task details…
+          {t("orderDetail.loading")}
         </div>
       ) : orderDetail ? (
         <div className="mt-4 grid gap-4">
@@ -90,7 +92,7 @@ export function EmployeeOrderDetailPanel({
         </div>
       ) : (
         <div className="mt-4 rounded-lg border border-dashed border-ink-900/15 bg-cream-100/60 px-4 py-5 text-sm leading-7 text-ink-400">
-          Select a task from the list or open one from a notification to view details here.
+          {t("orderDetail.emptyHint")}
         </div>
       )}
     </article>
@@ -109,6 +111,7 @@ function InfoRow({ label, value }) {
 }
 
 function OrderSummaryBlock({ order, detailAction, isActionLoading, canViewInvoice, invoicePreviewUrl, onAction, onInvoice }) {
+  const { t } = useTranslation("employee");
   const statusMeta = getOrderStatusMeta(order.status);
   const paymentMeta = getPaymentStatusMeta(order.paymentStatus);
 
@@ -116,7 +119,9 @@ function OrderSummaryBlock({ order, detailAction, isActionLoading, canViewInvoic
     <div className="rounded-xl border border-ink-900/10 bg-cream-50 p-5 shadow-soft">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-xl font-semibold text-ink-900">Order #{order.id}</h3>
+          <h3 className="text-xl font-semibold text-ink-900">
+            {t("orderDetail.orderTitle", { id: order.id })}
+          </h3>
           <div className="mt-2 flex flex-wrap gap-2">
             <span className={ui.pill}>{statusMeta.label}</span>
             <span className={ui.pillGold}>{paymentMeta.label}</span>
@@ -128,25 +133,25 @@ function OrderSummaryBlock({ order, detailAction, isActionLoading, canViewInvoic
       </div>
 
       <dl className="mt-4 grid gap-1 text-sm leading-6 text-ink-600">
-        <InfoRow label="Created" value={formatDateTimeVn(order.createdAt)} />
-        <InfoRow label="Delivery" value={formatDeliveryTypeLabel(order.deliveryType)} />
-        <InfoRow label="Customer" value={order.deliveryFullName || "N/A"} />
-        <InfoRow label="Phone" value={order.deliveryPhoneNumber || "N/A"} />
-        <InfoRow label="Address" value={order.deliveryAddress || "N/A"} />
+        <InfoRow label={t("orderDetail.createdLabel")} value={formatDateTimeVn(order.createdAt)} />
+        <InfoRow label={t("orderDetail.deliveryLabel")} value={formatDeliveryTypeLabel(order.deliveryType)} />
+        <InfoRow label={t("orderDetail.customerLabel")} value={order.deliveryFullName || "N/A"} />
+        <InfoRow label={t("orderDetail.phoneLabel")} value={order.deliveryPhoneNumber || "N/A"} />
+        <InfoRow label={t("orderDetail.addressLabel")} value={order.deliveryAddress || "N/A"} />
         {order.confirmedByUserName ? (
           <InfoRow
-            label="Confirmed by"
+            label={t("orderDetail.confirmedByLabel")}
             value={`${order.confirmedByUserName}${order.confirmedAt ? ` · ${formatDateTimeVn(order.confirmedAt)}` : ""}`}
           />
         ) : null}
         {order.scheduledDeliveryAt ? (
-          <InfoRow label="Scheduled" value={formatDateTimeVn(order.scheduledDeliveryAt)} />
+          <InfoRow label={t("orderDetail.scheduledLabel")} value={formatDateTimeVn(order.scheduledDeliveryAt)} />
         ) : null}
-        {order.invoiceNumber ? <InfoRow label="Invoice" value={order.invoiceNumber} /> : null}
-        {order.preparingStaffName ? <InfoRow label="Store handler" value={order.preparingStaffName} /> : null}
-        {order.deliveringShipperName ? <InfoRow label="Shipper" value={order.deliveringShipperName} /> : null}
+        {order.invoiceNumber ? <InfoRow label={t("orderDetail.invoiceLabel")} value={order.invoiceNumber} /> : null}
+        {order.preparingStaffName ? <InfoRow label={t("orderDetail.storeHandlerLabel")} value={order.preparingStaffName} /> : null}
+        {order.deliveringShipperName ? <InfoRow label={t("orderDetail.shipperLabel")} value={order.deliveringShipperName} /> : null}
         {order.deliveryProofUploadedAt ? (
-          <InfoRow label="Proof uploaded" value={formatDateTimeVn(order.deliveryProofUploadedAt)} />
+          <InfoRow label={t("orderDetail.proofUploadedLabel")} value={formatDateTimeVn(order.deliveryProofUploadedAt)} />
         ) : null}
       </dl>
 
@@ -162,12 +167,12 @@ function OrderSummaryBlock({ order, detailAction, isActionLoading, canViewInvoic
             disabled={isActionLoading}
             onClick={() => onAction(order)}
           >
-            {isActionLoading ? "Processing…" : detailAction.label}
+            {isActionLoading ? t("orders.processing") : detailAction.label}
           </button>
         ) : null}
         {canViewInvoice && invoicePreviewUrl ? (
           <button className={ui.secondaryButton} type="button" onClick={() => onInvoice(order)}>
-            Open invoice
+            {t("orderDetail.openInvoice")}
           </button>
         ) : null}
       </div>
@@ -176,9 +181,11 @@ function OrderSummaryBlock({ order, detailAction, isActionLoading, canViewInvoic
 }
 
 function OrderItemsBlock({ items }) {
+  const { t } = useTranslation("employee");
+
   return (
     <div className="rounded-xl border border-ink-900/10 bg-cream-50 p-5 shadow-soft">
-      <p className={ui.eyebrow}>Items in this order</p>
+      <p className={ui.eyebrow}>{t("orderDetail.itemsTitle")}</p>
       {items?.length ? (
         <div className="mt-3 grid gap-3">
           {items.map((item) => (
@@ -189,8 +196,8 @@ function OrderItemsBlock({ items }) {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h4 className="text-sm font-semibold text-ink-900">{item.dishName || "Dish"}</h4>
-                  <p className="mt-1 text-sm text-ink-600">Qty: {item.quantity || 0}</p>
-                  {item.note ? <p className="mt-1 text-xs text-ink-400">Note: {item.note}</p> : null}
+                  <p className="mt-1 text-sm text-ink-600">{t("orderDetail.itemQty", { count: item.quantity || 0 })}</p>
+                  {item.note ? <p className="mt-1 text-xs text-ink-400">{t("orderDetail.itemNote", { note: item.note })}</p> : null}
                 </div>
                 <div className="text-right text-sm">
                   <div className="text-ink-500">{formatCurrencyVnd(item.unitPrice)}</div>
@@ -204,7 +211,7 @@ function OrderItemsBlock({ items }) {
         </div>
       ) : (
         <div className="mt-3 rounded-lg border border-dashed border-ink-900/15 bg-cream-100/60 px-4 py-4 text-sm text-ink-400">
-          No items to display yet.
+          {t("orderDetail.itemsEmpty")}
         </div>
       )}
     </div>

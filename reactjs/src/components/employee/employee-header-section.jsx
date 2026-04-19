@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { AdminStatCard } from "../admin/admin-stat-card";
 import { ui } from "../../ui";
 
@@ -12,20 +13,22 @@ import { ui } from "../../ui";
  * @param {Function} props.formatPrice
  */
 export function EmployeeHeaderSection({ user, employeeRole, stats, unreadCount, formatPrice }) {
+  const { t } = useTranslation("employee");
+
   const boardTitle =
-    employeeRole === "SHIPPER" ? "Shipper task board" : "Store support board";
+    employeeRole === "SHIPPER" ? t("header.shipperTitle") : t("header.staffTitle");
 
   const boardDescription =
     employeeRole === "SHIPPER"
-      ? "Track delivery jobs, pickup confirmations, and delivery-proof uploads from a single screen."
-      : "Store-side processing is handled by the manager. Staff accounts track related order details and notifications here.";
+      ? t("header.shipperDescription")
+      : t("header.staffDescription");
 
   return (
     <section className={ui.panel}>
       {/* Identity + role card */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className={ui.eyebrow}>Employee workspace</p>
+          <p className={ui.eyebrow}>{t("header.eyebrow")}</p>
           <h1 className={ui.bannerTitle}>{boardTitle}</h1>
           <p className="mt-4 max-w-3xl text-sm leading-7 text-ink-600">
             {boardDescription}
@@ -40,18 +43,18 @@ export function EmployeeHeaderSection({ user, employeeRole, stats, unreadCount, 
             {employeeRole || "EMPLOYEE"}
           </span>
           <span className="mt-1 block text-sm text-ink-500">
-            {user?.workingStoreName || "No store assigned"}
+            {user?.workingStoreName || t("header.noStore")}
           </span>
         </div>
       </div>
 
       {/* KPI tiles */}
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <AdminStatCard label="Available tasks" value={stats.availableCount} />
-        <AdminStatCard label="Assigned tasks" value={stats.myActiveCount} />
-        <AdminStatCard label="Unread notifications" value={unreadCount} />
+        <AdminStatCard label={t("stats.availableTasks")} value={stats.availableCount} />
+        <AdminStatCard label={t("stats.assignedTasks")} value={stats.myActiveCount} />
+        <AdminStatCard label={t("stats.unreadNotifications")} value={unreadCount} />
         <AdminStatCard
-          label="Tasks total value"
+          label={t("stats.totalValue")}
           value={formatPrice(stats.totalRevenue)}
           featured
         />

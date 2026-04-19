@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { ui } from "../../ui";
 import {
   formatDeliveryTypeLabel,
@@ -32,6 +33,7 @@ export function EmployeeOrderCard({
   onAction,
   onInvoice,
 }) {
+  const { t } = useTranslation("employee");
   const orderStatus = getOrderStatusMeta(order.status);
   const paymentMeta = getPaymentStatusMeta(order.paymentStatus);
   const invoicePreviewUrl = getOrderInvoicePreviewHref(order);
@@ -43,7 +45,7 @@ export function EmployeeOrderCard({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-lg font-semibold leading-tight text-ink-900">
-            Order #{order.id}
+            {t("orderCard.orderLabel", { id: order.id })}
           </h3>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center rounded-full bg-matcha-100 px-3 py-1 text-xs font-semibold tracking-wide text-matcha-700">
@@ -71,32 +73,32 @@ export function EmployeeOrderCard({
       {/* Detail rows */}
       <dl className="mt-4 grid gap-1 text-sm leading-6 text-ink-600">
         <div className="flex gap-2">
-          <dt className="shrink-0 font-medium text-ink-500">Store:</dt>
+          <dt className="shrink-0 font-medium text-ink-500">{t("orderCard.storeLabel")}</dt>
           <dd>{order.storeName || storeName || "N/A"}</dd>
         </div>
         <div className="flex gap-2">
-          <dt className="shrink-0 font-medium text-ink-500">Customer:</dt>
+          <dt className="shrink-0 font-medium text-ink-500">{t("orderCard.customerLabel")}</dt>
           <dd>{order.deliveryFullName || "N/A"}</dd>
         </div>
         <div className="flex gap-2">
-          <dt className="shrink-0 font-medium text-ink-500">Deliver to:</dt>
+          <dt className="shrink-0 font-medium text-ink-500">{t("orderCard.deliverToLabel")}</dt>
           <dd className="break-words">{order.deliveryAddress || "N/A"}</dd>
         </div>
         {order.invoiceNumber ? (
           <div className="flex gap-2">
-            <dt className="shrink-0 font-medium text-ink-500">Invoice:</dt>
+            <dt className="shrink-0 font-medium text-ink-500">{t("orderCard.invoiceLabel")}</dt>
             <dd>{order.invoiceNumber}</dd>
           </div>
         ) : null}
         {order.deliveringShipperName ? (
           <div className="flex gap-2">
-            <dt className="shrink-0 font-medium text-ink-500">Shipper:</dt>
+            <dt className="shrink-0 font-medium text-ink-500">{t("orderCard.shipperLabel")}</dt>
             <dd>{order.deliveringShipperName}</dd>
           </div>
         ) : null}
         {order.deliveryProofUploadedAt ? (
           <div className="flex gap-2">
-            <dt className="shrink-0 font-medium text-ink-500">Proof:</dt>
+            <dt className="shrink-0 font-medium text-ink-500">{t("orderCard.proofLabel")}</dt>
             <dd>{formatDateTimeVn(order.deliveryProofUploadedAt)}</dd>
           </div>
         ) : null}
@@ -109,7 +111,7 @@ export function EmployeeOrderCard({
           type="button"
           onClick={() => onOpen(order.id)}
         >
-          View details
+          {t("orderCard.viewDetails")}
         </button>
 
         {taskAction ? (
@@ -119,7 +121,7 @@ export function EmployeeOrderCard({
             disabled={loading}
             onClick={() => onAction(order)}
           >
-            {loading ? "Processing…" : taskAction.label}
+            {loading ? t("orders.processing") : taskAction.label}
           </button>
         ) : null}
 
@@ -129,7 +131,7 @@ export function EmployeeOrderCard({
             type="button"
             onClick={() => onInvoice(order)}
           >
-            Open invoice
+            {t("orderCard.openInvoice")}
           </button>
         ) : null}
       </div>

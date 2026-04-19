@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { AdminPageHeader } from "../admin/admin-page-header";
 import { ui } from "../../ui";
 import { formatDateTimeVn } from "../../lib/locale";
@@ -23,15 +24,17 @@ export function EmployeeNotificationsPanel({
   onReadToggle,
   onReadAll,
 }) {
+  const { t } = useTranslation("employee");
+
   return (
     <article className={ui.panel}>
       <AdminPageHeader
-        eyebrow="Task inbox"
-        title="Employee notifications"
-        subtitle="ORDER_TASK notifications take you directly to the order that needs action."
+        eyebrow={t("notifications.eyebrow")}
+        title={t("notifications.title")}
+        subtitle={t("notifications.subtitle")}
         actions={
           <button className={ui.secondaryButton} type="button" onClick={onReadAll}>
-            Mark all read
+            {t("notifications.markAllRead")}
           </button>
         }
       />
@@ -50,7 +53,7 @@ export function EmployeeNotificationsPanel({
 
       {loading ? (
         <div className="mt-4 rounded-lg border border-dashed border-ink-900/15 bg-cream-100/60 px-4 py-5 text-sm text-ink-400">
-          Loading notifications…
+          {t("notifications.loading")}
         </div>
       ) : notifications.length ? (
         <div className="mt-4 grid gap-3">
@@ -65,7 +68,7 @@ export function EmployeeNotificationsPanel({
         </div>
       ) : (
         <div className="mt-4 rounded-lg border border-dashed border-ink-900/15 bg-cream-100/60 px-4 py-5 text-sm text-ink-400">
-          No task notifications yet.
+          {t("notifications.empty")}
         </div>
       )}
     </article>
@@ -73,6 +76,7 @@ export function EmployeeNotificationsPanel({
 }
 
 function NotificationRow({ notification, onOpen, onReadToggle }) {
+  const { t } = useTranslation("employee");
   const isUnread = !notification.read;
 
   return (
@@ -84,19 +88,19 @@ function NotificationRow({ notification, onOpen, onReadToggle }) {
       }`}
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className={ui.pill}>{notification.type || "ORDER_TASK"}</span>
+        <span className={ui.pill}>{notification.type || t("notifications.taskType")}</span>
         {isUnread ? (
           <span className="inline-flex items-center rounded-full bg-matcha-500 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-cream-50">
-            New
+            {t("notifications.newBadge")}
           </span>
         ) : null}
       </div>
 
       <h3 className="mt-3 text-base font-semibold text-ink-900">
-        {notification.title || "Task notification"}
+        {notification.title || t("notifications.defaultTitle")}
       </h3>
       <p className="mt-1.5 text-sm leading-6 text-ink-600">
-        {notification.message || "You have a new task."}
+        {notification.message || t("notifications.defaultMessage")}
       </p>
       <p className="mt-2 text-xs font-medium uppercase tracking-[0.14em] text-ink-400">
         {formatDateTimeVn(notification.createdAt)}
@@ -109,14 +113,14 @@ function NotificationRow({ notification, onOpen, onReadToggle }) {
           type="button"
           onClick={() => onOpen(notification)}
         >
-          Open task
+          {t("notifications.openTask")}
         </button>
         <button
           className={ui.secondaryButton}
           type="button"
           onClick={() => onReadToggle(notification)}
         >
-          {notification.read ? "Mark as unread" : "Mark as read"}
+          {notification.read ? t("notifications.markAsUnread") : t("notifications.markAsRead")}
         </button>
       </div>
     </article>

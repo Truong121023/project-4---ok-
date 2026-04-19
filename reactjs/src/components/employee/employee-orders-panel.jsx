@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { AdminPageHeader } from "../admin/admin-page-header";
 import { EmployeeOrderCard } from "./employee-order-card";
 import { ui } from "../../ui";
@@ -41,16 +42,18 @@ export function EmployeeOrdersPanel({
   onInvoice,
   getTaskAction,
 }) {
+  const { t } = useTranslation("employee");
+
   const subtitle =
     employeeRole === "SHIPPER"
-      ? "Confirm pickup for READY_FOR_SHIPPER orders, then upload proof to complete delivery."
-      : "In-store preparation is handled by the manager. Staff track related order details here.";
+      ? t("orders.shipperSubtitle")
+      : t("orders.staffSubtitle");
 
   return (
     <article className={ui.panel}>
       <AdminPageHeader
-        eyebrow="Task board"
-        title="Employee orders"
+        eyebrow={t("orders.eyebrow")}
+        title={t("orders.title")}
         subtitle={subtitle}
       />
 
@@ -61,25 +64,25 @@ export function EmployeeOrdersPanel({
       >
         <label className="grid gap-1.5">
           <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-ink-500">
-            View
+            {t("orders.viewLabel")}
           </span>
           <select
             className={`${ui.input} h-11`}
             value={taskMode}
             onChange={(e) => onTaskModeChange(e.target.value)}
           >
-            <option value="available">Available + current</option>
-            <option value="mine">My active tasks</option>
+            <option value="available">{t("orders.modeAvailable")}</option>
+            <option value="mine">{t("orders.modeMine")}</option>
           </select>
         </label>
 
         <label className="grid gap-1.5">
           <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-ink-500">
-            Search
+            {t("orders.searchLabel")}
           </span>
           <input
             className={`${ui.input} h-11`}
-            placeholder="Search by order code"
+            placeholder={t("orders.searchPlaceholder")}
             value={searchInput}
             onChange={(e) => onSearchChange(e.target.value)}
           />
@@ -87,7 +90,7 @@ export function EmployeeOrdersPanel({
 
         <div className="flex items-end">
           <button className={ui.primaryButton} type="submit">
-            Filter
+            {t("orders.filterButton")}
           </button>
         </div>
       </form>
@@ -106,16 +109,15 @@ export function EmployeeOrdersPanel({
 
       {/* QR hint banner */}
       <div className="mt-4 rounded-xl border border-ink-900/10 bg-beige-100 px-4 py-3">
-        <p className="text-sm font-semibold text-ink-900">QR pickup stays on mobile</p>
+        <p className="text-sm font-semibold text-ink-900">{t("orders.qrHintTitle")}</p>
         <p className="mt-1 text-sm leading-6 text-ink-600">
-          Use the Kamatcha mobile app to scan the invoice QR and confirm pickup.
-          On the website, open tasks from notifications or choose an order below.
+          {t("orders.qrHintBody")}
         </p>
       </div>
 
       {loading ? (
         <div className="mt-4 rounded-lg border border-dashed border-ink-900/15 bg-cream-100/60 px-4 py-5 text-sm text-ink-400">
-          Loading task orders…
+          {t("orders.loading")}
         </div>
       ) : feed.items.length ? (
         <div className="mt-4 grid gap-4">
@@ -137,7 +139,7 @@ export function EmployeeOrdersPanel({
         </div>
       ) : (
         <div className="mt-4 rounded-lg border border-dashed border-ink-900/15 bg-cream-100/60 px-4 py-5 text-sm text-ink-400">
-          No tasks match the current filter.
+          {t("orders.empty")}
         </div>
       )}
     </article>

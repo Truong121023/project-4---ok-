@@ -4654,7 +4654,7 @@ export default function AdminPage({ forcedSection = "" }) {
                       ) : null}
                       {selectedOrderRecord.deliveryAddress ? (
                         <div className="rounded-[1rem] border border-matcha-900/10 bg-white/82 p-3 sm:col-span-2">
-                          <p className="text-xs uppercase tracking-[0.14em] text-stone-500">Address</p>
+                          <p className="text-xs uppercase tracking-[0.14em] text-stone-500">{t("orderDetail.address")}</p>
                           <strong className="mt-2 block text-base text-tea-900">
                             {selectedOrderRecord.deliveryAddress}
                           </strong>
@@ -4662,7 +4662,7 @@ export default function AdminPage({ forcedSection = "" }) {
                       ) : null}
                       {selectedOrderRecord.preparingStaffName ? (
                         <div className="rounded-[1rem] border border-matcha-900/10 bg-white/82 p-3">
-                          <p className="text-xs uppercase tracking-[0.14em] text-stone-500">Store processor</p>
+                          <p className="text-xs uppercase tracking-[0.14em] text-stone-500">{t("orderDetail.storeProcessor")}</p>
                           <strong className="mt-2 block text-base text-tea-900">
                             {selectedOrderRecord.preparingStaffName}
                           </strong>
@@ -4670,7 +4670,7 @@ export default function AdminPage({ forcedSection = "" }) {
                       ) : null}
                       {selectedOrderRecord.confirmedByUserName ? (
                         <div className="rounded-[1rem] border border-matcha-900/10 bg-white/82 p-3">
-                          <p className="text-xs uppercase tracking-[0.14em] text-stone-500">Confirmed by</p>
+                          <p className="text-xs uppercase tracking-[0.14em] text-stone-500">{t("orderDetail.confirmedBy")}</p>
                           <strong className="mt-2 block text-base text-tea-900">
                             {selectedOrderRecord.confirmedByUserName}
                           </strong>
@@ -4683,7 +4683,7 @@ export default function AdminPage({ forcedSection = "" }) {
                       ) : null}
                       {selectedOrderRecord.deliveringShipperName ? (
                         <div className="rounded-[1rem] border border-matcha-900/10 bg-white/82 p-3">
-                          <p className="text-xs uppercase tracking-[0.14em] text-stone-500">Delivery shipper</p>
+                          <p className="text-xs uppercase tracking-[0.14em] text-stone-500">{t("orderDetail.deliveryShipper")}</p>
                           <strong className="mt-2 block text-base text-tea-900">
                             {selectedOrderRecord.deliveringShipperName}
                           </strong>
@@ -4691,7 +4691,7 @@ export default function AdminPage({ forcedSection = "" }) {
                       ) : null}
                       {selectedOrderRecord.scheduledDeliveryAt ? (
                         <div className="rounded-[1rem] border border-matcha-900/10 bg-white/82 p-3 sm:col-span-2">
-                          <p className="text-xs uppercase tracking-[0.14em] text-stone-500">Scheduled for</p>
+                          <p className="text-xs uppercase tracking-[0.14em] text-stone-500">{t("orderDetail.scheduledFor")}</p>
                           <strong className="mt-2 block text-base text-tea-900">
                             {formatDateTime(selectedOrderRecord.scheduledDeliveryAt)}
                           </strong>
@@ -4712,17 +4712,17 @@ export default function AdminPage({ forcedSection = "" }) {
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
                             <p className="text-sm font-semibold uppercase tracking-[0.16em] text-stone-500">
-                              Assign shipper
+                              {t("orderDetail.assignShipper")}
                             </p>
                             <p className="mt-2 text-sm leading-7 text-stone-600">
                               {normalizedSelectedOrderStatus === "READY_FOR_SHIPPER"
-                                ? "Update the assigned shipper before pickup is confirmed."
-                                : "Choose the assigned shipper, then click Next to move the order to Waiting for shipper."}
+                                ? t("orderDetail.assignShipperUpdateHint")
+                                : t("orderDetail.assignShipperChooseHint")}
                             </p>
                           </div>
                           {selectedOrderRecord.deliveringShipperName ? (
                             <span className={ui.pill}>
-                              Dang gan: {selectedOrderRecord.deliveringShipperName}
+                              {t("orderDetail.currentlyAssigned", { name: selectedOrderRecord.deliveringShipperName })}
                             </span>
                           ) : null}
                         </div>
