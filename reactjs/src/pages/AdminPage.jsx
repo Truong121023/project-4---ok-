@@ -5149,9 +5149,9 @@ export default function AdminPage({ forcedSection = "" }) {
                               </p>
                             </div>
                             <div className="grid gap-1 text-sm text-stone-600">
-                              <span>Quantity sold: {dish.quantitySold}</span>
-                              <span>Order count: {dish.orderCount}</span>
-                              <span>Revenue: {formatCurrency(dish.revenue)}</span>
+                              <span>{t("storeAnalytics.quantitySold", { count: dish.quantitySold })}</span>
+                              <span>{t("storeAnalytics.orderCount", { count: dish.orderCount })}</span>
+                              <span>{t("storeAnalytics.revenueLabel", { value: formatCurrency(dish.revenue) })}</span>
                             </div>
                           </div>
                         </article>
@@ -5160,7 +5160,7 @@ export default function AdminPage({ forcedSection = "" }) {
                   </div>
                 ) : (
                   <div className="mt-5 rounded-[1.4rem] border border-dashed border-matcha-900/15 bg-[#fbfaf6] p-4 text-sm leading-7 text-stone-600">
-                    No top-selling dish data is available in the current scope yet.
+                    {t("storeAnalytics.noTopSellingData")}
                   </div>
                 )}
               </div>
