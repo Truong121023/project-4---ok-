@@ -221,6 +221,30 @@ public class DemoDataSeeder {
 			"Nguyen Huu Tho",
 			"Rung Sac"
 	);
+	// Real-world approximate coordinates for each (STREETS[i], DISTRICTS[i]) pair in Ho Chi Minh City.
+	// Used instead of synthetic formulas so Nominatim-geocoded user locations produce accurate distances.
+	private static final List<double[]> STREET_COORDINATES = List.of(
+			new double[] { 10.7743, 106.7035 }, // Nguyen Hue, District 1
+			new double[] { 10.7905, 106.7292 }, // Tran Nao, Thu Duc
+			new double[] { 10.8115, 106.6648 }, // Truong Son, Tan Binh
+			new double[] { 10.7925, 106.6742 }, // Le Van Sy, Phu Nhuan
+			new double[] { 10.7880, 106.6900 }, // Vo Thi Sau, District 3
+			new double[] { 10.7530, 106.6728 }, // Tran Hung Dao, District 5
+			new double[] { 10.7864, 106.6938 }, // Pham Viet Chanh, Binh Thanh
+			new double[] { 10.7387, 106.7213 }, // Nguyen Thi Thap, District 7
+			new double[] { 10.8368, 106.6653 }, // Quang Trung, Go Vap
+			new double[] { 10.7704, 106.6687 }, // Su Van Hanh, District 10
+			new double[] { 10.7811, 106.7429 }, // Mai Chi Tho, District 2
+			new double[] { 10.7588, 106.7028 }, // Ben Van Don, District 4
+			new double[] { 10.7650, 106.6588 }, // Le Dai Hanh, District 11
+			new double[] { 10.7476, 106.6475 }, // Hau Giang, District 6
+			new double[] { 10.7397, 106.6680 }, // Pham The Hien, District 8
+			new double[] { 10.8651, 106.6286 }, // Nguyen Anh Thu, District 12
+			new double[] { 10.7820, 106.6332 }, // Au Co, Tan Phu
+			new double[] { 10.7448, 106.6186 }, // Kinh Duong Vuong, Binh Tan
+			new double[] { 10.6945, 106.7052 }, // Nguyen Huu Tho, Nha Be
+			new double[] { 10.4115, 106.9539 }  // Rung Sac, Can Gio
+	);
 	private static final List<String> CATEGORY_NAMES = List.of(
 			"Signature Matcha",
 			"Ceremonial Tea",
@@ -570,8 +594,8 @@ public class DemoDataSeeder {
 			store.setAddress(String.format("%02d %s, %s, Ho Chi Minh City", 10 + index, STREETS.get(index), DISTRICTS.get(index)));
 			store.setContactEmail(String.format("store.%02d@kamatcha.demo", index + 1));
 			store.setPhoneNumber(String.format("090%07d", 1000001 + index));
-			store.setLatitude(10.70 + (index * 0.0065));
-			store.setLongitude(106.62 + (index * 0.0052));
+			store.setLatitude(STREET_COORDINATES.get(index)[0]);
+			store.setLongitude(STREET_COORDINATES.get(index)[1]);
 			store.setArea(DISTRICTS.get(index));
 			store.setPositionLabel(theme + " pickup point");
 			store.setHoursText(String.format("%02d:00 - %02d:30", 6 + (index % 3), 21 + (index % 2)));
@@ -838,8 +862,8 @@ public class DemoDataSeeder {
 			address.setFullName(user.getFullName());
 			address.setPhoneNumber(String.format("091%07d", 2000001 + index));
 			address.setDeliveryAddress(String.format("%02d %s Residence, %s, Ho Chi Minh City", 100 + index, STREETS.get(index), DISTRICTS.get(index)));
-			address.setLatitude(10.705 + (index * 0.0059));
-			address.setLongitude(106.625 + (index * 0.0051));
+			address.setLatitude(STREET_COORDINATES.get(index)[0]);
+			address.setLongitude(STREET_COORDINATES.get(index)[1]);
 			address.setPrimaryAddress(Boolean.TRUE);
 			address.setVerifiedAt(BASE_TIME.plusSeconds(index * 1800L));
 			address.setLastUsedAt(BASE_TIME.plusSeconds(index * 3600L));
