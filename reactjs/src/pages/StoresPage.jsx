@@ -12,6 +12,7 @@ import { geocodeAddress, requestCurrentLocation } from "../lib/locationLookup";
 import { fetchPublicStores } from "../lib/siteApi";
 import { buildStoreEventsPath, buildStorePath } from "../lib/storeRouting";
 import { dateFromTimeValue, getCurrentTimeValue, isStoreOpenAt } from "../lib/timeFilters";
+import { translateDisabledReason } from "../lib/uiText";
 import { ui } from "../ui";
 
 function formatCompact(v) { return Number(v ?? 0).toLocaleString("vi-VN"); }
@@ -23,7 +24,7 @@ function resolveDistanceKm(store, userLocation) {
 }
 
 function availabilityLabel(store) {
-  if (store.disabled) return store.disabledReason || "Temporarily unavailable";
+  if (store.disabled) return translateDisabledReason(store.disabledReason);
   if (store.open) return "Serving now";
   return "Updating";
 }
@@ -52,19 +53,23 @@ function StoreSkeleton() {
   );
 }
 
-function StoreCard({ store, onFavoriteMessage }) {
+function StoreCard({ store, onFavoriteMessage, hasUserLocation }) {
   const img = store.imagePaths?.[0];
   const isDisabled = store.disabled;
+  const [imgFailed, setImgFailed] = useState(false);
+  const showImage = Boolean(img) && !imgFailed;
+  const showDistance = hasUserLocation && typeof store.resolvedDistanceKm === "number";
 
   return (
     <article className={`group flex flex-col overflow-hidden rounded-xl border bg-cream-50 shadow-soft transition-shadow duration-300 hover:shadow-lift ${isDisabled ? "border-beige-300 opacity-80" : "border-ink-900/10"}`}>
       {/* Image */}
       <div className="relative aspect-[4/3] overflow-hidden bg-beige-100">
-        {img ? (
+        {showImage ? (
           <img
             src={img}
-            alt={store.name}
+            alt=""
             loading="lazy"
+            onError={() => setImgFailed(true)}
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
@@ -74,7 +79,7 @@ function StoreCard({ store, onFavoriteMessage }) {
           {store.area ? <Badge variant="beige">{store.area}</Badge> : null}
           <Badge variant={isDisabled ? "ink" : "matcha"}>{availabilityLabel(store)}</Badge>
         </div>
-        {typeof store.resolvedDistanceKm === "number" ? (
+        {showDistance ? (
           <div className="absolute right-2 bottom-2">
             <Badge variant="beige">{formatDistanceKm(store.resolvedDistanceKm)}</Badge>
           </div>
@@ -287,7 +292,7 @@ export default function StoresPage() {
       />
 
       {locationMessage ? <p className="text-xs text-ink-500">{locationMessage}</p> : null}
-      {nearestStore ? (
+      {userLocation && nearestStore ? (
         <p className="text-xs text-ink-500">
           Nearest: <strong className="text-ink-800">{nearestStore.name}</strong>
           {typeof nearestStore.resolvedDistanceKm === "number" ? ` · ${formatDistanceKm(nearestStore.resolvedDistanceKm)}` : ""}
@@ -330,7 +335,12 @@ export default function StoresPage() {
         }
       >
         {filteredStores.map((store) => (
-          <StoreCard key={store.id} store={store} onFavoriteMessage={setFavoriteMessage} />
+          <StoreCard
+            key={store.id}
+            store={store}
+            onFavoriteMessage={setFavoriteMessage}
+            hasUserLocation={Boolean(userLocation)}
+          />
         ))}
       </CatalogLayout>
     </main>

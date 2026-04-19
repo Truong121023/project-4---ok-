@@ -232,6 +232,7 @@ function UserSupportPanel() {
         <textarea
           className={`${ui.input} min-h-[7rem] resize-y`}
           placeholder="Describe what you need support with..."
+          aria-label="Support message"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
         />
@@ -377,6 +378,7 @@ function AdminSupportPanel() {
               <textarea
                 className={`${ui.input} min-h-[7rem] resize-y`}
                 placeholder="Reply to the customer..."
+                aria-label="Reply to customer"
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
               />

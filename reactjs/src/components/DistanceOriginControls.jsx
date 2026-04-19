@@ -12,38 +12,44 @@ export default function DistanceOriginControls({
 }) {
   return (
     <div className="mt-4 grid gap-3">
-      <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto_auto]">
-        <label className="grid gap-2">
-          <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-            Distance origin
-          </span>
-          <input
-            className={ui.input}
-            type="text"
-            placeholder="Enter an address, for example 12 Nguyen Hue, District 1"
-            value={addressValue}
-            onChange={(event) => onAddressChange(event.target.value)}
-          />
-        </label>
+      <label className="grid gap-2">
+        <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+          Distance origin
+        </span>
+        <input
+          className={ui.input}
+          type="text"
+          placeholder="Enter an address, for example 12 Nguyen Hue, District 1"
+          value={addressValue}
+          onChange={(event) => onAddressChange(event.target.value)}
+        />
+      </label>
 
-        <div className="flex items-end">
-          <button className={ui.primaryButton} type="button" onClick={onUseAddress}>
-            {addressLoading ? "Searching..." : "Use address"}
-          </button>
-        </div>
-
-        <div className="flex items-end">
-          <button className={ui.secondaryButton} type="button" onClick={onUseCurrentLocation}>
-            {currentLocationLoading ? "Locating..." : "Use current location"}
-          </button>
-        </div>
-
+      <div className="flex flex-wrap gap-2">
+        <button
+          className={ui.primaryButton + " !text-xs !px-3 !py-2"}
+          type="button"
+          onClick={onUseAddress}
+          disabled={addressLoading}
+        >
+          {addressLoading ? "Searching..." : "Use address"}
+        </button>
+        <button
+          className={ui.secondaryButton + " !text-xs !px-3 !py-2"}
+          type="button"
+          onClick={onUseCurrentLocation}
+          disabled={currentLocationLoading}
+        >
+          {currentLocationLoading ? "Locating..." : "Use current location"}
+        </button>
         {hasLocation ? (
-          <div className="flex items-end">
-            <button className={ui.secondaryButton} type="button" onClick={onClearLocation}>
-              Clear
-            </button>
-          </div>
+          <button
+            className={ui.ghostButton + " !text-xs !px-3 !py-2"}
+            type="button"
+            onClick={onClearLocation}
+          >
+            Clear
+          </button>
         ) : null}
       </div>
 

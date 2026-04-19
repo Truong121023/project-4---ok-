@@ -966,6 +966,7 @@ export default function AIChatWidget() {
           <textarea
             className={`${ui.input} min-h-[10rem] resize-y border border-matcha-900/10 bg-[#f8f5ef] px-5 py-4 text-base leading-7`}
             placeholder="Ask about stores, dishes, promotions, or orders..."
+            aria-label="Message to Kamatcha AI"
             value={draftMessage}
             disabled={sending}
             onChange={(event) => setDraftMessage(event.target.value)}
@@ -988,6 +989,7 @@ export default function AIChatWidget() {
             historyPanelOpen ? "translate-x-0" : "translate-x-full",
           )}
           role="dialog"
+          aria-modal="true"
           aria-label="Chat history"
         >
           <div className="shrink-0 border-b border-matcha-900/10 px-5 pb-4 pt-5">

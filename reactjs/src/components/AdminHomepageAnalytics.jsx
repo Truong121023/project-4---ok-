@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import AdminPageHeader from "./admin/admin-page-header";
+import AdminStatCard from "./admin/admin-stat-card";
 import { useAuth } from "../context/AuthContext";
 import { apiRequest, getApiErrorMessage } from "../lib/api";
 import { buildAdminWorkspacePath } from "../lib/adminRoutes";
@@ -372,62 +374,18 @@ function buildFallbackNewCustomerCountFromOrders(orders, todayReference = new Da
 
 function BarColumn({ count, isPeak, label, shortDate, value }) {
   return (
-    <article className="grid gap-3">
-      <div className="flex h-44 items-end">
+    <article className="grid gap-2">
+      <div className="flex h-36 items-end">
         <div
-          className={`w-full rounded-t-[1rem] transition ${
-            isPeak ? "bg-[#203228]" : "bg-matcha-500/70"
-          }`}
-          style={{ height: `${Math.max(12, value)}%` }}
+          className={`w-full rounded-t transition-all ${isPeak ? "bg-matcha-900" : "bg-matcha-500"}`}
+          style={{ height: `${Math.max(8, value)}%` }}
         />
       </div>
-      <div className="grid gap-1 text-center">
-        <strong className="text-base text-tea-900">{count}</strong>
-        <span className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
-          {label}
-        </span>
-        <span className="text-xs text-stone-500">{shortDate}</span>
+      <div className="grid gap-0.5 text-center">
+        <strong className="font-mono text-xs font-semibold text-ink-900">{count}</strong>
+        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-400">{label}</span>
+        <span className="text-[10px] text-ink-400">{shortDate}</span>
       </div>
-    </article>
-  );
-}
-
-function MetricCard({ label, value, note, featured = false }) {
-  return (
-    <article
-      className={
-        featured
-          ? "rounded-[1.6rem] border border-matcha-700/15 bg-gradient-to-br from-[#203228] to-[#314838] p-5 text-white shadow-[0_18px_44px_rgba(34,40,24,0.2)]"
-          : "rounded-[1.45rem] border border-matcha-900/10 bg-white/75 p-4"
-      }
-    >
-      <p
-        className={
-          featured
-            ? "text-xs uppercase tracking-[0.2em] text-white/60"
-            : "text-xs uppercase tracking-[0.2em] text-stone-500"
-        }
-      >
-        {label}
-      </p>
-      <strong
-        className={
-          featured
-            ? "mt-4 block text-3xl font-semibold tracking-tight text-white"
-            : "mt-3 block text-3xl font-semibold text-tea-900"
-        }
-      >
-        {value}
-      </strong>
-      <p
-        className={
-          featured
-            ? "mt-3 text-sm leading-6 text-white/72"
-            : "mt-2 text-sm leading-6 text-stone-600"
-        }
-      >
-        {note}
-      </p>
     </article>
   );
 }
@@ -563,214 +521,133 @@ export default function AdminHomepageAnalytics() {
 
   return (
     <section className={ui.panel}>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className={ui.eyebrow}>{isManagerMode ? "Manager analytics" : "Admin analytics"}</p>
-          <h1 className="max-w-[14ch] text-4xl font-bold leading-none tracking-tight text-tea-900 sm:text-5xl">
-            Homepage operational overview
-          </h1>
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-600">
-            {isManagerMode
-              ? "These numbers are locked to your assigned store only."
-              : "These numbers summarize activity across all stores in the system."}
-          </p>
-        </div>
-
-        <div className="grid gap-3 rounded-[1.5rem] border border-matcha-900/10 bg-white/78 p-4 text-sm leading-7 text-stone-600">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <AdminPageHeader
+          eyebrow={isManagerMode ? "Manager analytics" : "Admin analytics"}
+          title="Operational overview"
+          subtitle={
+            isManagerMode
+              ? "Numbers are locked to your assigned store only."
+              : "Activity summary across all stores in the system."
+          }
+        />
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-ink-900/8 bg-cream-100 px-3 py-2 text-xs text-ink-600">
           <span className={ui.pill}>{analytics?.scopeLabel || "Current scope"}</span>
-          <span>Orders workspace: live order processing and fulfillment.</span>
-          <span>Reviews workspace: customer comments submitted today.</span>
+          <span>Orders: live processing.</span>
+          <span>Reviews: today's comments.</span>
         </div>
       </div>
 
-      {error ? (
-        <div className="mt-6 rounded-[1.4rem] border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
+      {error && (
+        <div className="mt-4 rounded-lg border border-danger/20 bg-danger-soft px-3 py-2.5 text-sm text-danger">
           {error}
         </div>
-      ) : null}
+      )}
 
-      {loading ? (
-        <div className="mt-6 rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
-          Loading homepage analytics...
+      {loading && (
+        <div className="mt-4 rounded-lg border border-dashed border-ink-900/10 bg-cream-100 p-4 text-sm text-ink-400">
+          Loading homepage analytics…
         </div>
-      ) : null}
+      )}
 
       {!loading && analytics ? (
         <>
-          <div className="mt-6 grid gap-4 xl:grid-cols-5">
-            <MetricCard
-              featured
-              label="Daily revenue"
-              note="Paid revenue recorded today in the current scope."
-              value={formatCurrency(analytics.todayRevenue)}
-            />
-            <MetricCard
-              label="Order volume"
-              note="Orders created today."
-              value={formatCompactNumber(analytics.todayOrders)}
-            />
-            <MetricCard
-              label="Average order value"
-              note="Daily paid revenue divided by today's paid orders."
-              value={formatCurrency(analytics.averageOrderValue)}
-            />
-            <MetricCard
-              label="New comments"
-              note="Customer reviews created today."
-              value={formatCompactNumber(analytics.newComments)}
-            />
-            <MetricCard
-              label="New customers"
-              note="New customer accounts today, or first-time buyers in this scope when account data is unavailable."
-              value={formatCompactNumber(analytics.newCustomers)}
-            />
+          {/* KPI strip */}
+          <div className="mt-4 grid gap-3 xl:grid-cols-5">
+            <AdminStatCard featured label="Daily revenue" note="Paid today in current scope." value={formatCurrency(analytics.todayRevenue)} />
+            <AdminStatCard label="Order volume" note="Orders created today." value={formatCompactNumber(analytics.todayOrders)} />
+            <AdminStatCard label="Avg order value" note="Paid revenue / paid orders today." value={formatCurrency(analytics.averageOrderValue)} />
+            <AdminStatCard label="New comments" note="Reviews created today." value={formatCompactNumber(analytics.newComments)} />
+            <AdminStatCard label="New customers" note="New accounts or first-time buyers." value={formatCompactNumber(analytics.newCustomers)} />
           </div>
 
-          <div className="mt-6 grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-            <article className="rounded-[1.8rem] border border-matcha-900/10 bg-white/75 p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.18em] text-tea-700">
-                    Best seller product
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold text-tea-900">
-                    {analytics.bestSeller?.dishName || "No best seller data yet"}
-                  </h2>
-                </div>
-
-                <Link
-                  className={ui.secondaryButton}
-                  to={buildAdminWorkspacePath({ sectionKey: "orders" })}
-                >
+          {/* Best seller + Best store */}
+          <div className="mt-5 grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
+            <article className="rounded-lg border border-ink-900/8 bg-cream-50 p-4 shadow-soft">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <AdminPageHeader eyebrow="Best seller" title={analytics.bestSeller?.dishName || "No data yet"} />
+                <Link className={ui.secondaryButton} to={buildAdminWorkspacePath({ sectionKey: "orders" })}>
                   Open orders
                 </Link>
               </div>
 
               {analytics.bestSeller ? (
-                <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                  <article className="rounded-[1.2rem] border border-matcha-900/10 bg-[#f8f4ea] p-4">
-                    <p className="text-xs uppercase tracking-[0.16em] text-stone-500">
-                      Quantity sold
+                <>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                    {[
+                      { label: "Qty sold", value: formatCompactNumber(analytics.bestSeller.quantitySold) },
+                      { label: "Orders", value: formatCompactNumber(analytics.bestSeller.orderCount) },
+                      { label: "Revenue", value: formatCurrency(analytics.bestSeller.revenue) },
+                    ].map((stat) => (
+                      <div key={stat.label} className="rounded-md border border-ink-900/8 bg-beige-100 px-2.5 py-2">
+                        <p className="text-[11px] uppercase tracking-[0.14em] text-ink-500">{stat.label}</p>
+                        <strong className="mt-0.5 block font-mono text-sm text-ink-900">{stat.value}</strong>
+                      </div>
+                    ))}
+                  </div>
+                  {analytics.bestSeller.storeName && (
+                    <p className="mt-2 text-xs text-ink-500">
+                      Leading store: <strong>{analytics.bestSeller.storeName}</strong>
                     </p>
-                    <strong className="mt-2 block text-2xl text-tea-900">
-                      {formatCompactNumber(analytics.bestSeller.quantitySold)}
-                    </strong>
-                  </article>
-                  <article className="rounded-[1.2rem] border border-matcha-900/10 bg-[#f8f4ea] p-4">
-                    <p className="text-xs uppercase tracking-[0.16em] text-stone-500">
-                      Order count
-                    </p>
-                    <strong className="mt-2 block text-2xl text-tea-900">
-                      {formatCompactNumber(analytics.bestSeller.orderCount)}
-                    </strong>
-                  </article>
-                  <article className="rounded-[1.2rem] border border-matcha-900/10 bg-[#f8f4ea] p-4">
-                    <p className="text-xs uppercase tracking-[0.16em] text-stone-500">
-                      Revenue
-                    </p>
-                    <strong className="mt-2 block text-2xl text-tea-900">
-                      {formatCurrency(analytics.bestSeller.revenue)}
-                    </strong>
-                  </article>
-                </div>
+                  )}
+                </>
               ) : (
-                <div className="mt-5 rounded-[1.3rem] border border-dashed border-matcha-900/15 bg-white/55 p-4 text-sm text-stone-600">
-                  There is no best seller data yet for the current scope.
+                <div className="mt-3 rounded-md border border-dashed border-ink-900/10 bg-cream-100 p-3 text-xs text-ink-400">
+                  No best seller data yet for the current scope.
                 </div>
               )}
-
-              {analytics.bestSeller?.storeName ? (
-                <p className="mt-4 text-sm leading-7 text-stone-600">
-                  Leading store in this ranking: <strong>{analytics.bestSeller.storeName}</strong>
-                </p>
-              ) : null}
             </article>
 
-            <article className="rounded-[1.8rem] border border-matcha-900/10 bg-[#203228] p-5 text-white shadow-[0_20px_44px_rgba(32,50,40,0.22)]">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/60">
-                    Best store
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold tracking-tight">
-                    {analytics.bestStore?.storeName || analytics.scopeLabel}
-                  </h2>
-                </div>
-
-                <span className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-white/78">
+            <article className="rounded-lg border border-matcha-700/20 bg-matcha-900 p-4 text-cream-50 shadow-soft">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <AdminPageHeader eyebrow="Best store" title={analytics.bestStore?.storeName || analytics.scopeLabel} />
+                <span className="rounded-full bg-cream-50/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-cream-50/70">
                   Last 7 days
                 </span>
               </div>
 
-              <div className="mt-5 grid gap-4 sm:grid-cols-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.16em] text-white/55">Revenue</p>
-                  <strong className="mt-2 block text-2xl font-semibold">
-                    {formatCurrency(analytics.bestStore?.revenue)}
-                  </strong>
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-[0.16em] text-white/55">Paid orders</p>
-                  <strong className="mt-2 block text-2xl font-semibold">
-                    {formatCompactNumber(analytics.bestStore?.paidOrders)}
-                  </strong>
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-[0.16em] text-white/55">Total orders</p>
-                  <strong className="mt-2 block text-2xl font-semibold">
-                    {formatCompactNumber(analytics.bestStore?.totalOrders)}
-                  </strong>
-                </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                {[
+                  { label: "Revenue", value: formatCurrency(analytics.bestStore?.revenue) },
+                  { label: "Paid orders", value: formatCompactNumber(analytics.bestStore?.paidOrders) },
+                  { label: "Total orders", value: formatCompactNumber(analytics.bestStore?.totalOrders) },
+                ].map((stat) => (
+                  <div key={stat.label}>
+                    <p className="text-[10px] uppercase tracking-[0.14em] text-cream-50/50">{stat.label}</p>
+                    <strong className="mt-0.5 block font-mono text-sm font-semibold text-cream-50">{stat.value}</strong>
+                  </div>
+                ))}
               </div>
 
-              <p className="mt-5 text-sm leading-7 text-white/72">
+              <p className="mt-3 text-xs leading-5 text-cream-50/60">
                 {isManagerMode
-                  ? "As manager, this panel stays locked to your own store."
-                  : "For admin, the best store is ranked by paid revenue first and total orders second."}
+                  ? "Locked to your assigned store."
+                  : "Ranked by paid revenue, then total orders."}
               </p>
             </article>
           </div>
 
-          <div className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-            <article className="rounded-[1.8rem] border border-matcha-900/10 bg-white/75 p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.18em] text-tea-700">
-                    Orders last 7 days
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold text-tea-900">
-                    Daily order trend
-                  </h2>
-                </div>
-
-                <Link
-                  className={ui.secondaryButton}
-                  to={isManagerMode ? "/admin/reports" : "/admin/reports"}
-                >
-                  Open report
-                </Link>
+          {/* 7-day chart + Latest comment */}
+          <div className="mt-5 grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
+            <article className="rounded-lg border border-ink-900/8 bg-cream-50 p-4 shadow-soft">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <AdminPageHeader eyebrow="Orders last 7 days" title="Daily order trend" />
+                <Link className={ui.secondaryButton} to="/admin/reports">Open report</Link>
               </div>
 
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-[1.2rem] border border-matcha-900/10 bg-[#f8f4ea] p-4">
-                  <p className="text-xs uppercase tracking-[0.16em] text-stone-500">
-                    Total orders
-                  </p>
-                  <strong className="mt-2 block text-2xl text-tea-900">
-                    {formatCompactNumber(analytics.ordersLast7DaysTotal)}
-                  </strong>
-                </div>
-                <div className="rounded-[1.2rem] border border-matcha-900/10 bg-[#f8f4ea] p-4">
-                  <p className="text-xs uppercase tracking-[0.16em] text-stone-500">
-                    Revenue
-                  </p>
-                  <strong className="mt-2 block text-2xl text-tea-900">
-                    {formatCurrency(analytics.ordersLast7DaysRevenue)}
-                  </strong>
-                </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {[
+                  { label: "Total orders", value: formatCompactNumber(analytics.ordersLast7DaysTotal) },
+                  { label: "Revenue", value: formatCurrency(analytics.ordersLast7DaysRevenue) },
+                ].map((stat) => (
+                  <div key={stat.label} className="rounded-md border border-ink-900/8 bg-beige-100 px-2.5 py-2">
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-ink-500">{stat.label}</p>
+                    <strong className="mt-0.5 block font-mono text-sm text-ink-900">{stat.value}</strong>
+                  </div>
+                ))}
               </div>
 
-              <div className="mt-6 grid grid-cols-7 gap-3">
+              <div className="mt-4 grid grid-cols-7 gap-2">
                 {analytics.ordersLast7DaysSeries.map((entry) => (
                   <BarColumn
                     key={entry.key}
@@ -784,59 +661,43 @@ export default function AdminHomepageAnalytics() {
               </div>
             </article>
 
-            <article className="rounded-[1.8rem] border border-matcha-900/10 bg-white/75 p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.18em] text-tea-700">
-                    Latest comment
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold text-tea-900">
-                    Customer review signal
-                  </h2>
-                </div>
-
-                <Link
-                  className={ui.secondaryButton}
-                  to={buildAdminWorkspacePath({ sectionKey: "reviews" })}
-                >
+            <article className="rounded-lg border border-ink-900/8 bg-cream-50 p-4 shadow-soft">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <AdminPageHeader eyebrow="Latest comment" title="Customer review signal" />
+                <Link className={ui.secondaryButton} to={buildAdminWorkspacePath({ sectionKey: "reviews" })}>
                   Open reviews
                 </Link>
               </div>
 
               {analytics.latestComment ? (
-                <div className="mt-5 grid gap-4">
-                  <div className="flex flex-wrap gap-2">
-                    {analytics.latestComment.targetType ? (
+                <div className="mt-3 grid gap-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    {analytics.latestComment.targetType && (
                       <span className={ui.pill}>{analytics.latestComment.targetType}</span>
-                    ) : null}
-                    {analytics.latestComment.targetLabel ? (
+                    )}
+                    {analytics.latestComment.targetLabel && (
                       <span className={ui.pill}>{analytics.latestComment.targetLabel}</span>
-                    ) : null}
+                    )}
                   </div>
-
                   <div>
-                    <h3 className="text-lg font-semibold text-tea-900">
-                      {analytics.latestComment.title || "Latest customer comment"}
-                    </h3>
-                    <p className="mt-3 text-sm leading-7 text-stone-600">
-                      {analytics.latestComment.comment ||
-                        "The latest review does not include a detailed comment."}
+                    <p className="text-sm font-semibold text-ink-900">
+                      {analytics.latestComment.title || "Latest comment"}
+                    </p>
+                    <p className="mt-1.5 text-xs leading-5 text-ink-600">
+                      {analytics.latestComment.comment || "No detailed comment."}
                     </p>
                   </div>
-
-                  <div className="grid gap-2 text-sm leading-7 text-stone-600">
+                  <div className="text-xs text-ink-400">
                     <span>
-                      User:{" "}
-                      {analytics.latestComment.userName ||
-                        analytics.latestComment.userEmail ||
-                        "Customer"}
+                      {analytics.latestComment.userName || analytics.latestComment.userEmail || "Customer"}
                     </span>
-                    <span>Created at: {formatShortDate(analytics.latestComment.createdAt)}</span>
+                    <span className="mx-1.5">·</span>
+                    <span>{formatShortDate(analytics.latestComment.createdAt)}</span>
                   </div>
                 </div>
               ) : (
-                <div className="mt-5 rounded-[1.3rem] border border-dashed border-matcha-900/15 bg-white/55 p-4 text-sm text-stone-600">
-                  There are no review comments yet in the current scope.
+                <div className="mt-3 rounded-md border border-dashed border-ink-900/10 bg-cream-100 p-3 text-xs text-ink-400">
+                  No review comments yet in the current scope.
                 </div>
               )}
             </article>
