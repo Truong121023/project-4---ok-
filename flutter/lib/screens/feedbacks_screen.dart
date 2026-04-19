@@ -167,11 +167,7 @@ class _FeedbacksScreenState extends State<FeedbacksScreen> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-<<<<<<< HEAD
                                           'Reply from ${feedback.repliedByUserName ?? 'Kamatcha'}',
-=======
-                                          'Phan hoi tu ${feedback.repliedByUserName ?? 'Kamatcha'}',
->>>>>>> origin/main
                                           style: Theme.of(context)
                                               .textTheme
                                               .titleSmall

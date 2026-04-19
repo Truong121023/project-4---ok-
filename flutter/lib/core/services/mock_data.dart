@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+﻿import 'dart:math' as math;
 
 import '../models/models.dart';
 
@@ -1267,3 +1267,4 @@ class MockData {
     );
   }
 }
+

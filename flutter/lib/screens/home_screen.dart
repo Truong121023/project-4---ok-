@@ -325,7 +325,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
-<<<<<<< HEAD
     _ensureFutureSynced();
     return AnimatedBuilder(
       animation: controller,
@@ -344,17 +343,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       controller.userNotificationUnreadCount > 0,
                   label: Text('${controller.userNotificationUnreadCount}'),
                   child: const Icon(Icons.notifications_none_rounded),
-=======
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Kamatcha'),
-        actions: [
-          IconButton(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const UserOrderQrScanScreen(),
->>>>>>> origin/main
                 ),
               ),
               IconButton(
@@ -384,7 +372,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               }
 
-<<<<<<< HEAD
               final data = snapshot.data!;
                 final home = data.home;
                 final promotions = data.promotions;
@@ -409,207 +396,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       primaryAddress: data.primaryAddress,
                       creditPoints: creditPoints,
                       onPrimaryAction: () {
-=======
-          final home = snapshot.data!;
-          return RefreshIndicator(
-            onRefresh: _refresh,
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-              children: [
-                _HeroBanner(
-                  brand: _displayBrand(home.brand),
-                  loggedIn: controller.isLoggedIn,
-                  useMockData: controller.config.useMockData,
-                  onScanOrderQr: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const UserOrderQrScanScreen(),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 24),
-                SectionHeader(
-                  title: 'Featured stores',
-                  subtitle: 'Chon diem den de order nhanh hon.',
-                ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  height: 324,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: home.featuredStores.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 12),
-                    itemBuilder: (context, index) {
-                      final store = home.featuredStores[index];
-                      return SizedBox(
-                        width: 260,
-                        child: StoreCardTile(
-                          store: store,
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) =>
-                                    StoreDetailScreen(storeKey: store.slug),
-                              ),
-                            );
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SectionHeader(
-                  title: 'Best sellers',
-                  subtitle: 'Mon de chon, de them vao gio hang.',
-                ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  height: 348,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: home.featuredDishes.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 12),
-                    itemBuilder: (context, index) {
-                      final dish = home.featuredDishes[index];
-                      return SizedBox(
-                        width: 250,
-                        child: DishCardTile(
-                          dish: dish,
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) =>
-                                    DishDetailScreen(dishId: dish.id),
-                              ),
-                            );
-                          },
-                          onQuickAdd: () async {
-                            final bestStore = dish.bestStore;
-                            if (bestStore == null) {
-                              return;
-                            }
-                            try {
-                              await controller.addToCart(
-                                storeId: bestStore.storeId,
-                                storeName: bestStore.storeName,
-                                dishId: dish.id,
-                                dishName: dish.name,
-                                unitPrice: bestStore.price,
-                                imagePaths: dish.imagePaths,
-                              );
-                            } catch (error) {
-                              if (!context.mounted) {
-                                return;
-                              }
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(error.toString())),
-                              );
-                              return;
-                            }
-                            if (!context.mounted) {
-                              return;
-                            }
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  content: Text(
-                                      '${dish.name} da duoc them vao gio hang')),
-                            );
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SectionHeader(
-                  title: 'Su kien sap toi',
-                  subtitle: 'Tap trung nhung event ngan gon, de tham gia.',
-                  actionLabel: 'Xem het',
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const EventsScreen(),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 14),
-                ...home.upcomingEvents.map(
-                  (event) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Card(
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  EventDetailScreen(eventKey: event.slug),
-                            ),
-                          );
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                event.name,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w800),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                  '${event.storeName} - ${Formatters.shortDate(event.startsAt)}'),
-                              const SizedBox(height: 8),
-                              Text(
-                                event.highlightSummary,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 10),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  MetricChip(
-                                      label: '${event.remainingSlots} cho'),
-                                  MetricChip(
-                                      label:
-                                          '${Formatters.rating(event.averageRating)} sao'),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SectionHeader(
-                  title: 'Tin moi',
-                  subtitle: 'Bai viet ngan, doc nhanh tren mobile.',
-                  actionLabel: 'Xem het',
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const NewsListScreen(),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 14),
-                ...home.latestNews.map(
-                  (news) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: NewsTile(
-                      news: news,
-                      onTap: () {
->>>>>>> origin/main
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
                             builder: (_) => controller.cart.totalItems > 0
@@ -1009,23 +795,8 @@ class _HomeSectionPanel extends StatelessWidget {
   }
 }
 
-<<<<<<< HEAD
 class _HomeHeroBanner extends StatelessWidget {
   const _HomeHeroBanner({
-=======
-String _displayBrand(String rawBrand) {
-  final trimmed = rawBrand.trim();
-  if (trimmed.isEmpty) {
-    return 'Kamatcha';
-  }
-  return trimmed
-      .replaceAll('Tea Matcha', 'Kamatcha')
-      .replaceAll('Tea matcha', 'Kamatcha');
-}
-
-class _HeroBanner extends StatelessWidget {
-  const _HeroBanner({
->>>>>>> origin/main
     required this.brand,
     required this.loggedIn,
     required this.signatureCount,

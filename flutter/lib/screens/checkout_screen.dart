@@ -27,11 +27,7 @@ class CheckoutScreen extends StatefulWidget {
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
-<<<<<<< HEAD
   late final TextEditingController _promotionController;
-=======
-  final _promotionController = TextEditingController();
->>>>>>> origin/main
   String _deliveryType = 'DELIVERY';
   DateTime? _scheduledAt;
   DeliveryAddress? _selectedAddress;
@@ -512,18 +508,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           );
         }
 
-<<<<<<< HEAD
         final selectedAddress = _selectedCheckoutAddress(controller);
         final addressHasCoordinates = selectedAddress?.hasCoordinates ?? false;
-=======
-        final selectedAddress = _selectedAddress ?? controller.primaryDeliveryAddress;
->>>>>>> origin/main
         final shippingEstimate = estimateCartShipping(
           cart: controller.cart,
           address: selectedAddress,
           deliveryType: _deliveryType,
         );
-<<<<<<< HEAD
         final checkoutPreview = _checkoutPreview;
         final previewShipping = checkoutPreview?.shippingFeeAmount ??
             (shippingEstimate.hasEstimate
@@ -563,14 +554,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           );
         }
 
-=======
->>>>>>> origin/main
         return Scaffold(
           appBar: AppBar(title: const Text('Checkout')),
           body: ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 248),
             children: [
-<<<<<<< HEAD
               Text(
                 'Ready to pay',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -640,216 +628,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   _scheduleCheckoutPreviewRefresh();
                 },
                 onApplySuggestion: _applySuggestedPromotion,
-=======
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SectionHeader(
-                        title: 'Dia chi giao hang',
-                        subtitle: 'Chon dia chi se duoc gui vao deliveryAddressId.',
-                      ),
-                      const SizedBox(height: 12),
-                      if (selectedAddress == null)
-                        const Text('Chua co dia chi nao.')
-                      else
-                        Text(
-                          '${selectedAddress.fullName} - ${selectedAddress.phoneNumber}\n${selectedAddress.deliveryAddress}',
-                        ),
-                      if (selectedAddress != null) ...[
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            MetricChip(
-                              label: selectedAddress.hasCoordinates
-                                  ? 'Da co toa do'
-                                  : 'Chua co toa do',
-                            ),
-                          ],
-                        ),
-                      ],
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          FilledButton.tonal(
-                            onPressed: _chooseAddress,
-                            child: const Text('Chon dia chi'),
-                          ),
-                          FilledButton.tonal(
-                            onPressed: () async {
-                              await Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const AddressBookScreen(),
-                                ),
-                              );
-                              if (!context.mounted) {
-                                return;
-                              }
-                              try {
-                                await controller.loadDeliveryAddresses();
-                                setState(() {
-                                  _selectedAddress = controller.primaryDeliveryAddress;
-                                });
-                              } catch (error) {
-                                if (!context.mounted) {
-                                  return;
-                                }
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(error.toString())),
-                                );
-                              }
-                            },
-                            child: const Text('Quan ly dia chi'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SectionHeader(
-                        title: 'Cach giao',
-                        subtitle: 'Map vao deliveryType va scheduledDeliveryAt.',
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          ChoiceChip(
-                            label: const Text('Giao ngay'),
-                            selected: _deliveryType == 'DELIVERY',
-                            onSelected: (_) => setState(() {
-                              _deliveryType = 'DELIVERY';
-                              _scheduledAt = null;
-                            }),
-                          ),
-                          ChoiceChip(
-                            label: const Text('Hen gio'),
-                            selected: _deliveryType == 'SCHEDULED',
-                            onSelected: (_) => setState(() => _deliveryType = 'SCHEDULED'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Text('Dang gui deliveryType: $_deliveryType (${deliveryTypeLabel(_deliveryType)})'),
-                      if (_deliveryType == 'SCHEDULED') ...[
-                        const SizedBox(height: 12),
-                        FilledButton.tonal(
-                          onPressed: _pickScheduledTime,
-                          child: Text(
-                            _scheduledAt == null
-                                ? 'Chon ngay gio'
-                                : Formatters.fullDateTime(_scheduledAt),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _promotionController,
-                        decoration: const InputDecoration(
-                          labelText: 'Ma giam gia (neu co)',
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Promo hien uu tien validate o backend. Voucher chi ap dung cho 1 hoa don cua 1 store trong mot lan checkout va se bi reject neu bill co mon local/store specialty.',
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SectionHeader(
-                        title: 'Shipping fee',
-                        subtitle: 'Frontend co the uoc tinh nhanh, nhung tong tien cuoi cung van theo response backend.',
-                      ),
-                      const SizedBox(height: 12),
-                      if (!shippingEstimate.isDeliveryOrder)
-                        const Text('Don pickup khong tinh shipping fee.')
-                      else if (shippingEstimate.pendingMessage != null)
-                        Text(shippingEstimate.pendingMessage!)
-                      else ...[
-                        Text(
-                          'Estimated shipping fee: ${Formatters.currency(shippingEstimate.shippingFeeAmount)}',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Shipping distance: ${Formatters.distance(shippingEstimate.shippingDistanceKm)}',
-                        ),
-                        if (shippingEstimate.shippingFeeBreakdown.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          ...shippingEstimate.shippingFeeBreakdown.map(
-                            (item) => Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: Text(
-                                '${item.storeName}: ${Formatters.distance(item.distanceKm)} - ${Formatters.currency(item.shippingFeeAmount)}',
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Tong tam tinh mon: ${Formatters.currency(controller.cart.subtotal)}',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                      if (shippingEstimate.pendingMessage == null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          'Estimated shipping fee: ${Formatters.currency(shippingEstimate.shippingFeeAmount)}',
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Tam tinh truoc promo: ${Formatters.currency(controller.cart.subtotal + shippingEstimate.shippingFeeAmount)}',
-                        ),
-                      ],
-                      if (controller.session != null) ...[
-                        const SizedBox(height: 8),
-                        Text('Credit hien tai: ${controller.session!.user.creditPoints}'),
-                      ],
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Discount, shipping fee cuoi cung va totalAmount se duoc thay bang gia tri backend tra ve trong checkout response.',
-                      ),
-                      const SizedBox(height: 8),
-                      Text('Return URL: ${controller.config.defaultReturnUrl}'),
-                      const SizedBox(height: 4),
-                      Text('Cancel URL: ${controller.config.defaultCancelUrl}'),
-                    ],
-                  ),
-                ),
->>>>>>> origin/main
               ),
             ],
           ),

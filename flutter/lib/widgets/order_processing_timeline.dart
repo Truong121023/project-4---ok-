@@ -134,15 +134,9 @@ class OrderProcessingTimeline extends StatelessWidget {
                 const SizedBox(height: 14),
                 _TimelineRow(
                   icon: Icons.delivery_dining_outlined,
-<<<<<<< HEAD
                   title: 'Delivery',
                   subtitle: _deliverySubtitle(),
                   state: _deliveryState(),
-=======
-                  title: 'Shipper giao hang',
-                  subtitle: _deliverySubtitle(),
-                  done: _deliveryDone(),
->>>>>>> origin/main
                 ),
               ],
             ),
@@ -156,7 +150,6 @@ class OrderProcessingTimeline extends StatelessWidget {
     return values.whereType<String>().where((value) => value.trim().isNotEmpty).join(' | ');
   }
 
-<<<<<<< HEAD
   String _confirmationSubtitle() {
     if (!_storeConfirmed()) {
       return 'Waiting for the store manager to confirm the order.';
@@ -218,61 +211,28 @@ class OrderProcessingTimeline extends StatelessWidget {
             deliveryProofCapturedAt == null
                 ? null
                 : 'Proof captured at ${Formatters.fullDateTime(deliveryProofCapturedAt)}',
-=======
-  String _deliverySubtitle() {
-    final shipperName = deliveringShipperName?.trim();
-    final normalizedStatus = deliveryStatus?.trim().toUpperCase() ?? '';
-
-    if (shipperName == null || shipperName.isEmpty) {
-      return 'Dang cho shipper nhan don giao.';
-    }
-
-    return switch (normalizedStatus) {
-      'READY_FOR_SHIPPER' => '$shipperName da duoc assign va dang cho den quay nhan don.',
-      'OUT_FOR_DELIVERY' => _joinParts(
-          [
-            '$shipperName dang giao don.',
-            deliveryProofCapturedAt == null
-                ? null
-                : 'Proof luc ${Formatters.fullDateTime(deliveryProofCapturedAt)}',
->>>>>>> origin/main
           ],
         ),
       'COMPLETED' => _joinParts(
           [
-<<<<<<< HEAD
             '$identity delivered the order successfully.',
             deliveryProofCapturedAt == null
                 ? null
                 : 'Proof captured at ${Formatters.fullDateTime(deliveryProofCapturedAt)}',
-=======
-            '$shipperName da giao hang thanh cong.',
-            deliveryProofCapturedAt == null
-                ? null
-                : 'Proof luc ${Formatters.fullDateTime(deliveryProofCapturedAt)}',
->>>>>>> origin/main
           ],
         ),
       _ => _joinParts(
           [
-<<<<<<< HEAD
             '$identity is currently assigned to this order.',
             deliveryProofCapturedAt == null
                 ? null
                 : 'Proof captured at ${Formatters.fullDateTime(deliveryProofCapturedAt)}',
-=======
-            '$shipperName dang phu trach don nay.',
-            deliveryProofCapturedAt == null
-                ? null
-                : 'Proof luc ${Formatters.fullDateTime(deliveryProofCapturedAt)}',
->>>>>>> origin/main
           ],
         ),
     };
   }
 
   bool _deliveryDone() {
-<<<<<<< HEAD
     final normalizedStatus = _normalizedStatus;
     return normalizedStatus == 'COMPLETED' ||
         deliveryProofCapturedAt != null;
@@ -283,17 +243,6 @@ enum _TimelineStageState {
   inactive,
   current,
   done,
-=======
-    final shipperName = deliveringShipperName?.trim();
-    if (shipperName == null || shipperName.isEmpty) {
-      return false;
-    }
-    final normalizedStatus = deliveryStatus?.trim().toUpperCase() ?? '';
-    return normalizedStatus == 'OUT_FOR_DELIVERY' ||
-        normalizedStatus == 'COMPLETED' ||
-        deliveryProofCapturedAt != null;
-  }
->>>>>>> origin/main
 }
 
 class _TimelineRow extends StatelessWidget {
