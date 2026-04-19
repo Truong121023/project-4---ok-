@@ -5907,7 +5907,7 @@ export default function AdminPage({ forcedSection = "" }) {
                         </div>
 
                         <div className="rounded-[1.5rem] border border-matcha-900/10 bg-white/70 p-4 text-sm leading-7 text-stone-700">
-                          {reviewDetail.message ?? "This feedback does not include detailed content yet."}
+                          {reviewDetail.message ?? t("feedbackDetail.noContent")}
                         </div>
 
                         <div className="grid gap-3 rounded-[1.5rem] border border-matcha-900/10 bg-white/70 p-4">
@@ -5926,7 +5926,7 @@ export default function AdminPage({ forcedSection = "" }) {
                             </div>
                           ) : (
                             <div className="rounded-[1.25rem] border border-dashed border-matcha-900/15 bg-white/45 p-4 text-sm leading-7 text-stone-600">
-                              This feedback does not have an admin reply yet.
+                              {t("feedbackDetail.noReplyYet")}
                             </div>
                           )}
 
