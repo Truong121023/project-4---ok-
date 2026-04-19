@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import AccountLayout from "../components/templates/account-layout";
 import { useAuth } from "../context/AuthContext";
 import { getApiErrorMessage } from "../lib/api";
 import {
@@ -328,9 +330,41 @@ export default function MembershipPage() {
     }
   };
 
+  /* ---------- Account nav rail ---------- */
+  const profileRail = (
+    <div className="grid gap-4">
+      <div>
+        <p className={ui.eyebrow}>Account</p>
+        <h2 className="font-display text-xl font-semibold text-ink-900">Membership</h2>
+      </div>
+      <nav aria-label="Account sections" className="grid gap-1">
+        {[
+          { href: "/account", label: "Overview" },
+          { href: "/orders", label: "Orders" },
+          { href: "/membership", label: "Membership", active: true },
+          { href: "/account/addresses", label: "Addresses" },
+          { href: "/account/favorites", label: "Favorites" },
+        ].map((link) => (
+          <Link
+            key={link.href}
+            className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+              link.active
+                ? "bg-matcha-500/10 font-semibold text-matcha-800"
+                : "text-ink-700 hover:bg-cream-100"
+            }`}
+            to={link.href}
+          >
+            {link.label}
+          </Link>
+        ))}
+      </nav>
+    </div>
+  );
+
   return (
     <main className={ui.page}>
-      <section className={ui.panel}>
+      <AccountLayout profile={profileRail}>
+      <div>
         <p className={ui.eyebrow}>Membership Management</p>
         <div className="grid gap-3 text-sm leading-7 text-stone-600">
           <p>
@@ -352,7 +386,7 @@ export default function MembershipPage() {
             </div>
           ) : null}
         </div>
-      </section>
+      </div>
 
       {loading ? (
         <section className={ui.panel}>
@@ -735,6 +769,7 @@ export default function MembershipPage() {
           </div>
         </aside>
       </section>
+      </AccountLayout>
     </main>
   );
 }

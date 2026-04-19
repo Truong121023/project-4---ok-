@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import UiKitPage from "./pages/UiKitPage";
 import AdminLayout from "./components/AdminLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import RouteErrorBoundary from "./components/RouteErrorBoundary";
@@ -261,6 +262,11 @@ export default function App() {
 
           <Route path="*" element={<HomePage />} />
         </Route>
+
+        {/* Dev-only UI kit — not rendered in production builds */}
+        {import.meta.env.DEV && (
+          <Route path="dev/ui-kit" element={<UiKitPage />} />
+        )}
       </Routes>
     </BrowserRouter>
   );

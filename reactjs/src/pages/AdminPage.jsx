@@ -4230,9 +4230,6 @@ export default function AdminPage({ forcedSection = "" }) {
           : "",
         item.discountTarget ? `Discount target: ${item.discountTarget}` : "",
         item.scope ? "Applies to signature items across all stores" : "",
-        item.minStoreBillAmount !== undefined && item.minStoreBillAmount !== null
-          ? `Minimum store bill: ${formatCurrency(item.minStoreBillAmount)}`
-          : "",
         Array.isArray(item.applicableDishIds) && item.applicableDishIds.length
           ? `Applicable signature dish IDs: ${item.applicableDishIds.join(", ")}`
           : Array.isArray(item.promotionDishIds) && item.promotionDishIds.length
@@ -5554,13 +5551,13 @@ export default function AdminPage({ forcedSection = "" }) {
           <p className={ui.eyebrow}>{workspacePageMeta?.eyebrow || activeConfig.title}</p>
 
           {notice ? (
-            <div className="mt-6 rounded-2xl bg-matcha-500/12 px-4 py-3 text-sm text-matcha-700">
+            <div className="mt-4 rounded-lg border border-matcha-200 bg-matcha-50 px-3 py-2.5 text-sm text-matcha-700">
               {notice}
             </div>
           ) : null}
 
           {error ? (
-            <div className="mt-6 rounded-2xl bg-red-100/80 px-4 py-3 text-sm text-red-700">
+            <div className="mt-4 rounded-lg border border-danger/20 bg-danger-soft px-3 py-2.5 text-sm text-danger">
               {error}
             </div>
           ) : null}
@@ -5600,13 +5597,13 @@ export default function AdminPage({ forcedSection = "" }) {
           </div>
 
           {notice ? (
-            <div className="mt-6 rounded-2xl bg-matcha-500/12 px-4 py-3 text-sm text-matcha-700">
+            <div className="mt-4 rounded-lg border border-matcha-200 bg-matcha-50 px-3 py-2.5 text-sm text-matcha-700">
               {notice}
             </div>
           ) : null}
 
           {error ? (
-            <div className="mt-6 rounded-2xl bg-red-100/80 px-4 py-3 text-sm text-red-700">
+            <div className="mt-4 rounded-lg border border-danger/20 bg-danger-soft px-3 py-2.5 text-sm text-danger">
               {error}
             </div>
           ) : null}
@@ -5615,9 +5612,9 @@ export default function AdminPage({ forcedSection = "" }) {
             <>
               <div className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-8">
                 {globalStats.map((stat) => (
-                  <article key={stat.label} className="rounded-3xl bg-white/60 p-4">
-                    <p className="text-sm text-stone-600">{stat.label}</p>
-                    <strong className="mt-2 block text-2xl text-tea-900">{stat.value}</strong>
+                  <article key={stat.label} className="rounded-lg border border-ink-900/8 bg-cream-50 p-3 shadow-soft">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">{stat.label}</p>
+                    <strong className="mt-1.5 block font-mono text-lg font-semibold text-ink-900">{stat.value}</strong>
                   </article>
                 ))}
               </div>
@@ -5631,10 +5628,10 @@ export default function AdminPage({ forcedSection = "" }) {
               {storeScopeStats.map((stat) => (
                 <article
                   key={stat.label}
-                  className="rounded-[1.5rem] border border-matcha-900/10 bg-white/60 p-4"
+                  className="rounded-lg border border-ink-900/8 bg-cream-50 p-3 shadow-soft"
                 >
-                  <p className="text-xs uppercase tracking-[0.18em] text-stone-500">{stat.label}</p>
-                  <strong className="mt-2 block text-2xl text-tea-900">{stat.value}</strong>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">{stat.label}</p>
+                  <strong className="mt-1.5 block font-mono text-lg font-semibold text-ink-900">{stat.value}</strong>
                 </article>
               ))}
             </div>
@@ -5671,11 +5668,11 @@ export default function AdminPage({ forcedSection = "" }) {
               </select>
             </label>
           ) : (
-            <div className="rounded-[1.5rem] border border-matcha-900/10 bg-white/60 p-4 text-sm leading-7 text-stone-600">
-              <strong className="block text-tea-900">
+            <div className="rounded-lg border border-ink-900/8 bg-cream-100 p-3 text-xs leading-5 text-ink-600">
+              <strong className="block text-ink-900">
                 {auth.user?.workingStoreName || "No working store"}
               </strong>
-              <span className="mt-2 block">
+              <span className="mt-1 block">
                 {auth.user?.workingStoreAddress || "Managers can only operate inside their assigned store."}
               </span>
             </div>
@@ -5705,7 +5702,7 @@ export default function AdminPage({ forcedSection = "" }) {
           }`}
         >
           <div className="grid min-w-0 content-start self-start gap-4">
-            <div className="rounded-[1.75rem] border border-matcha-900/10 bg-white/60 p-4">
+            <div className="rounded-lg border border-ink-900/8 bg-cream-100 p-3">
               <div>
                 {!isWorkspaceOnly ? (
                   <p className="text-sm font-semibold uppercase tracking-[0.2em] text-tea-700">

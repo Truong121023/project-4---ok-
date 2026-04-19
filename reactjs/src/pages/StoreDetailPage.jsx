@@ -5,6 +5,10 @@ import DistanceOriginControls from "../components/DistanceOriginControls";
 import MediaLibrary from "../components/MediaLibrary";
 import SmartImage from "../components/SmartImage";
 import UserReviewForm from "../components/UserReviewForm";
+import DetailLayout from "../components/templates/detail-layout";
+import { Badge } from "../components/ui/badge";
+import Button from "../components/ui/button";
+import { Skeleton } from "../components/ui/skeleton";
 import { useAuth } from "../context/AuthContext";
 import { useSiteData } from "../context/SiteDataContext";
 import { getCartAvailabilityDecision, getCartSuccessMessage } from "../lib/cartAvailability";
@@ -16,71 +20,52 @@ import { geocodeAddress, requestCurrentLocation } from "../lib/locationLookup";
 import { buildStoreEventsPath, buildStorePath } from "../lib/storeRouting";
 import { ui } from "../ui";
 
-function formatCompactNumber(value) {
-  return formatNumberVi(value);
-}
-
-function formatPrice(value, priceDisplay = "") {
-  if (priceDisplay) {
-    return priceDisplay;
-  }
-
-  return formatCurrencyVnd(value);
-}
-
-function formatTimeText(value) {
-  const text = String(value ?? "").trim();
-
-  if (!text) {
-    return "";
-  }
-
-  return text.slice(0, 5);
-}
+function formatCompact(v) { return formatNumberVi(v); }
+function formatPrice(v, display = "") { return display || formatCurrencyVnd(v); }
+function formatDate(v) { return formatDateTimeVn(v, "Recently updated").replace(/\sGMT\+7$/, ""); }
+function formatServiceTag(tag) { return String(tag ?? "").replace(/[-_]+/g, " ").trim(); }
 
 function formatStoreHours(store) {
-  if (store?.hoursText) {
-    return store.hoursText;
-  }
-
-  const openTime = formatTimeText(store?.openTime);
-  const closeTime = formatTimeText(store?.closeTime);
-
-  if (openTime && closeTime) {
-    return `Open ${openTime} - ${closeTime}`;
-  }
-
+  if (store?.hoursText) return store.hoursText;
+  const open = String(store?.openTime ?? "").trim().slice(0, 5);
+  const close = String(store?.closeTime ?? "").trim().slice(0, 5);
+  if (open && close) return `Open ${open} – ${close}`;
   return "";
 }
 
-function formatServiceTag(tag) {
-  return String(tag ?? "")
-    .replace(/[-_]+/g, " ")
-    .trim();
-}
-
-function formatDate(value) {
-  return formatDateTimeVn(value, "Recently updated").replace(/\sGMT\+7$/, "");
-}
-
 function storeStatus(store) {
-  if (store?.disabled) {
-    return store.disabledReason || "Temporarily unavailable";
-  }
-
-  if (store?.open) {
-    return "Serving now";
-  }
-
+  if (store?.disabled) return store.disabledReason || "Temporarily unavailable";
+  if (store?.open) return "Serving now";
   return "Updating";
+}
+
+function StoreDetailSkeleton() {
+  return (
+    <main className="bg-bg min-h-screen">
+      <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <Skeleton className="mb-6 h-4 w-40" />
+        <div className="flex flex-col gap-8 lg:flex-row">
+          <div className="w-full shrink-0 lg:w-[45%]">
+            <Skeleton className="aspect-[4/3] w-full rounded-xl" />
+          </div>
+          <div className="flex-1 flex flex-col gap-4">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-8 w-2/3" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+          </div>
+        </div>
+      </div>
+    </main>
+  );
 }
 
 export default function StoreDetailPage() {
   const auth = useAuth();
   const navigate = useNavigate();
   const { storeKey } = useParams();
-  const { addToCart, isFavorite, toggleFavorite, getCurrentUserReview, submitReview, deleteReview } =
-    useSiteData();
+  const { addToCart, isFavorite, toggleFavorite, getCurrentUserReview, submitReview, deleteReview } = useSiteData();
+
   const [expandedCategoryId, setExpandedCategoryId] = useState("");
   const [addressQuery, setAddressQuery] = useState("");
   const [userLocation, setUserLocation] = useState(null);
@@ -97,549 +82,342 @@ export default function StoreDetailPage() {
   const loadStoreDetail = async () => {
     setLoading(true);
     setError("");
-
     try {
-      const response = await fetchPublicStoreDetail(storeKey, {
-        lat: userLocation?.latitude,
-        lng: userLocation?.longitude,
-      });
-
+      const response = await fetchPublicStoreDetail(storeKey, { lat: userLocation?.latitude, lng: userLocation?.longitude });
       setStoreDetail(response);
-    } catch (requestError) {
-      setError(requestError.message || "Unable to load store details.");
+    } catch (err) {
+      setError(err.message || "Unable to load store details.");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadStoreDetail();
-  }, [storeKey, userLocation]);
+  useEffect(() => { loadStoreDetail(); }, [storeKey, userLocation]);
 
   const store = storeDetail?.store ?? null;
   const storeHours = formatStoreHours(store);
-  const stats = storeDetail?.stats ?? {
-    averageRating: 0,
-    reviewCount: 0,
-    favoriteCount: 0,
-    availableItemCount: 0,
-  };
+  const stats = storeDetail?.stats ?? { averageRating: 0, reviewCount: 0, favoriteCount: 0, availableItemCount: 0 };
   const categories = storeDetail?.categories ?? [];
   const storeEvents = storeDetail?.events ?? [];
   const storeReviews = storeDetail?.reviews ?? [];
 
   useEffect(() => {
-    if (!categories.length) {
-      setExpandedCategoryId("");
-      return;
-    }
-
-    setExpandedCategoryId((currentId) =>
-      categories.some((category) => category.id === currentId) ? currentId : categories[0].id,
-    );
+    if (!categories.length) { setExpandedCategoryId(""); return; }
+    setExpandedCategoryId((cur) => categories.some((c) => c.id === cur) ? cur : categories[0].id);
   }, [categories]);
 
   useEffect(() => {
-    if (!store?.slug || !storeKey || store.slug === storeKey) {
-      return;
-    }
-
+    if (!store?.slug || !storeKey || store.slug === storeKey) return;
     navigate(buildStorePath(store), { replace: true });
   }, [navigate, store, storeKey]);
 
   const locateStore = async () => {
     setLocating(true);
     setLocationMessage("Getting your current location...");
-
     try {
-      const nextLocation = await requestCurrentLocation();
-      setUserLocation(nextLocation);
+      const loc = await requestCurrentLocation();
+      setUserLocation(loc);
       setLocationMessage("Distance calculated from your current location.");
-    } catch (locationError) {
-      setLocationMessage(locationError.message);
-    } finally {
-      setLocating(false);
-    }
+    } catch (err) { setLocationMessage(err.message); }
+    finally { setLocating(false); }
   };
 
   const handleUseAddress = async () => {
     setGeocoding(true);
     setLocationMessage("Looking up address...");
-
     try {
-      const nextLocation = await geocodeAddress(addressQuery);
-      setUserLocation(nextLocation);
-      setLocationMessage(`Calculating distance from: ${nextLocation.label}`);
-    } catch (addressError) {
-      setLocationMessage(addressError.message);
-    } finally {
-      setGeocoding(false);
-    }
+      const loc = await geocodeAddress(addressQuery);
+      setUserLocation(loc);
+      setLocationMessage(`Calculating distance from: ${loc.label}`);
+    } catch (err) { setLocationMessage(err.message); }
+    finally { setGeocoding(false); }
   };
 
-  const clearLocation = () => {
-    setUserLocation(null);
-    setAddressQuery("");
-    setLocationMessage("Distance origin cleared.");
-  };
+  const clearLocation = () => { setUserLocation(null); setAddressQuery(""); setLocationMessage("Distance origin cleared."); };
 
   const handleQuickAddToCart = async (item) => {
-    if (!store) {
-      return;
-    }
-
-    if (auth.isAuthenticated && !auth.hasRole("USER")) {
-      setCartMessage("Only USER accounts can add items to the cart.");
-      return;
-    }
-
-    if (store.disabled) {
-      setCartMessage(store.disabledReason || "This store is currently closed.");
-      return;
-    }
-
-    const availability = getCartAvailabilityDecision({
-      ...item,
-      open: store.open,
-      storeDisabled: store.disabled,
-      disabledReason: store.disabledReason,
-    });
-
-    if (!availability.allowed) {
-      setCartMessage(availability.reason || "This item cannot be added to the cart yet.");
-      return;
-    }
-
-    const result = await addToCart({
-      itemId: item.id,
-      storeId: store.id,
-      quantity: 1,
-    });
-
+    if (!store) return;
+    if (auth.isAuthenticated && !auth.hasRole("USER")) { setCartMessage("Only USER accounts can add items to the cart."); return; }
+    if (store.disabled) { setCartMessage(store.disabledReason || "This store is currently closed."); return; }
+    const availability = getCartAvailabilityDecision({ ...item, open: store.open, storeDisabled: store.disabled, disabledReason: store.disabledReason });
+    if (!availability.allowed) { setCartMessage(availability.reason || "This item cannot be added to the cart yet."); return; }
+    const result = await addToCart({ itemId: item.id, storeId: store.id, quantity: 1 });
     setCartMessage(result.ok ? getCartSuccessMessage(availability.preorderOnly) : result.message);
   };
 
   const handleToggleFavorite = async () => {
     const result = await toggleFavorite("store", store.id);
     setActionMessage(result.message);
-
-    if (result.ok) {
-      await loadStoreDetail();
-    }
+    if (result.ok) await loadStoreDetail();
   };
 
   const handleSubmitReview = async (payload) => {
-    const result = await submitReview({
-      ...payload,
-      targetType: "store",
-      targetId: store.id,
-    });
-
-    if (result.ok) {
-      await loadStoreDetail();
-    }
-
+    const result = await submitReview({ ...payload, targetType: "store", targetId: store.id });
+    if (result.ok) await loadStoreDetail();
     return result;
   };
 
   const handleDeleteReview = async (review) => {
     const result = await deleteReview(review.id);
-
-    if (result.ok) {
-      await loadStoreDetail();
-    }
-
+    if (result.ok) await loadStoreDetail();
     return result;
   };
 
-  const jumpToEvents = () => {
-    eventsSectionRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  };
+  const jumpToEvents = () => eventsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
-  if (loading) {
-    return (
-      <main className={ui.page}>
-        <section className={ui.panel}>
-          <div className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
-            Loading store details...
-          </div>
-        </section>
-      </main>
-    );
-  }
+  if (loading) return <StoreDetailSkeleton />;
 
   if (error || !store) {
     return (
-      <main className={ui.page}>
-        <section className={ui.panel}>
+      <main className="bg-bg min-h-screen">
+        <div className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8 text-center">
           <p className={ui.eyebrow}>Store</p>
           <h1 className={ui.bannerTitle}>Store not found</h1>
-          <p className={ui.copy}>{error || "This store does not have data yet."}</p>
-        </section>
+          <p className={ui.copy + " mx-auto"}>{error || "This store does not have data yet."}</p>
+          <Link className={ui.secondaryButton + " mt-6 inline-flex"} to="/stores">Back to stores</Link>
+        </div>
       </main>
     );
   }
 
-  return (
-    <main className={ui.page}>
-      <section className={ui.panel}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <span
-              className={
-                store.disabled
-                  ? "inline-flex items-center rounded-full bg-stone-300/60 px-4 py-2 text-sm font-semibold text-stone-700"
-                  : ui.pill
-              }
+  // ── gallery ─────────────────────────────────────────────────────────────────
+  const galleryRegion = (
+    <MediaLibrary
+      images={store.imagePaths}
+      alt={store.name}
+      badge="Kamatcha"
+      heroClassName="h-[22rem] sm:h-[30rem] rounded-xl overflow-hidden"
+      thumbnailClassName="h-20"
+    />
+  );
+
+  // ── sticky info rail ────────────────────────────────────────────────────────
+  const infoRail = (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap gap-2">
+        <Badge variant={store.disabled ? "ink" : "matcha"}>{storeStatus(store)}</Badge>
+        {storeHours ? <Badge variant="beige">{storeHours}</Badge> : null}
+        {typeof store.distanceKm === "number" ? <Badge variant="beige">{formatDistanceKm(store.distanceKm)}</Badge> : null}
+      </div>
+
+      <div className="flex flex-col gap-1 text-sm text-ink-700">
+        {store.address ? <p><span className="font-semibold text-ink-900">Address: </span>{store.address}</p> : null}
+        {store.area ? <p><span className="font-semibold text-ink-900">Area: </span>{store.area}</p> : null}
+        {store.contactEmail ? <p><span className="font-semibold text-ink-900">Email: </span>{store.contactEmail}</p> : null}
+        {store.phoneNumber ? <p><span className="font-semibold text-ink-900">Phone: </span>{store.phoneNumber}</p> : null}
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant={isFavorite("store", store.id) ? "primary" : "secondary"}
+          size="sm"
+          onClick={handleToggleFavorite}
+        >
+          {isFavorite("store", store.id) ? "Saved" : "Save store"}
+        </Button>
+        {storeEvents.length ? (
+          <Button variant="secondary" size="sm" onClick={jumpToEvents}>Events</Button>
+        ) : null}
+        {storeEvents.length ? (
+          <Link className={ui.ghostButton + " !text-sm"} to={buildStoreEventsPath(store)}>View schedule</Link>
+        ) : null}
+      </div>
+
+      {actionMessage ? <p className="text-xs text-ink-500">{actionMessage}</p> : null}
+    </div>
+  );
+
+  // ── related / events carousel ───────────────────────────────────────────────
+  const relatedRegion = storeEvents.length ? (
+    <div ref={eventsSectionRef}>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className={ui.sectionTitle}>Store events</h2>
+        <Link className={ui.ghostButton} to={buildStoreEventsPath(store)}>View schedule</Link>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {storeEvents.map((event) => (
+          <article key={event.id} className="rounded-xl border border-ink-900/10 bg-cream-50 p-4 shadow-soft">
+            <Link
+              className="font-display text-sm font-semibold text-ink-900 hover:text-matcha-700 transition-colors line-clamp-2"
+              to={buildEventPath(event)}
             >
-              {storeStatus(store)}
-            </span>
+              {event.title}
+            </Link>
+            {(event.schedule || event.location) ? (
+              <p className="mt-1 text-xs text-ink-500">{event.schedule || event.location}</p>
+            ) : null}
+          </article>
+        ))}
+      </div>
+    </div>
+  ) : null;
+
+  // ── breadcrumb ──────────────────────────────────────────────────────────────
+  const breadcrumb = (
+    <nav className="flex items-center gap-2 text-sm text-ink-500">
+      <Link className="hover:text-matcha-700 transition-colors" to="/stores">Stores</Link>
+      <span>/</span>
+      <span className="text-ink-900 font-medium truncate max-w-[20ch]">{store.name}</span>
+    </nav>
+  );
+
+  return (
+    <main className="bg-bg min-h-screen pb-24 lg:pb-0">
+      <DetailLayout breadcrumb={breadcrumb} gallery={galleryRegion} stickyBar={infoRail} related={relatedRegion}>
+        <div className="flex flex-col gap-6">
+          {/* Title */}
+          <div>
+            <p className={ui.eyebrow}>Store</p>
+            <h1 className={ui.bannerTitle}>{store.name}</h1>
+            {store.positionLabel ? <p className="mt-2 text-base font-semibold text-matcha-700">{store.positionLabel}</p> : null}
+            {store.personality ? <p className="mt-1 text-sm font-semibold text-ink-700">{store.personality}</p> : null}
+            {store.specialty ? <p className="mt-1 text-sm text-matcha-700">Featured: {store.specialty}</p> : null}
+            <p className="mt-4 text-sm leading-7 text-ink-600">{store.description}</p>
           </div>
 
-        </div>
-
-        <DistanceOriginControls
-          addressValue={addressQuery}
-          onAddressChange={setAddressQuery}
-          onUseAddress={handleUseAddress}
-          onUseCurrentLocation={locateStore}
-          onClearLocation={clearLocation}
-          addressLoading={geocoding}
-          currentLocationLoading={locating}
-          hasLocation={Boolean(userLocation)}
-        />
-
-        <div className="mt-6 grid gap-8 xl:grid-cols-[0.94fr_1.06fr]">
-          <div className="grid gap-5 content-start">
-            <div>
-              <p className={ui.eyebrow}>Store</p>
-              <h1 className={ui.bannerTitle}>{store.name}</h1>
-              {store.positionLabel ? (
-                <p className="mt-4 text-base font-semibold text-matcha-700">
-                  {store.positionLabel}
-                </p>
-              ) : null}
-              <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-700">
-                {store.description}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {store.area ? <span className={ui.pill}>{store.area}</span> : null}
-              {storeHours ? <span className={ui.pill}>{storeHours}</span> : null}
-              {store.specialty ? <span className={ui.pill}>Featured: {store.specialty}</span> : null}
-              <span className={ui.pill}>{stats.favoriteCount} saves</span>
-              {typeof store.distanceKm === "number" ? (
-                <span className={ui.pill}>{formatDistanceKm(store.distanceKm)}</span>
-              ) : null}
-            </div>
-
-            {store.serviceTags?.length ? (
-              <div className="flex flex-wrap gap-3">
-                {store.serviceTags.map((tag) => (
-                  <span key={`${store.id}-${tag}`} className={ui.pill}>
-                    {formatServiceTag(tag)}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-
-            <div className="grid gap-4 sm:grid-cols-4">
-              {[
-                {
-                  label: "Rating",
-                  value: stats.reviewCount
-                    ? `${stats.averageRating.toFixed(1)} stars`
-                    : "No reviews yet",
-                },
-                { label: "Review count", value: formatCompactNumber(stats.reviewCount) },
-                { label: "Favorites", value: formatCompactNumber(stats.favoriteCount) },
-                { label: "Items available", value: formatCompactNumber(stats.availableItemCount) },
-              ].map((stat) => (
-                <article
-                  key={stat.label}
-                  className="rounded-[1.3rem] border border-matcha-900/10 bg-white/72 p-4"
-                >
-                  <strong className="block text-2xl font-bold text-tea-900">{stat.value}</strong>
-                  <span className="mt-1 block text-sm text-stone-600">{stat.label}</span>
-                </article>
-              ))}
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              {[
-                { label: "Address", value: store.address || "Not available" },
-                { label: "Area", value: store.area },
-                { label: "Location", value: store.positionLabel },
-                { label: "Hours", value: storeHours },
-                { label: "Style", value: store.personality },
-                { label: "Design signature", value: store.designSignature },
-                { label: "Brand atmosphere", value: store.franchiseMood },
-                { label: "Featured item", value: store.specialty },
-                { label: "Email", value: store.contactEmail },
-                { label: "Phone number", value: store.phoneNumber },
-              ]
-                .filter((entry) => entry.value)
-                .map((entry) => (
-                  <article
-                    key={entry.label}
-                    className="rounded-[1.25rem] border border-matcha-900/10 bg-white/72 p-4"
-                  >
-                    <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-stone-500">
-                      {entry.label}
-                    </span>
-                    <strong className="mt-2 block text-sm leading-7 text-tea-900">
-                      {entry.value}
-                    </strong>
-                  </article>
-                ))}
-            </div>
-
-            <ContentSectionsBlock
-              sections={store.sections}
-              eyebrow="Store story"
-              title="More about this branch"
-              description="Detailed branch content is now driven directly from backend content sections."
-            />
-
-            {locationMessage ? <p className="text-sm leading-7 text-stone-600">{locationMessage}</p> : null}
-
-            <div className="flex flex-wrap gap-3">
-              <button
-                className={isFavorite("store", store.id) ? ui.primaryButton : ui.secondaryButton}
-                type="button"
-                onClick={handleToggleFavorite}
-              >
-                {isFavorite("store", store.id) ? "Saved" : "Save store"}
-              </button>
-              {storeEvents.length ? (
-                <button className={ui.secondaryButton} type="button" onClick={jumpToEvents}>
-                  Events
-                </button>
-              ) : null}
-              {storeEvents.length ? (
-                <Link className={ui.secondaryButton} to={buildStoreEventsPath(store)}>
-                  View event list
-                </Link>
-              ) : null}
-            </div>
-
-            {actionMessage ? <p className="text-sm leading-7 text-stone-600">{actionMessage}</p> : null}
-
-            {storeEvents.length ? (
-              <section
-                ref={eventsSectionRef}
-                className="grid gap-3 rounded-[1.6rem] border border-matcha-900/10 bg-white/72 p-5"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <strong className="text-base text-tea-900">Store events</strong>
-                  <Link className={ui.secondaryButton} to={buildStoreEventsPath(store)}>
-                    View event schedule
-                  </Link>
-                </div>
-
-                <div className="grid gap-3">
-                  {storeEvents.map((event) => (
-                    <article
-                      key={event.id}
-                      className="rounded-[1.2rem] border border-matcha-900/10 bg-[#f8f5ef] p-4"
-                    >
-                      <Link
-                        className="font-semibold text-tea-900 transition hover:text-matcha-700"
-                        to={buildEventPath(event)}
-                      >
-                        {event.title}
-                      </Link>
-                      <p className="mt-1 text-sm text-stone-600">
-                        {event.schedule || event.location}
-                      </p>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            ) : null}
+          {/* Tag pills */}
+          <div className="flex flex-wrap gap-2">
+            {store.area ? <Badge variant="beige">{store.area}</Badge> : null}
+            {storeHours ? <Badge variant="beige">{storeHours}</Badge> : null}
+            {store.specialty ? <Badge variant="matcha">Featured: {store.specialty}</Badge> : null}
+            <Badge variant="beige">{formatCompact(stats.favoriteCount)} saves</Badge>
+            {store.serviceTags?.map((tag) => <Badge key={`${store.id}-${tag}`} variant="beige">{formatServiceTag(tag)}</Badge>)}
           </div>
 
-          <div className="grid gap-5 content-start">
-            <MediaLibrary
-              images={store.imagePaths}
-              alt={store.name}
-              badge="Kamatcha"
-              heroClassName="h-[24rem] sm:h-[32rem]"
-              thumbnailClassName="h-24"
-            />
-
-            <section className="grid gap-4 rounded-[1.6rem] border border-matcha-900/10 bg-white/72 p-5">
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                    Categories
-                  </span>
-                  <h2 className="mt-2 text-2xl font-semibold text-tea-900">
-                    Menu at this store
-                  </h2>
-                </div>
-                <span className={ui.pill}>
-                  {formatCompactNumber(categories.length)} categories
-                </span>
+          {/* Stats grid */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              { label: "Rating", value: stats.reviewCount ? `${stats.averageRating.toFixed(1)}★` : "New" },
+              { label: "Reviews", value: formatCompact(stats.reviewCount) },
+              { label: "Favorites", value: formatCompact(stats.favoriteCount) },
+              { label: "Items", value: formatCompact(stats.availableItemCount) },
+            ].map((stat) => (
+              <div key={stat.label} className="rounded-xl border border-ink-900/10 bg-cream-100 p-4 text-center">
+                <strong className="block text-xl font-bold text-ink-900">{stat.value}</strong>
+                <span className="mt-1 block text-xs font-semibold uppercase tracking-widest text-ink-400">{stat.label}</span>
               </div>
+            ))}
+          </div>
 
-              {cartMessage ? <p className="text-sm leading-7 text-stone-600">{cartMessage}</p> : null}
+          {/* Address detail cards */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[
+              { label: "Address", value: store.address },
+              { label: "Area", value: store.area },
+              { label: "Location", value: store.positionLabel },
+              { label: "Hours", value: storeHours },
+              { label: "Style", value: store.personality },
+              { label: "Design", value: store.designSignature },
+              { label: "Atmosphere", value: store.franchiseMood },
+              { label: "Featured item", value: store.specialty },
+              { label: "Email", value: store.contactEmail },
+              { label: "Phone", value: store.phoneNumber },
+            ].filter((e) => e.value).map((entry) => (
+              <div key={entry.label} className="rounded-xl border border-ink-900/10 bg-cream-100 p-4">
+                <span className="block text-xs font-bold uppercase tracking-widest text-ink-400">{entry.label}</span>
+                <strong className="mt-1 block text-sm leading-6 text-ink-900">{entry.value}</strong>
+              </div>
+            ))}
+          </div>
 
-              <div className="grid gap-3">
+          {/* Location lookup */}
+          <DistanceOriginControls
+            addressValue={addressQuery}
+            onAddressChange={setAddressQuery}
+            onUseAddress={handleUseAddress}
+            onUseCurrentLocation={locateStore}
+            onClearLocation={clearLocation}
+            addressLoading={geocoding}
+            currentLocationLoading={locating}
+            hasLocation={Boolean(userLocation)}
+          />
+          {locationMessage ? <p className="text-sm text-ink-500">{locationMessage}</p> : null}
+
+          {/* Content sections */}
+          <ContentSectionsBlock
+            sections={store.sections}
+            eyebrow="Store story"
+            title="More about this branch"
+            description="Detailed branch content driven from backend content sections."
+          />
+
+          {/* Menu accordion */}
+          {categories.length ? (
+            <section>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h2 className="font-display text-base font-semibold text-ink-900">Menu at this store</h2>
+                <Badge variant="beige">{formatCompact(categories.length)} categories</Badge>
+              </div>
+              {cartMessage ? <p className="mb-3 text-sm text-ink-500">{cartMessage}</p> : null}
+              <div className="flex flex-col gap-2">
                 {categories.map((category) => {
                   const isExpanded = expandedCategoryId === category.id;
-
                   return (
-                    <section
-                      key={category.id}
-                      className="overflow-hidden rounded-[1.4rem] border border-matcha-900/10 bg-[#f8f5ef]"
-                    >
+                    <section key={category.id} className="overflow-hidden rounded-xl border border-ink-900/10 bg-cream-50">
                       <button
                         className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
                         type="button"
-                        onClick={() =>
-                          setExpandedCategoryId((currentId) =>
-                            currentId === category.id ? "" : category.id,
-                          )
-                        }
+                        onClick={() => setExpandedCategoryId((cur) => cur === category.id ? "" : category.id)}
                       >
                         <div>
-                          <p className="text-lg font-semibold text-tea-900">{category.title}</p>
-                          <p className="mt-1 text-sm text-stone-600">
-                            {category.items.length} items -{" "}
-                            {category.reviewCount
-                              ? `${category.averageRating.toFixed(1)} stars`
-                              : "no reviews yet"}
+                          <p className="font-display font-semibold text-ink-900">{category.title}</p>
+                          <p className="mt-0.5 text-xs text-ink-500">
+                            {category.items.length} items
+                            {category.reviewCount ? ` · ${category.averageRating.toFixed(1)}★` : " · no reviews yet"}
                           </p>
-                          {category.description ? (
-                            <p className="mt-2 text-sm leading-7 text-stone-600">
-                              {category.description}
-                            </p>
-                          ) : null}
+                          {category.description ? <p className="mt-1 text-xs text-ink-500 line-clamp-1">{category.description}</p> : null}
                         </div>
-                        <span className={ui.pill}>{isExpanded ? "Collapse" : "Open"}</span>
+                        <Badge variant="matcha">{isExpanded ? "Collapse" : "Open"}</Badge>
                       </button>
 
                       {isExpanded ? (
-                        <div className="grid gap-3 border-t border-matcha-900/10 px-5 py-5">
-                          {category.items.map((item) => (
-                            (() => {
-                              const availability = getCartAvailabilityDecision({
-                                ...item,
-                                open: store.open,
-                                storeDisabled: store.disabled,
-                                disabledReason: store.disabledReason,
-                              });
-
-                              return (
-                            <article
-                              key={item.id}
-                              className={`grid gap-4 rounded-[1.25rem] border p-4 ${
-                                !availability.allowed
-                                  ? "border-stone-300/70 bg-stone-100/90 opacity-70"
-                                  : "border-matcha-900/10 bg-white/80"
-                              }`}
-                            >
-                              <div className="grid gap-4 sm:grid-cols-[110px_1fr]">
-                                <div className="overflow-hidden rounded-[1rem] border border-matcha-900/10 bg-stone-100">
+                        <div className="flex flex-col gap-3 border-t border-ink-900/10 px-5 py-5">
+                          {category.items.map((item) => {
+                            const availability = getCartAvailabilityDecision({ ...item, open: store.open, storeDisabled: store.disabled, disabledReason: store.disabledReason });
+                            return (
+                              <article
+                                key={item.id}
+                                className={`grid gap-4 rounded-xl border p-4 sm:grid-cols-[100px_1fr] ${
+                                  !availability.allowed ? "border-beige-300 bg-beige-100/50 opacity-70" : "border-ink-900/10 bg-cream-100"
+                                }`}
+                              >
+                                <div className="overflow-hidden rounded-lg border border-ink-900/10 bg-beige-100">
                                   <SmartImage
-                                    className="h-28 w-full object-cover"
+                                    className="h-24 w-full object-cover"
                                     src={item.imagePaths?.[0]}
                                     alt={item.name}
                                     loading="lazy"
-                                    fallbackClassName="grid h-28 w-full place-items-center bg-stone-100 text-xs text-stone-500"
+                                    fallbackClassName="grid h-24 w-full place-items-center bg-beige-100 text-xs text-ink-400"
                                   />
                                 </div>
-
-                                <div className="grid gap-3">
-                                  <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div className="flex flex-col gap-2">
+                                  <div className="flex flex-wrap items-start justify-between gap-2">
                                     <div>
-                                      <div className="flex flex-wrap items-center gap-2">
-                                        <h3 className="text-lg font-semibold text-tea-900">{item.name}</h3>
-                                        {item.franchiseRequired ? (
-                                          <span className={ui.pill}>Required item</span>
-                                        ) : null}
-                                        <span
-                                          className={
-                                            !availability.allowed
-                                              ? "inline-flex items-center rounded-full bg-stone-300/60 px-3 py-1.5 text-xs font-semibold text-stone-700"
-                                              : ui.pill
-                                          }
-                                        >
-                                          {item.stock > 0 ? `${item.stock} cups left` : "Sold out"}
-                                        </span>
-                                        {availability.preorderOnly ? (
-                                          <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-800">
-                                            Preorder only
-                                          </span>
-                                        ) : null}
+                                      <div className="flex flex-wrap items-center gap-1.5">
+                                        <h3 className="font-display text-sm font-semibold text-ink-900">{item.name}</h3>
+                                        {item.franchiseRequired ? <Badge variant="beige">Required</Badge> : null}
+                                        <Badge variant={availability.allowed ? "matcha" : "ink"}>
+                                          {item.stock > 0 ? `${item.stock} left` : "Sold out"}
+                                        </Badge>
+                                        {availability.preorderOnly ? <Badge variant="warn">Preorder</Badge> : null}
                                       </div>
-                                      {item.note ? (
-                                        <p className="mt-1 text-sm text-stone-600">{item.note}</p>
-                                      ) : null}
+                                      {item.note ? <p className="mt-0.5 text-xs text-ink-500">{item.note}</p> : null}
                                     </div>
-                                    <strong className="text-lg font-bold text-matcha-700">
-                                      {formatPrice(item.price, item.priceDisplay)}
-                                    </strong>
+                                    <strong className="text-sm font-bold text-matcha-700">{formatPrice(item.price, item.priceDisplay)}</strong>
                                   </div>
-
-                                  <div className="grid gap-3 sm:grid-cols-4">
-                                    {[
-                                      {
-                                        label: "Average rating",
-                                        value: item.reviewCount
-                                          ? `${item.averageRating.toFixed(1)} stars`
-                                          : "No reviews yet",
-                                      },
-                                      { label: "Sold", value: formatCompactNumber(item.orderCount) },
-                                      {
-                                        label: "Favorites",
-                                        value: formatCompactNumber(item.favoriteCount),
-                                      },
-                                      { label: "In stock", value: formatCompactNumber(item.stock) },
-                                    ].map((stat) => (
-                                      <div
-                                        key={stat.label}
-                                        className="rounded-[1rem] border border-matcha-900/10 bg-white/80 p-3"
-                                      >
-                                        <strong className="block text-lg font-bold text-tea-900">
-                                          {stat.value}
-                                        </strong>
-                                        <span className="mt-1 block text-[11px] uppercase tracking-[0.16em] text-stone-500">
-                                          {stat.label}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
-
-                                  <p className="text-sm leading-7 text-stone-600">{item.description}</p>
-
-                                  <div className="flex flex-wrap gap-3">
-                                    <button
-                                      className={ui.primaryButton}
-                                      type="button"
-                                      onClick={() => handleQuickAddToCart(item)}
-                                      disabled={!availability.allowed}
-                                    >
+                                  {item.description ? <p className="text-xs text-ink-600 line-clamp-2">{item.description}</p> : null}
+                                  <div className="flex flex-wrap gap-2">
+                                    <Button size="sm" onClick={() => handleQuickAddToCart(item)} disabled={!availability.allowed}>
                                       Add to cart
-                                    </button>
-                                    <Link
-                                      className={ui.secondaryButton}
-                                      to={`/menu/${item.id}?store=${store.id}`}
-                                    >
+                                    </Button>
+                                    <Link className={ui.secondaryButton + " !text-xs !px-3 !py-2"} to={`/menu/${item.id}?store=${store.id}`}>
                                       View item
                                     </Link>
                                   </div>
                                 </div>
-                              </div>
-                            </article>
-                              );
-                            })()
-                          ))}
+                              </article>
+                            );
+                          })}
                         </div>
                       ) : null}
                     </section>
@@ -647,57 +425,54 @@ export default function StoreDetailPage() {
                 })}
               </div>
             </section>
-          </div>
+          ) : null}
+
+          {/* Divider */}
+          <div aria-hidden="true" className="h-px bg-gradient-to-r from-transparent via-beige-300 to-transparent" />
+
+          {/* Reviews */}
+          <section>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <p className={ui.eyebrow}>Reviews</p>
+                <h2 className={ui.sectionTitle}>What customers say</h2>
+              </div>
+              <Badge variant="beige">{formatCompact(storeReviews.length)} reviews</Badge>
+            </div>
+
+            <UserReviewForm
+              title="Write a review for this store"
+              existingReview={getCurrentUserReview("store", store.id)}
+              canSubmit={auth.hasRole("USER")}
+              onSubmit={handleSubmitReview}
+              onDelete={handleDeleteReview}
+            />
+
+            {storeReviews.length ? (
+              <div className="mt-6 grid gap-4 lg:grid-cols-2">
+                {storeReviews.map((review) => (
+                  <article key={review.id} className="rounded-xl border border-ink-900/10 bg-cream-50 p-5 shadow-soft">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-ink-900">{review.title}</p>
+                        <p className="mt-0.5 text-xs text-ink-400">
+                          {review.userName || review.userEmail || "Kamatcha guest"} · {formatDate(review.createdAt)}
+                        </p>
+                      </div>
+                      <Badge variant="matcha">{Number(review.rating).toFixed(1)}★</Badge>
+                    </div>
+                    <p className="mt-3 text-sm leading-7 text-ink-600">{review.comment}</p>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-4 rounded-xl border border-dashed border-beige-300 bg-cream-50 p-6 text-center text-sm text-ink-400">
+                This store does not have any reviews yet.
+              </div>
+            )}
+          </section>
         </div>
-      </section>
-
-      <section className={ui.panel}>
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className={ui.eyebrow}>Reviews</p>
-            <h2 className={ui.sectionTitle}>What customers say about this store</h2>
-          </div>
-          <span className={ui.pill}>{formatCompactNumber(storeReviews.length)} reviews</span>
-        </div>
-
-        <div className="mt-6">
-          <UserReviewForm
-            title="Write a review for this store"
-            existingReview={getCurrentUserReview("store", store.id)}
-            canSubmit={auth.hasRole("USER")}
-            onSubmit={handleSubmitReview}
-            onDelete={handleDeleteReview}
-          />
-        </div>
-
-        {storeReviews.length ? (
-          <div className="mt-6 grid gap-5 lg:grid-cols-2">
-            {storeReviews.map((review) => (
-              <article
-                key={review.id}
-                className="rounded-[1.5rem] border border-matcha-900/10 bg-white/72 p-5"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-lg font-semibold text-tea-900">{review.title}</p>
-                    <p className="mt-1 text-sm text-stone-500">
-                      {review.userName || review.userEmail || "Kamatcha guest"} -{" "}
-                      {formatDate(review.createdAt)}
-                    </p>
-                  </div>
-                  <span className={ui.pill}>{Number(review.rating).toFixed(1)} stars</span>
-                </div>
-
-                <p className="mt-4 text-sm leading-7 text-stone-600">{review.comment}</p>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className="mt-6 rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
-            This store does not have any reviews yet.
-          </div>
-        )}
-      </section>
+      </DetailLayout>
     </main>
   );
 }

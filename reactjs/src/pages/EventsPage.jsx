@@ -5,6 +5,7 @@ import DistanceOriginControls from "../components/DistanceOriginControls";
 import MediaLibrary from "../components/MediaLibrary";
 import QuickAddToCartButton from "../components/QuickAddToCartButton";
 import UserReviewForm from "../components/UserReviewForm";
+import EditorialLayout from "../components/templates/editorial-layout";
 import { useAuth } from "../context/AuthContext";
 import { useSiteData } from "../context/SiteDataContext";
 import { getCartSuccessMessage } from "../lib/cartAvailability";
@@ -23,27 +24,17 @@ function formatDateTime(value) {
 
 function mapSortKey(sortKey, hasLocation) {
   switch (sortKey) {
-    case "rating-desc":
-      return "rating_desc";
-    case "date-asc":
-      return "date_asc";
-    case "distance-asc":
-      return hasLocation ? "distance_asc" : "date_desc";
+    case "rating-desc": return "rating_desc";
+    case "date-asc":    return "date_asc";
+    case "distance-asc": return hasLocation ? "distance_asc" : "date_desc";
     case "date-desc":
-    default:
-      return "date_desc";
+    default:            return "date_desc";
   }
 }
 
 function statusLabel(event) {
-  if (event.disabled) {
-    return event.disabledReason || "Locked";
-  }
-
-  if (event.remainingSlots > 0) {
-    return `${event.remainingSlots} slots left`;
-  }
-
+  if (event.disabled) return event.disabledReason || "Locked";
+  if (event.remainingSlots > 0) return `${event.remainingSlots} slots left`;
   return "Updating";
 }
 
@@ -64,11 +55,7 @@ function getEventStoreKey(event) {
 
 function matchesStore(event, storeKey) {
   const normalizedKey = normalizeStoreKey(storeKey);
-
-  if (!normalizedKey) {
-    return true;
-  }
-
+  if (!normalizedKey) return true;
   return normalizeStoreKey(getEventStoreKey(event)) === normalizedKey;
 }
 
@@ -97,7 +84,6 @@ export default function EventsPage() {
   const loadEvents = async () => {
     setLoading(true);
     setError("");
-
     try {
       const response = await fetchPublicEvents({
         sort: mapSortKey(sortKey, Boolean(userLocation)),
@@ -106,7 +92,6 @@ export default function EventsPage() {
         page: 0,
         size: 100,
       });
-
       setEvents(response.items);
     } catch (requestError) {
       setError(requestError.message || "Unable to load events.");
@@ -115,9 +100,7 @@ export default function EventsPage() {
     }
   };
 
-  useEffect(() => {
-    loadEvents();
-  }, [location, sortKey, userLocation]);
+  useEffect(() => { loadEvents(); }, [location, sortKey, userLocation]);
 
   const filteredEvents = useMemo(
     () => events.filter((event) => matchesStore(event, selectedStoreKey)),
@@ -125,34 +108,23 @@ export default function EventsPage() {
   );
 
   const timeFilteredEvents = useMemo(() => {
-    if (timeFilterMode === "all") {
-      return filteredEvents;
-    }
-
+    if (timeFilterMode === "all") return filteredEvents;
     const targetDate = timeFilterMode === "now" ? new Date() : new Date(customDateTime);
     return filteredEvents.filter((event) => isEventActiveAt(event, targetDate));
   }, [customDateTime, filteredEvents, timeFilterMode]);
 
   const storeOptions = useMemo(() => {
     const uniqueStores = new Map();
-
     events.forEach((event) => {
       const storeKey = getEventStoreKey(event);
       const normalizedKey = normalizeStoreKey(storeKey);
-
-      if (!normalizedKey || uniqueStores.has(normalizedKey)) {
-        return;
-      }
-
+      if (!normalizedKey || uniqueStores.has(normalizedKey)) return;
       uniqueStores.set(normalizedKey, {
         value: String(storeKey),
         label: event.store?.name || event.storeName || `Store ${storeKey}`,
       });
     });
-
-    return Array.from(uniqueStores.values()).sort((left, right) =>
-      left.label.localeCompare(right.label, "vi"),
-    );
+    return Array.from(uniqueStores.values()).sort((l, r) => l.label.localeCompare(r.label, "vi"));
   }, [events]);
 
   const selectedStoreName = useMemo(() => {
@@ -162,20 +134,14 @@ export default function EventsPage() {
 
   const handleStoreFilterChange = (nextValue) => {
     const nextParams = new URLSearchParams(searchParams);
-
-    if (!nextValue) {
-      nextParams.delete("store");
-    } else {
-      nextParams.set("store", nextValue);
-    }
-
+    if (!nextValue) nextParams.delete("store");
+    else nextParams.set("store", nextValue);
     setSearchParams(nextParams);
   };
 
   const locateEventStores = async () => {
     setLocating(true);
     setLocationMessage("Getting your current location...");
-
     try {
       const nextLocation = await requestCurrentLocation();
       setUserLocation(nextLocation);
@@ -190,7 +156,6 @@ export default function EventsPage() {
   const handleUseAddress = async () => {
     setGeocoding(true);
     setLocationMessage("Looking up address...");
-
     try {
       const nextLocation = await geocodeAddress(addressQuery);
       setUserLocation(nextLocation);
@@ -210,17 +175,11 @@ export default function EventsPage() {
 
   const loadEventReviews = async (eventId, forceRefresh = false) => {
     const normalizedEventId = String(eventId ?? "");
-
-    if (!normalizedEventId) {
-      return [];
-    }
-
+    if (!normalizedEventId) return [];
     if (!forceRefresh && Array.isArray(eventReviewsMap[normalizedEventId])) {
       return eventReviewsMap[normalizedEventId];
     }
-
     setReviewsLoadingId(normalizedEventId);
-
     try {
       const response = await fetchPublicReviews({
         targetType: "EVENT",
@@ -229,12 +188,8 @@ export default function EventsPage() {
         page: 0,
         size: 20,
       });
-
       const nextItems = response.items ?? [];
-      setEventReviewsMap((current) => ({
-        ...current,
-        [normalizedEventId]: nextItems,
-      }));
+      setEventReviewsMap((current) => ({ ...current, [normalizedEventId]: nextItems }));
       return nextItems;
     } catch (reviewError) {
       setActionMessage(reviewError.message || "Unable to load event reviews.");
@@ -246,150 +201,102 @@ export default function EventsPage() {
 
   const handleOpenReviewModal = async (event) => {
     const nextEventId = String(event?.id ?? "");
-
-    if (!nextEventId) {
-      return;
-    }
-
+    if (!nextEventId) return;
     setReviewModalEventId(nextEventId);
     await loadEventReviews(nextEventId);
   };
 
-  const handleCloseReviewModal = () => {
-    setReviewModalEventId("");
-  };
+  const handleCloseReviewModal = () => { setReviewModalEventId(""); };
 
   const handleToggleFavorite = async (eventId) => {
     const result = await toggleFavorite("event", eventId);
     setActionMessage(result.message);
-
-    if (result.ok) {
-      await loadEvents();
-    }
+    if (result.ok) await loadEvents();
   };
 
   const handleSubmitReview = async (eventId, payload) => {
-    const result = await submitReview({
-      ...payload,
-      targetType: "event",
-      targetId: eventId,
-    });
-
-    if (result.ok) {
-      await Promise.all([loadEvents(), loadEventReviews(eventId, true)]);
-    }
-
+    const result = await submitReview({ ...payload, targetType: "event", targetId: eventId });
+    if (result.ok) await Promise.all([loadEvents(), loadEventReviews(eventId, true)]);
     return result;
   };
 
   const handleDeleteReview = async (review) => {
     const result = await deleteReview(review.id);
-
-    if (result.ok) {
-      await Promise.all([loadEvents(), loadEventReviews(review.targetId, true)]);
-    }
-
+    if (result.ok) await Promise.all([loadEvents(), loadEventReviews(review.targetId, true)]);
     return result;
   };
 
   const activeReviewEvent = useMemo(
-    () =>
-      events.find((event) => String(event.id) === String(reviewModalEventId)) ??
-      null,
+    () => events.find((event) => String(event.id) === String(reviewModalEventId)) ?? null,
     [events, reviewModalEventId],
   );
   const activeEventReviews = useMemo(() => {
-    if (!activeReviewEvent) {
-      return [];
-    }
-
+    if (!activeReviewEvent) return [];
     return eventReviewsMap[String(activeReviewEvent.id)] ?? activeReviewEvent.reviews ?? [];
   }, [activeReviewEvent, eventReviewsMap]);
-  const activeReviewLoading =
-    Boolean(activeReviewEvent) && reviewsLoadingId === String(activeReviewEvent.id);
+  const activeReviewLoading = Boolean(activeReviewEvent) && reviewsLoadingId === String(activeReviewEvent.id);
+
+  const filters = (
+    <div className="flex flex-wrap items-end gap-4">
+      <label className="grid gap-1.5">
+        <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">Sort</span>
+        <select className={ui.input} value={sortKey} onChange={(e) => setSortKey(e.target.value)}>
+          <option value="date-desc">Newest first</option>
+          <option value="date-asc">Soonest first</option>
+          <option value="rating-desc">Highest rated</option>
+          <option value="distance-asc">Nearest first</option>
+        </select>
+      </label>
+
+      <label className="grid gap-1.5">
+        <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">Store filter</span>
+        <select className={ui.input} value={selectedStoreKey} onChange={(e) => handleStoreFilterChange(e.target.value)}>
+          <option value="">All stores</option>
+          {storeOptions.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+      </label>
+
+      <label className="grid gap-1.5">
+        <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">By time</span>
+        <select className={ui.input} value={timeFilterMode} onChange={(e) => setTimeFilterMode(e.target.value)}>
+          <option value="all">All</option>
+          <option value="now">Happening now</option>
+          <option value="custom">Happening at selected time</option>
+        </select>
+      </label>
+
+      {timeFilterMode === "custom" ? (
+        <label className="grid gap-1.5">
+          <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">Date and time</span>
+          <input
+            className={ui.input}
+            type="datetime-local"
+            value={customDateTime}
+            onChange={(e) => setCustomDateTime(e.target.value)}
+          />
+        </label>
+      ) : null}
+    </div>
+  );
 
   return (
-    <main className={ui.page}>
-      <section className={ui.panel}>
-        <p className={ui.eyebrow}>Events</p>
-        <h1 className={ui.bannerTitle}>Store events</h1>
-        <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-700">
-          See the schedule, remaining slots, and the host store.
-        </p>
-
+    <>
+      <EditorialLayout
+        eyebrow="Events"
+        kanji="催事"
+        headline="Store events"
+        subcopy="See the schedule, remaining slots, and the host store."
+        filters={filters}
+      >
+        {/* Store filter active badge */}
         {selectedStoreKey ? (
-          <div className="mt-4 flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <span className={ui.pill}>Filtering by store: {selectedStoreName}</span>
-            <Link className={ui.secondaryButton} to="/events">
-              View all events
-            </Link>
+            <Link className={ui.secondaryButton} to="/events">View all events</Link>
           </div>
         ) : null}
-
-        <div className="mt-6 grid gap-3 lg:grid-cols-[220px_280px_220px_240px]">
-          <label className="grid gap-2">
-            <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-              Sort
-            </span>
-            <select
-              className={ui.input}
-              value={sortKey}
-              onChange={(event) => setSortKey(event.target.value)}
-            >
-              <option value="date-desc">Newest first</option>
-              <option value="date-asc">Soonest first</option>
-              <option value="rating-desc">Highest rated</option>
-              <option value="distance-asc">Nearest first</option>
-            </select>
-          </label>
-
-          <label className="grid gap-2">
-            <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-              Store filter
-            </span>
-            <select
-              className={ui.input}
-              value={selectedStoreKey}
-              onChange={(event) => handleStoreFilterChange(event.target.value)}
-            >
-              <option value="">All stores</option>
-              {storeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="grid gap-2">
-            <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-              By time
-            </span>
-            <select
-              className={ui.input}
-              value={timeFilterMode}
-              onChange={(event) => setTimeFilterMode(event.target.value)}
-            >
-              <option value="all">All</option>
-              <option value="now">Happening now</option>
-              <option value="custom">Happening at selected time</option>
-            </select>
-          </label>
-
-          {timeFilterMode === "custom" ? (
-            <label className="grid gap-2">
-              <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                Date and time to filter
-              </span>
-              <input
-                className={ui.input}
-                type="datetime-local"
-                value={customDateTime}
-                onChange={(event) => setCustomDateTime(event.target.value)}
-              />
-            </label>
-          ) : null}
-        </div>
 
         <DistanceOriginControls
           addressValue={addressQuery}
@@ -402,42 +309,32 @@ export default function EventsPage() {
           hasLocation={Boolean(userLocation)}
         />
 
-        {locationMessage ? <p className="mt-4 text-sm leading-7 text-stone-600">{locationMessage}</p> : null}
+        {locationMessage ? <p className="text-sm leading-7 text-ink-600">{locationMessage}</p> : null}
         {timeFilterMode === "now" ? (
-          <p className="mt-2 text-sm leading-7 text-stone-600">
-            Filtering events by stores that are open and events happening right now.
-          </p>
+          <p className="text-sm leading-7 text-ink-600">Filtering events by stores that are open and events happening right now.</p>
         ) : null}
         {timeFilterMode === "custom" ? (
-          <p className="mt-2 text-sm leading-7 text-stone-600">
-            Filtering events by stores that are open and events happening at {customDateTime}.
-          </p>
+          <p className="text-sm leading-7 text-ink-600">Filtering events at {customDateTime}.</p>
         ) : null}
-        {actionMessage ? <p className="mt-2 text-sm leading-7 text-stone-600">{actionMessage}</p> : null}
-        {error ? <p className="mt-2 text-sm leading-7 text-stone-600">{error}</p> : null}
-      </section>
+        {actionMessage ? <p className="text-sm leading-7 text-ink-600">{actionMessage}</p> : null}
+        {error ? <p className="text-sm leading-7 text-ink-600">{error}</p> : null}
 
-      {loading ? (
-        <section className={ui.panel}>
-          <div className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
+        {loading ? (
+          <div className="rounded-xl border border-dashed border-beige-300 bg-cream-50 p-6 text-sm text-ink-600">
             Loading events...
           </div>
-        </section>
-      ) : null}
+        ) : null}
 
-      {!loading ? (
-        <section className="grid gap-6">
-          {timeFilteredEvents.map((event) => (
-            (() => {
+        {!loading ? (
+          <section className="grid gap-6">
+            {timeFilteredEvents.map((event) => {
               const eventPath = buildEventPath(event);
               const canOpenEvent = eventPath !== "/events";
 
               return (
                 <article
                   key={event.id}
-                  className={`${ui.card} grid gap-6 xl:grid-cols-[0.92fr_1.08fr] ${
-                    event.disabled ? "border-stone-300/70" : ""
-                  }`}
+                  className={`${ui.card} grid gap-6 xl:grid-cols-[0.92fr_1.08fr] ${event.disabled ? "opacity-75" : ""}`}
                 >
                   <MediaLibrary
                     images={event.imagePaths}
@@ -449,15 +346,7 @@ export default function EventsPage() {
 
                   <div className="flex flex-col gap-5">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={
-                          event.disabled
-                            ? "inline-flex items-center rounded-full bg-stone-300/60 px-3 py-1.5 text-xs font-semibold text-stone-700"
-                            : ui.pill
-                        }
-                      >
-                        {statusLabel(event)}
-                      </span>
+                      <span className={ui.pill}>{statusLabel(event)}</span>
                       <span className={ui.pill}>
                         {event.reviewCount ? `${event.averageRating.toFixed(1)} stars` : "No reviews yet"}
                       </span>
@@ -469,39 +358,31 @@ export default function EventsPage() {
 
                     <div>
                       {canOpenEvent ? (
-                        <Link
-                          className="text-3xl font-semibold text-tea-900 transition hover:text-matcha-700"
-                          to={eventPath}
-                        >
+                        <Link className="font-display text-3xl font-semibold text-ink-900 transition hover:text-matcha-700" to={eventPath}>
                           {event.title}
                         </Link>
                       ) : (
-                        <h2 className="text-3xl font-semibold text-tea-900">{event.title}</h2>
+                        <h2 className="font-display text-3xl font-semibold text-ink-900">{event.title}</h2>
                       )}
-                      <p className="mt-2 text-base font-semibold text-matcha-700">
-                        {event.location || event.store?.name}
-                      </p>
-                      <p className="mt-4 text-sm leading-7 text-stone-600">{event.summary}</p>
+                      <p className="mt-2 text-base font-semibold text-matcha-700">{event.location || event.store?.name}</p>
+                      <p className="mt-4 text-sm leading-7 text-ink-600">{event.summary}</p>
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-4">
                       {[
                         { label: "Reviews", value: event.reviewCount || 0 },
                         { label: "Slots left", value: event.remainingSlots || 0 },
-                        { label: "Store", value: event.store?.name || event.storeName || "Not available" },
+                        { label: "Store", value: event.store?.name || event.storeName || "N/A" },
                         { label: "Featured items", value: event.featuredDishes.length },
                       ].map((stat) => (
-                        <div
-                          key={stat.label}
-                          className="rounded-[1.25rem] border border-matcha-900/10 bg-white/70 p-4"
-                        >
-                          <strong className="block text-2xl font-bold text-tea-900">{stat.value}</strong>
-                          <span className="mt-1 block text-sm text-stone-600">{stat.label}</span>
+                        <div key={stat.label} className="rounded-xl border border-ink-900/10 bg-cream-100 p-4">
+                          <strong className="block text-2xl font-bold text-ink-900">{stat.value}</strong>
+                          <span className="mt-1 block text-sm text-ink-600">{stat.label}</span>
                         </div>
                       ))}
                     </div>
 
-                    <div className="grid gap-2 text-sm leading-7 text-stone-600">
+                    <div className="grid gap-2 text-sm leading-7 text-ink-600">
                       <span>Starts: {formatDateTime(event.startsAt)}</span>
                       <span>Ends: {formatDateTime(event.endsAt)}</span>
                       <span>Store: {event.store?.name || event.storeName || "Not available"}</span>
@@ -511,25 +392,15 @@ export default function EventsPage() {
                     {event.featuredDishes.length ? (
                       <div className="grid gap-3 sm:grid-cols-2">
                         {event.featuredDishes.map((item) => (
-                          <article
-                            key={item.id}
-                            className="flex flex-wrap items-center justify-between gap-3 rounded-[1.2rem] border border-matcha-900/10 bg-white/72 px-4 py-3"
-                          >
-                            <Link
-                              className="font-semibold text-tea-900 transition hover:text-matcha-700"
-                              to={`/menu/${item.id}`}
-                            >
+                          <article key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-900/10 bg-cream-100 px-4 py-3">
+                            <Link className="font-semibold text-ink-900 transition hover:text-matcha-700" to={`/menu/${item.id}`}>
                               {item.name}
                             </Link>
-
                             <QuickAddToCartButton
                               className={ui.secondaryButton}
                               dishId={item.id}
                               storeId={event.store?.id || event.storeId}
-                              blocked={
-                                !(event.store?.id || event.storeId) ||
-                                event.store?.disabled === true
-                              }
+                              blocked={!(event.store?.id || event.storeId) || event.store?.disabled === true}
                               preorderOnly={event.store?.open === false}
                               preorderMessage={getCartSuccessMessage(event.store?.open === false)}
                               blockedMessage="This item cannot be added to the cart from the event store right now."
@@ -548,24 +419,14 @@ export default function EventsPage() {
                       >
                         {isFavorite("event", event.id) ? "Saved" : "Save event"}
                       </button>
-                      <button
-                        className={ui.secondaryButton}
-                        type="button"
-                        onClick={() => handleOpenReviewModal(event)}
-                      >
+                      <button className={ui.secondaryButton} type="button" onClick={() => handleOpenReviewModal(event)}>
                         Reviews
                       </button>
-                      {canOpenEvent ? (
-                        <Link className={ui.secondaryButton} to={eventPath}>
-                          View event
-                        </Link>
-                      ) : null}
+                      {canOpenEvent ? <Link className={ui.secondaryButton} to={eventPath}>View event</Link> : null}
                       {event.store?.id || event.storeId ? (
                         <Link
                           className={ui.primaryButton}
-                          to={buildStorePath(
-                            event.store?.slug || event.store?.storeSlug ? event.store : event,
-                          )}
+                          to={buildStorePath(event.store?.slug || event.store?.storeSlug ? event.store : event)}
                         >
                           View store
                         </Link>
@@ -574,18 +435,16 @@ export default function EventsPage() {
                   </div>
                 </article>
               );
-            })()
-          ))}
+            })}
 
-          {!timeFilteredEvents.length ? (
-            <article className="rounded-[1.75rem] border border-dashed border-matcha-900/15 bg-white/45 p-8 text-sm text-stone-600">
-              {selectedStoreKey
-                ? "No events match this store."
-                : "No matching events found."}
-            </article>
-          ) : null}
-        </section>
-      ) : null}
+            {!timeFilteredEvents.length ? (
+              <article className="rounded-xl border border-dashed border-beige-300 bg-cream-50 p-8 text-sm text-ink-600">
+                {selectedStoreKey ? "No events match this store." : "No matching events found."}
+              </article>
+            ) : null}
+          </section>
+        ) : null}
+      </EditorialLayout>
 
       <DetailModal
         open={Boolean(activeReviewEvent)}
@@ -598,50 +457,39 @@ export default function EventsPage() {
         bodyClassName="content-start"
         belowContent={
           activeReviewEvent ? (
-            <section className="grid gap-4 rounded-[1.5rem] border border-matcha-900/10 bg-white/72 p-5">
+            <section className="grid gap-4 rounded-xl border border-ink-900/10 bg-cream-100 p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <strong className="text-base text-tea-900">Event reviews</strong>
+                <strong className="text-base text-ink-900">Event reviews</strong>
                 <span className={ui.pill}>
-                  {activeReviewEvent.reviewCount
-                    ? `${activeReviewEvent.reviewCount} reviews`
-                    : "None yet"}
+                  {activeReviewEvent.reviewCount ? `${activeReviewEvent.reviewCount} reviews` : "None yet"}
                 </span>
               </div>
 
               {activeReviewLoading ? (
-                <div className="rounded-[1.2rem] border border-dashed border-matcha-900/15 bg-white/50 p-4 text-sm text-stone-600">
+                <div className="rounded-xl border border-dashed border-beige-300 bg-cream-50 p-4 text-sm text-ink-600">
                   Loading event reviews...
                 </div>
               ) : activeEventReviews.length ? (
                 <div className="grid gap-3">
                   {activeEventReviews.map((review) => (
-                    <article
-                      key={review.id}
-                      className="rounded-[1.2rem] border border-matcha-900/10 bg-[#f8f5ef] p-4"
-                    >
+                    <article key={review.id} className="rounded-xl border border-ink-900/10 bg-cream-50 p-4">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                          <p className="text-base font-semibold text-tea-900">
-                            {review.title || "Untitled review"}
-                          </p>
-                          <p className="mt-1 text-sm text-stone-500">
-                            {review.userName || review.userEmail || "Kamatcha guest"} -{" "}
-                            {formatDateTime(review.createdAt)}
+                          <p className="text-base font-semibold text-ink-900">{review.title || "Untitled review"}</p>
+                          <p className="mt-1 text-sm text-ink-500">
+                            {review.userName || review.userEmail || "Kamatcha guest"} — {formatDateTime(review.createdAt)}
                           </p>
                         </div>
-                        <span className={ui.pill}>
-                          {Number(review.rating ?? 0).toFixed(1)} stars
-                        </span>
+                        <span className={ui.pill}>{Number(review.rating ?? 0).toFixed(1)} stars</span>
                       </div>
-
-                      <p className="mt-3 text-sm leading-7 text-stone-600">
+                      <p className="mt-3 text-sm leading-7 text-ink-600">
                         {review.comment || "The user did not leave a detailed comment."}
                       </p>
                     </article>
                   ))}
                 </div>
               ) : (
-                <div className="rounded-[1.2rem] border border-dashed border-matcha-900/15 bg-white/50 p-4 text-sm text-stone-600">
+                <div className="rounded-xl border border-dashed border-beige-300 bg-cream-50 p-4 text-sm text-ink-600">
                   This event does not have any reviews yet.
                 </div>
               )}
@@ -651,15 +499,12 @@ export default function EventsPage() {
       >
         {activeReviewEvent ? (
           <>
-            <div className="grid gap-3 rounded-[1.25rem] border border-matcha-900/10 bg-white/75 p-4 text-sm leading-7 text-stone-600">
+            <div className="grid gap-3 rounded-xl border border-ink-900/10 bg-cream-100 p-4 text-sm leading-7 text-ink-600">
               <span>Starts: {formatDateTime(activeReviewEvent.startsAt)}</span>
               <span>Ends: {formatDateTime(activeReviewEvent.endsAt)}</span>
-              <span>
-                Store: {activeReviewEvent.store?.name || activeReviewEvent.storeName || "Not available"}
-              </span>
+              <span>Store: {activeReviewEvent.store?.name || activeReviewEvent.storeName || "Not available"}</span>
               <span>{statusLabel(activeReviewEvent)}</span>
             </div>
-
             <UserReviewForm
               title="Write a review for this event"
               existingReview={getCurrentUserReview("event", activeReviewEvent.id)}
@@ -670,6 +515,6 @@ export default function EventsPage() {
           </>
         ) : null}
       </DetailModal>
-    </main>
+    </>
   );
 }

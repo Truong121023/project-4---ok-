@@ -4,38 +4,55 @@ import ContentSectionsBlock from "../components/ContentSectionsBlock";
 import MediaLibrary from "../components/MediaLibrary";
 import QuickAddToCartButton from "../components/QuickAddToCartButton";
 import UserReviewForm from "../components/UserReviewForm";
+import DetailLayout from "../components/templates/detail-layout";
+import { Badge } from "../components/ui/badge";
+import Button from "../components/ui/button";
+import { Skeleton } from "../components/ui/skeleton";
 import { useAuth } from "../context/AuthContext";
 import { useSiteData } from "../context/SiteDataContext";
 import { getCartSuccessMessage } from "../lib/cartAvailability";
-import { formatDateTimeVn } from "../lib/locale";
 import { buildEventPath } from "../lib/eventRouting";
+import { formatDateTimeVn } from "../lib/locale";
 import { fetchPublicEventDetail, fetchPublicReviews } from "../lib/siteApi";
 import { formatDistanceKm } from "../lib/demoCatalog";
 import { buildStorePath } from "../lib/storeRouting";
 import { ui } from "../ui";
 
-function formatDateTime(value) {
-  return formatDateTimeVn(value, "Schedule unavailable");
-}
+function formatDateTime(v) { return formatDateTimeVn(v, "Schedule unavailable"); }
 
 function statusLabel(event) {
-  if (event?.disabled) {
-    return event.disabledReason || "Locked";
-  }
-
-  if (Number(event?.remainingSlots ?? 0) > 0) {
-    return `${event.remainingSlots} slots left`;
-  }
-
+  if (event?.disabled) return event.disabledReason || "Locked";
+  if (Number(event?.remainingSlots ?? 0) > 0) return `${event.remainingSlots} slots left`;
   return "Updating";
+}
+
+function EventDetailSkeleton() {
+  return (
+    <main className="bg-bg min-h-screen">
+      <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <Skeleton className="mb-6 h-4 w-40" />
+        <div className="flex flex-col gap-8 lg:flex-row">
+          <div className="w-full shrink-0 lg:w-[45%]">
+            <Skeleton className="aspect-[4/3] w-full rounded-xl" />
+          </div>
+          <div className="flex-1 flex flex-col gap-4">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-8 w-2/3" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+          </div>
+        </div>
+      </div>
+    </main>
+  );
 }
 
 export default function EventDetailPage() {
   const auth = useAuth();
   const navigate = useNavigate();
   const { eventKey } = useParams();
-  const { isFavorite, toggleFavorite, getCurrentUserReview, submitReview, deleteReview } =
-    useSiteData();
+  const { isFavorite, toggleFavorite, getCurrentUserReview, submitReview, deleteReview } = useSiteData();
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -45,20 +62,12 @@ export default function EventDetailPage() {
   const loadEventDetail = async () => {
     setLoading(true);
     setError("");
-
     try {
       const response = await fetchPublicEventDetail(eventKey);
       setEventDetail(response);
-
       if (response?.id) {
         try {
-          const reviewResponse = await fetchPublicReviews({
-            targetType: "EVENT",
-            targetId: response.id,
-            sort: "date_desc",
-            page: 0,
-            size: 20,
-          });
+          const reviewResponse = await fetchPublicReviews({ targetType: "EVENT", targetId: response.id, sort: "date_desc", page: 0, size: 20 });
           setEventReviews(reviewResponse.items ?? []);
         } catch {
           setEventReviews(Array.isArray(response?.reviews) ? response.reviews : []);
@@ -66,8 +75,8 @@ export default function EventDetailPage() {
       } else {
         setEventReviews(Array.isArray(response?.reviews) ? response.reviews : []);
       }
-    } catch (requestError) {
-      setError(requestError.message || "Unable to load event details.");
+    } catch (err) {
+      setError(err.message || "Unable to load event details.");
       setEventDetail(null);
       setEventReviews([]);
     } finally {
@@ -75,84 +84,44 @@ export default function EventDetailPage() {
     }
   };
 
-  useEffect(() => {
-    void loadEventDetail();
-  }, [eventKey]);
+  useEffect(() => { void loadEventDetail(); }, [eventKey]);
 
   useEffect(() => {
-    if (!eventDetail?.slug || !eventKey || eventDetail.slug === eventKey) {
-      return;
-    }
-
+    if (!eventDetail?.slug || !eventKey || eventDetail.slug === eventKey) return;
     navigate(buildEventPath(eventDetail), { replace: true });
   }, [eventDetail, eventKey, navigate]);
 
   const handleToggleFavorite = async () => {
-    if (!eventDetail?.id) {
-      return;
-    }
-
+    if (!eventDetail?.id) return;
     const result = await toggleFavorite("event", eventDetail.id);
     setNotice(result.message);
-
-    if (result.ok) {
-      await loadEventDetail();
-    }
+    if (result.ok) await loadEventDetail();
   };
 
   const handleSubmitReview = async (payload) => {
-    if (!eventDetail?.id) {
-      return { ok: false, message: "This event is unavailable right now." };
-    }
-
-    const result = await submitReview({
-      ...payload,
-      targetType: "event",
-      targetId: eventDetail.id,
-    });
-
-    if (result.ok) {
-      await loadEventDetail();
-    }
-
+    if (!eventDetail?.id) return { ok: false, message: "This event is unavailable right now." };
+    const result = await submitReview({ ...payload, targetType: "event", targetId: eventDetail.id });
+    if (result.ok) await loadEventDetail();
     return result;
   };
 
   const handleDeleteReview = async (review) => {
     const result = await deleteReview(review.id);
-
-    if (result.ok) {
-      await loadEventDetail();
-    }
-
+    if (result.ok) await loadEventDetail();
     return result;
   };
 
-  if (loading) {
-    return (
-      <main className={ui.page}>
-        <section className={ui.panel}>
-          <div className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
-            Loading event details...
-          </div>
-        </section>
-      </main>
-    );
-  }
+  if (loading) return <EventDetailSkeleton />;
 
   if (error || !eventDetail) {
     return (
-      <main className={ui.page}>
-        <section className={ui.panel}>
+      <main className="bg-bg min-h-screen">
+        <div className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8 text-center">
           <p className={ui.eyebrow}>Event</p>
           <h1 className={ui.bannerTitle}>Event not found</h1>
-          <p className={ui.copy}>{error || "This event does not have data yet."}</p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link className={ui.secondaryButton} to="/events">
-              Back to events
-            </Link>
-          </div>
-        </section>
+          <p className={ui.copy + " mx-auto"}>{error || "This event does not have data yet."}</p>
+          <Link className={ui.secondaryButton + " mt-6 inline-flex"} to="/events">Back to events</Link>
+        </div>
       </main>
     );
   }
@@ -161,245 +130,221 @@ export default function EventDetailPage() {
   const hostStoreDisabled = eventDetail.store?.disabled === true;
   const hostStoreClosed = eventDetail.store?.open === false;
 
-  return (
-    <main className={ui.page}>
-      <section className={ui.panel}>
-        <div className="flex flex-wrap items-center gap-3">
-          <span
-            className={
-              eventDetail.disabled
-                ? "inline-flex items-center rounded-full bg-stone-300/60 px-4 py-2 text-sm font-semibold text-stone-700"
-                : ui.pill
-            }
+  // ── gallery ─────────────────────────────────────────────────────────────────
+  const galleryRegion = (
+    <MediaLibrary
+      images={eventDetail.imagePaths}
+      alt={eventDetail.title}
+      badge={eventDetail.scheduleText || eventDetail.location || "Event"}
+      heroClassName="h-[22rem] sm:h-[30rem] rounded-xl overflow-hidden"
+      thumbnailClassName="h-20"
+    />
+  );
+
+  // ── sticky CTA rail ─────────────────────────────────────────────────────────
+  const ctaRail = (
+    <div className="flex flex-col gap-4">
+      {/* Status + slots */}
+      <div className="flex flex-wrap gap-2">
+        <Badge variant={eventDetail.disabled ? "ink" : "matcha"}>{statusLabel(eventDetail)}</Badge>
+        {eventDetail.scheduleText ? <Badge variant="beige">{eventDetail.scheduleText}</Badge> : null}
+        {typeof eventDetail.distanceKm === "number" ? <Badge variant="beige">{formatDistanceKm(eventDetail.distanceKm)}</Badge> : null}
+      </div>
+
+      {/* Quick info */}
+      <div className="flex flex-col gap-1 text-sm text-ink-700">
+        {eventDetail.location ? <p><span className="font-semibold text-ink-900">Location: </span>{eventDetail.location}</p> : null}
+        {(eventDetail.store?.name || eventDetail.storeName) ? (
+          <p><span className="font-semibold text-ink-900">Host store: </span>{eventDetail.store?.name || eventDetail.storeName}</p>
+        ) : null}
+        {eventDetail.startsAt ? <p><span className="font-semibold text-ink-900">Starts: </span>{formatDateTime(eventDetail.startsAt)}</p> : null}
+        {eventDetail.endsAt ? <p><span className="font-semibold text-ink-900">Ends: </span>{formatDateTime(eventDetail.endsAt)}</p> : null}
+      </div>
+
+      {/* Actions */}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant={isFavorite("event", eventDetail.id) ? "primary" : "secondary"}
+          size="sm"
+          onClick={handleToggleFavorite}
+        >
+          {isFavorite("event", eventDetail.id) ? "Saved" : "Save event"}
+        </Button>
+        {hostStoreId ? (
+          <Link
+            className={ui.ghostButton + " !text-sm"}
+            to={buildStorePath(eventDetail.store?.slug || eventDetail.store?.storeSlug ? eventDetail.store : eventDetail)}
           >
-            {statusLabel(eventDetail)}
-          </span>
-          <span className={ui.pill}>
-            {eventDetail.reviewCount
-              ? `${eventDetail.averageRating.toFixed(1)} stars`
-              : "No reviews yet"}
-          </span>
-          <span className={ui.pill}>{eventDetail.favoriteCount} saves</span>
-          {eventDetail.distanceKm !== null && eventDetail.distanceKm !== undefined ? (
-            <span className={ui.pill}>{formatDistanceKm(eventDetail.distanceKm)}</span>
-          ) : null}
-          {eventDetail.store?.name || eventDetail.storeName ? (
-            <span className={ui.pill}>
-              {eventDetail.store?.name || eventDetail.storeName}
-            </span>
-          ) : null}
-        </div>
+            View store
+          </Link>
+        ) : null}
+        <Link className={ui.ghostButton + " !text-sm"} to="/events">All events</Link>
+      </div>
 
-        <div className="mt-6 grid gap-8 xl:grid-cols-[0.94fr_1.06fr]">
-          <div className="grid gap-5 content-start">
-            <div>
-              <p className={ui.eyebrow}>Event</p>
-              <h1 className={ui.bannerTitle}>{eventDetail.title}</h1>
-              <p className="mt-4 text-base font-semibold text-matcha-700">
-                {eventDetail.location || eventDetail.store?.name || eventDetail.storeName}
-              </p>
-              <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-700">
-                {eventDetail.summary || eventDetail.description}
-              </p>
+      {notice ? <p className="text-xs text-ink-500">{notice}</p> : null}
+    </div>
+  );
+
+  // ── related: featured dishes carousel ──────────────────────────────────────
+  const relatedRegion = eventDetail.featuredDishes?.length ? (
+    <div>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className={ui.sectionTitle}>Featured menu items</h2>
+        <Badge variant="beige">{eventDetail.featuredDishes.length} items</Badge>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {eventDetail.featuredDishes.map((item) => (
+          <article
+            key={item.id}
+            className="flex items-center justify-between gap-3 rounded-xl border border-ink-900/10 bg-cream-50 px-4 py-3 shadow-soft"
+          >
+            <Link
+              className="font-display text-sm font-semibold text-ink-900 hover:text-matcha-700 transition-colors line-clamp-2"
+              to={`/menu/${item.id}`}
+            >
+              {item.name}
+            </Link>
+            <QuickAddToCartButton
+              className={ui.secondaryButton + " !text-xs !px-3 !py-1.5 shrink-0"}
+              dishId={item.id}
+              storeId={hostStoreId}
+              blocked={!hostStoreId || hostStoreDisabled}
+              preorderOnly={hostStoreClosed}
+              preorderMessage={getCartSuccessMessage(hostStoreClosed)}
+              blockedMessage="This item cannot be added from the host store right now."
+              onResult={(msg) => setNotice(msg)}
+            />
+          </article>
+        ))}
+      </div>
+    </div>
+  ) : null;
+
+  // ── breadcrumb ──────────────────────────────────────────────────────────────
+  const breadcrumb = (
+    <nav className="flex items-center gap-2 text-sm text-ink-500">
+      <Link className="hover:text-matcha-700 transition-colors" to="/events">Events</Link>
+      <span>/</span>
+      <span className="text-ink-900 font-medium truncate max-w-[20ch]">{eventDetail.title}</span>
+    </nav>
+  );
+
+  return (
+    <main className="bg-bg min-h-screen pb-24 lg:pb-0">
+      <DetailLayout breadcrumb={breadcrumb} gallery={galleryRegion} stickyBar={ctaRail} related={relatedRegion}>
+        <div className="flex flex-col gap-6">
+          {/* Title */}
+          <div>
+            <p className={ui.eyebrow}>Event</p>
+            <h1 className={ui.bannerTitle}>{eventDetail.title}</h1>
+            <p className="mt-2 text-base font-semibold text-matcha-700">
+              {eventDetail.location || eventDetail.store?.name || eventDetail.storeName}
+            </p>
+            <p className="mt-4 text-sm leading-7 text-ink-600">
+              {eventDetail.summary || eventDetail.description}
+            </p>
+          </div>
+
+          {/* Tag pills */}
+          <div className="flex flex-wrap gap-2">
+            {eventDetail.scheduleText ? <Badge variant="beige">{eventDetail.scheduleText}</Badge> : null}
+            <Badge variant="beige">{eventDetail.favoriteCount} saves</Badge>
+            {eventDetail.reviewCount ? (
+              <Badge variant="matcha">{eventDetail.averageRating.toFixed(1)}★ ({eventDetail.reviewCount})</Badge>
+            ) : null}
+            {eventDetail.highlightTags?.map((tag) => (
+              <Badge key={`${eventDetail.id}-${tag}`} variant="beige">{tag}</Badge>
+            ))}
+          </div>
+
+          {/* Stats grid */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              { label: "Reviews", value: eventDetail.reviewCount || 0 },
+              { label: "Slots left", value: eventDetail.remainingSlots || 0 },
+              { label: "Capacity", value: eventDetail.capacity || 0 },
+              { label: "Booked", value: eventDetail.bookedCount || 0 },
+            ].map((stat) => (
+              <div key={stat.label} className="rounded-xl border border-ink-900/10 bg-cream-100 p-4 text-center">
+                <strong className="block text-xl font-bold text-ink-900">{stat.value}</strong>
+                <span className="mt-1 block text-xs font-semibold uppercase tracking-widest text-ink-400">{stat.label}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Detail info cards */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[
+              { label: "Starts", value: formatDateTime(eventDetail.startsAt) },
+              { label: "Ends", value: formatDateTime(eventDetail.endsAt) },
+              { label: "Location", value: eventDetail.location },
+              { label: "Schedule", value: eventDetail.scheduleText || eventDetail.schedule },
+              { label: "Host store", value: eventDetail.store?.name || eventDetail.storeName },
+              { label: "Highlight", value: eventDetail.highlightSummary },
+            ].filter((e) => e.value).map((entry) => (
+              <div key={entry.label} className="rounded-xl border border-ink-900/10 bg-cream-100 p-4">
+                <span className="block text-xs font-bold uppercase tracking-widest text-ink-400">{entry.label}</span>
+                <strong className="mt-1 block text-sm leading-6 text-ink-900">{entry.value}</strong>
+              </div>
+            ))}
+          </div>
+
+          {/* Content sections */}
+          <ContentSectionsBlock
+            sections={eventDetail.sections}
+            eyebrow="Event story"
+            title="What to expect"
+            description="Event detail sections rendered from backend content blocks."
+          />
+
+          {/* Divider */}
+          <div aria-hidden="true" className="h-px bg-gradient-to-r from-transparent via-beige-300 to-transparent" />
+
+          {/* Reviews */}
+          <section>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <p className={ui.eyebrow}>Reviews</p>
+                <h2 className={ui.sectionTitle}>Event reviews</h2>
+              </div>
+              <Badge variant="beige">{eventReviews.length ? `${eventReviews.length} reviews` : "None yet"}</Badge>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              {eventDetail.scheduleText ? <span className={ui.pill}>{eventDetail.scheduleText}</span> : null}
-              {eventDetail.highlightTags?.map((tag) => (
-                <span key={`${eventDetail.id}-${tag}`} className={ui.pill}>
-                  {tag}
-                </span>
-              ))}
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-4">
-              {[
-                {
-                  label: "Reviews",
-                  value: eventDetail.reviewCount || 0,
-                },
-                {
-                  label: "Slots left",
-                  value: eventDetail.remainingSlots || 0,
-                },
-                {
-                  label: "Capacity",
-                  value: eventDetail.capacity || 0,
-                },
-                {
-                  label: "Booked",
-                  value: eventDetail.bookedCount || 0,
-                },
-              ].map((stat) => (
-                <article
-                  key={stat.label}
-                  className="rounded-[1.3rem] border border-matcha-900/10 bg-white/72 p-4"
-                >
-                  <strong className="block text-2xl font-bold text-tea-900">{stat.value}</strong>
-                  <span className="mt-1 block text-sm text-stone-600">{stat.label}</span>
-                </article>
-              ))}
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              {[
-                { label: "Starts", value: formatDateTime(eventDetail.startsAt) },
-                { label: "Ends", value: formatDateTime(eventDetail.endsAt) },
-                { label: "Location", value: eventDetail.location },
-                { label: "Schedule", value: eventDetail.scheduleText || eventDetail.schedule },
-                {
-                  label: "Host store",
-                  value: eventDetail.store?.name || eventDetail.storeName,
-                },
-                { label: "Highlight", value: eventDetail.highlightSummary },
-              ]
-                .filter((entry) => entry.value)
-                .map((entry) => (
-                  <article
-                    key={entry.label}
-                    className="rounded-[1.25rem] border border-matcha-900/10 bg-white/72 p-4"
-                  >
-                    <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-stone-500">
-                      {entry.label}
-                    </span>
-                    <strong className="mt-2 block text-sm leading-7 text-tea-900">
-                      {entry.value}
-                    </strong>
+            {eventReviews.length ? (
+              <div className="mb-6 grid gap-4 lg:grid-cols-2">
+                {eventReviews.map((review) => (
+                  <article key={review.id} className="rounded-xl border border-ink-900/10 bg-cream-50 p-5 shadow-soft">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-ink-900">{review.title || "Untitled review"}</p>
+                        <p className="mt-0.5 text-xs text-ink-400">
+                          {review.userName || review.userEmail || "Kamatcha guest"} · {formatDateTime(review.createdAt)}
+                        </p>
+                      </div>
+                      <Badge variant="matcha">{Number(review.rating ?? 0).toFixed(1)}★</Badge>
+                    </div>
+                    <p className="mt-3 text-sm leading-7 text-ink-600">
+                      {review.comment || "The user did not leave a detailed comment."}
+                    </p>
                   </article>
                 ))}
-            </div>
-
-            <ContentSectionsBlock
-              sections={eventDetail.sections}
-              eyebrow="Event story"
-              title="What to expect"
-              description="Event detail sections are now rendered directly from the backend content blocks."
-            />
-
-            <div className="flex flex-wrap gap-3">
-              <button
-                className={isFavorite("event", eventDetail.id) ? ui.primaryButton : ui.secondaryButton}
-                type="button"
-                onClick={handleToggleFavorite}
-              >
-                {isFavorite("event", eventDetail.id) ? "Saved" : "Save event"}
-              </button>
-              {hostStoreId ? (
-                <Link
-                  className={ui.secondaryButton}
-                  to={buildStorePath(
-                    eventDetail.store?.slug || eventDetail.store?.storeSlug ? eventDetail.store : eventDetail,
-                  )}
-                >
-                  View store
-                </Link>
-              ) : null}
-              <Link className={ui.secondaryButton} to="/events">
-                Back to events
-              </Link>
-            </div>
-
-            {notice ? <p className="text-sm leading-7 text-stone-600">{notice}</p> : null}
-
-            {eventDetail.featuredDishes.length ? (
-              <section className="grid gap-3 rounded-[1.6rem] border border-matcha-900/10 bg-white/72 p-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <strong className="text-base text-tea-900">Featured menu items</strong>
-                  <span className={ui.pill}>{eventDetail.featuredDishes.length} items</span>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {eventDetail.featuredDishes.map((item) => (
-                    <article
-                      key={item.id}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-[1.2rem] border border-matcha-900/10 bg-[#f8f5ef] px-4 py-3"
-                    >
-                      <Link
-                        className="font-semibold text-tea-900 transition hover:text-matcha-700"
-                        to={`/menu/${item.id}`}
-                      >
-                        {item.name}
-                      </Link>
-
-                      <QuickAddToCartButton
-                        className={ui.secondaryButton}
-                        dishId={item.id}
-                        storeId={hostStoreId}
-                        blocked={!hostStoreId || hostStoreDisabled}
-                        preorderOnly={hostStoreClosed}
-                        preorderMessage={getCartSuccessMessage(hostStoreClosed)}
-                        blockedMessage="This item cannot be added from the host store right now."
-                        onResult={(message) => setNotice(message)}
-                      />
-                    </article>
-                  ))}
-                </div>
-              </section>
-            ) : null}
-          </div>
-
-          <div className="grid gap-5 content-start">
-            <MediaLibrary
-              images={eventDetail.imagePaths}
-              alt={eventDetail.title}
-              badge={eventDetail.scheduleText || eventDetail.location || "Event"}
-              heroClassName="h-[24rem] sm:h-[32rem]"
-              thumbnailClassName="h-24"
-            />
-
-            <section className="grid gap-4 rounded-[1.6rem] border border-matcha-900/10 bg-white/72 p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <strong className="text-base text-tea-900">Event reviews</strong>
-                <span className={ui.pill}>
-                  {eventReviews.length ? `${eventReviews.length} reviews` : "None yet"}
-                </span>
               </div>
+            ) : (
+              <div className="mb-6 rounded-xl border border-dashed border-beige-300 bg-cream-50 p-6 text-center text-sm text-ink-400">
+                This event does not have any reviews yet.
+              </div>
+            )}
 
-              {eventReviews.length ? (
-                <div className="grid gap-3">
-                  {eventReviews.map((review) => (
-                    <article
-                      key={review.id}
-                      className="rounded-[1.2rem] border border-matcha-900/10 bg-[#f8f5ef] p-4"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <p className="text-base font-semibold text-tea-900">
-                            {review.title || "Untitled review"}
-                          </p>
-                          <p className="mt-1 text-sm text-stone-500">
-                            {review.userName || review.userEmail || "Kamatcha guest"} -{" "}
-                            {formatDateTime(review.createdAt)}
-                          </p>
-                        </div>
-                        <span className={ui.pill}>
-                          {Number(review.rating ?? 0).toFixed(1)} stars
-                        </span>
-                      </div>
-
-                      <p className="mt-3 text-sm leading-7 text-stone-600">
-                        {review.comment || "The user did not leave a detailed comment."}
-                      </p>
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-[1.2rem] border border-dashed border-matcha-900/15 bg-white/50 p-4 text-sm text-stone-600">
-                  This event does not have any reviews yet.
-                </div>
-              )}
-
-              <UserReviewForm
-                title="Write a review for this event"
-                existingReview={getCurrentUserReview("event", eventDetail.id)}
-                canSubmit={auth.hasRole("USER")}
-                onSubmit={handleSubmitReview}
-                onDelete={handleDeleteReview}
-              />
-            </section>
-          </div>
+            <UserReviewForm
+              title="Write a review for this event"
+              existingReview={getCurrentUserReview("event", eventDetail.id)}
+              canSubmit={auth.hasRole("USER")}
+              onSubmit={handleSubmitReview}
+              onDelete={handleDeleteReview}
+            />
+          </section>
         </div>
-      </section>
+      </DetailLayout>
     </main>
   );
 }

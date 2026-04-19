@@ -1,16 +1,13 @@
 import { useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import AuthLayout from "../components/templates/auth-layout";
 import { useAuth } from "../context/AuthContext";
 import { useToastMessage } from "../hooks/useToastMessage";
 import { getApiErrorMessage } from "../lib/api";
 import { isProfileCompleted, resolvePostAuthPath } from "../lib/authRedirects";
 import { ui } from "../ui";
 
-const initialForm = {
-  fullName: "",
-  password: "",
-  confirmPassword: "",
-};
+const initialForm = { fullName: "", password: "", confirmPassword: "" };
 
 export default function GoogleCompleteProfilePage() {
   const auth = useAuth();
@@ -25,28 +22,16 @@ export default function GoogleCompleteProfilePage() {
   const [notice, setNotice] = useState("");
 
   const redirectTo = location.state?.from?.pathname ?? "";
-  useToastMessage(error, {
-    type: "error",
-    title: "Profile completion failed",
-  });
-  useToastMessage(notice, {
-    type: "success",
-    title: "Notice",
-  });
+  useToastMessage(error, { type: "error", title: "Profile completion failed" });
+  useToastMessage(notice, { type: "success", title: "Notice" });
 
   if (auth.initializing) {
     return (
-      <main className={ui.page}>
-        <section className={`${ui.panel} text-center`}>
-          <p className={ui.eyebrow}>Google profile</p>
-          <h1 className="text-3xl font-bold tracking-tight text-tea-900">
-            Restoring your session
-          </h1>
-          <p className="mt-4 text-sm leading-7 text-stone-600 sm:text-base">
-            Please wait a moment...
-          </p>
-        </section>
-      </main>
+      <AuthLayout>
+        <p className={ui.eyebrow}>Google profile</p>
+        <h1 className="mt-2 font-display text-2xl font-bold text-ink-900">Restoring your session</h1>
+        <p className="mt-3 text-sm leading-7 text-ink-600">Please wait a moment...</p>
+      </AuthLayout>
     );
   }
 
@@ -60,10 +45,7 @@ export default function GoogleCompleteProfilePage() {
 
   const handleChange = (event) => {
     const { name, value } = event.target;
-    setForm((current) => ({
-      ...current,
-      [name]: value,
-    }));
+    setForm((current) => ({ ...current, [name]: value }));
   };
 
   const handleSubmit = async (event) => {
@@ -95,7 +77,6 @@ export default function GoogleCompleteProfilePage() {
         fullName: form.fullName.trim(),
         password: form.password,
       });
-
       setNotice(response?.message ?? "Profile updated.");
       navigate(resolvePostAuthPath(response.user, redirectTo), { replace: true });
     } catch (submitError) {
@@ -106,112 +87,113 @@ export default function GoogleCompleteProfilePage() {
   };
 
   return (
-    <main className={ui.page}>
-      <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-        <div className={`${ui.panel} flex flex-col gap-5`}>
-          <div>
-            <p className={ui.eyebrow}>Kamatcha</p>
-            <h1 className={ui.bannerTitle}>Complete your Kamatcha account</h1>
-            <p className={ui.copy}>
-              You signed in with Google successfully. Just add your full name and password to
-              finish your Kamatcha account and enter the system right away.
-            </p>
+    <AuthLayout wide>
+      {/* Eyebrow */}
+      <p aria-hidden="true" className="mb-1 font-display text-2xl font-medium tracking-wider text-matcha-600/50">
+        抹茶
+      </p>
+      <p className={ui.eyebrow}>Kamatcha</p>
+      <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-ink-900">
+        Complete your account
+      </h1>
+      <p className="mt-2 text-sm leading-7 text-ink-600">
+        You signed in with Google successfully. Add your full name and password to finish setup.
+      </p>
+
+      {/* Google account info */}
+      <div className="mt-5 rounded-xl border border-matcha-200 bg-matcha-50 p-4">
+        <p className={ui.eyebrow}>Google account</p>
+        <p className="mt-1 font-semibold text-ink-900">{auth.user?.email}</p>
+        <p className="mt-2 text-xs leading-6 text-ink-600">
+          Your session is already active. No need to sign in again after profile completion.
+        </p>
+      </div>
+
+      <form
+        className="mt-6 grid gap-4"
+        onSubmit={handleSubmit}
+        aria-describedby={error ? "google-profile-error" : undefined}
+      >
+        <label className="grid gap-2">
+          <span className="text-sm font-semibold text-ink-900">Google email</span>
+          <input className={ui.input} type="email" value={auth.user?.email ?? ""} disabled />
+        </label>
+
+        <label className="grid gap-2">
+          <span className="text-sm font-semibold text-ink-900">Full name</span>
+          <input
+            className={ui.input}
+            name="fullName"
+            placeholder="Alex Nguyen"
+            value={form.fullName}
+            onChange={handleChange}
+            required
+          />
+        </label>
+
+        <label className="grid gap-2">
+          <span className="text-sm font-semibold text-ink-900">Password</span>
+          <input
+            className={ui.input}
+            type="password"
+            name="password"
+            placeholder="Create a password for Kamatcha"
+            value={form.password}
+            onChange={handleChange}
+            autoComplete="new-password"
+            required
+          />
+        </label>
+
+        <label className="grid gap-2">
+          <span className="text-sm font-semibold text-ink-900">Confirm password</span>
+          <input
+            className={ui.input}
+            type="password"
+            name="confirmPassword"
+            placeholder="Re-enter password"
+            value={form.confirmPassword}
+            onChange={handleChange}
+            autoComplete="new-password"
+            required
+          />
+        </label>
+
+        {notice ? (
+          <div className="rounded-xl border border-matcha-200 bg-matcha-50 px-4 py-3 text-sm text-matcha-700">
+            {notice}
           </div>
+        ) : null}
 
-          <article className={`${ui.card} grid gap-4`}>
-            <div>
-              <p className={ui.eyebrow}>Google account</p>
-              <h2 className="text-xl font-semibold text-tea-900">{auth.user?.email}</h2>
-            </div>
-
-            <div className="rounded-[1.5rem] border border-matcha-900/10 bg-white/70 px-5 py-4 text-sm leading-7 text-stone-600">
-              This account already has an active session. After profile completion, the frontend
-              will keep using the current token, so you do not need to sign in again.
-            </div>
-          </article>
-        </div>
-
-        <form className={`${ui.panel} grid gap-5`} onSubmit={handleSubmit}>
-          <div>
-            <p className={ui.eyebrow}>Finish setup</p>
-            <p className="text-3xl font-bold tracking-tight text-tea-900">Add your details</p>
-            <p className="mt-3 text-sm leading-7 text-stone-600 sm:text-base">
-              Your full name will appear in your profile and orders. This password will be used for
-              normal Kamatcha sign-in later if you need it.
-            </p>
+        {error ? (
+          <div id="google-profile-error" role="alert" className="rounded-xl border border-danger-soft bg-danger-soft px-4 py-3 text-sm text-danger">
+            {error}
           </div>
+        ) : null}
 
-          <label className="grid gap-2">
-            <span className="text-sm font-semibold text-tea-900">Google email</span>
-            <input className={ui.input} type="email" value={auth.user?.email ?? ""} disabled />
-          </label>
+        <button
+          className={ui.primaryButton}
+          type="submit"
+          disabled={loading}
+          aria-busy={loading}
+        >
+          {loading ? "Updating..." : "Complete account"}
+        </button>
+      </form>
 
-          <label className="grid gap-2">
-            <span className="text-sm font-semibold text-tea-900">Full name</span>
-            <input
-              className={ui.input}
-              name="fullName"
-              placeholder="Alex Nguyen"
-              value={form.fullName}
-              onChange={handleChange}
-              required
-            />
-          </label>
-
-          <label className="grid gap-2">
-            <span className="text-sm font-semibold text-tea-900">Password</span>
-            <input
-              className={ui.input}
-              type="password"
-              name="password"
-              placeholder="Create a password for Kamatcha"
-              value={form.password}
-              onChange={handleChange}
-              autoComplete="new-password"
-              required
-            />
-          </label>
-
-          <label className="grid gap-2">
-            <span className="text-sm font-semibold text-tea-900">Confirm password</span>
-            <input
-              className={ui.input}
-              type="password"
-              name="confirmPassword"
-              placeholder="Re-enter password"
-              value={form.confirmPassword}
-              onChange={handleChange}
-              autoComplete="new-password"
-              required
-            />
-          </label>
-
-          {notice ? (
-            <div className="rounded-2xl bg-matcha-500/12 px-4 py-3 text-sm text-matcha-700">
-              {notice}
-            </div>
-          ) : null}
-
-          {error ? (
-            <div className="rounded-2xl bg-red-100/80 px-4 py-3 text-sm text-red-700">
-              {error}
-            </div>
-          ) : null}
-
-          <button className={ui.primaryButton} type="submit" disabled={loading}>
-            {loading ? "Updating..." : "Complete account"}
-          </button>
-
-          <div className="flex flex-wrap gap-3 text-sm text-stone-600">
-            <Link className="font-semibold text-matcha-700" to="/">
-              Back to home
-            </Link>
-            <button className="font-semibold text-matcha-700" type="button" onClick={() => auth.logout()}>
-              Sign out
-            </button>
-          </div>
-        </form>
-      </section>
-    </main>
+      {/* Footer links */}
+      <div className="mt-5 flex flex-wrap gap-4 text-sm text-ink-600">
+        <Link className="font-semibold text-matcha-700 hover:text-matcha-500" to="/">
+          Back to home
+        </Link>
+        <button
+          className="font-semibold text-matcha-700 hover:text-matcha-500"
+          type="button"
+          onClick={() => auth.logout()}
+        >
+          Sign out
+        </button>
+      </div>
+    </AuthLayout>
   );
 }

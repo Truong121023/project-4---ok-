@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import PaymentQrCard from "../components/PaymentQrCard";
+import CheckoutLayout from "../components/templates/checkout-layout";
 import { useAuth } from "../context/AuthContext";
 import { navigateToExternalUrl } from "../lib/externalNavigation";
 import {
@@ -22,6 +23,43 @@ function formatDateTime(value) {
   return formatDateTimeVn(value);
 }
 
+/** Stepper with "Confirm" active */
+function ConfirmStepper() {
+  const steps = ["Cart", "Delivery", "Payment", "Confirm"];
+  return (
+    <nav aria-label="Checkout steps">
+      <ol className="flex items-center gap-2 overflow-x-auto">
+        {steps.map((step, idx) => {
+          const isActive = idx === 3;
+          const isPast = idx < 3;
+          return (
+            <li key={step} className="flex items-center gap-2">
+              {idx > 0 && (
+                <span
+                  aria-hidden="true"
+                  className={`h-px w-6 shrink-0 sm:w-10 ${isPast ? "bg-matcha-300" : "bg-beige-300"}`}
+                />
+              )}
+              <span
+                className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] ${
+                  isActive
+                    ? "bg-matcha-500 text-cream-50"
+                    : isPast
+                      ? "bg-matcha-100 text-matcha-700"
+                      : "bg-cream-100 text-ink-400"
+                }`}
+              >
+                <span className="hidden sm:inline">{step}</span>
+                <span className="sm:hidden">{idx + 1}</span>
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  );
+}
+
 export default function CheckoutResultPage() {
   const auth = useAuth();
   const location = useLocation();
@@ -39,7 +77,6 @@ export default function CheckoutResultPage() {
     if (!checkoutResult) {
       return;
     }
-
     savePendingPaymentOrder(checkoutResult);
   }, [checkoutResult]);
 
@@ -57,7 +94,6 @@ export default function CheckoutResultPage() {
 
       try {
         const detail = await fetchUserOrderDetail(auth, orderId);
-
         if (!cancelled) {
           setCheckoutResult(detail);
         }
@@ -82,7 +118,6 @@ export default function CheckoutResultPage() {
     if (Array.isArray(checkoutResult?.orders) && checkoutResult.orders.length) {
       return checkoutResult.orders;
     }
-
     return checkoutResult ? [checkoutResult] : [];
   }, [checkoutResult]);
 
@@ -90,187 +125,205 @@ export default function CheckoutResultPage() {
   const paymentStatusMeta = getPaymentStatusMeta(checkoutResult?.paymentStatus);
   const orderStatusMeta = getOrderStatusMeta(checkoutResult?.status);
 
+  /* ---------- Next-step rail (right column) ---------- */
+  const nextStepRail = checkoutResult ? (
+    <>
+      <h2 className="font-display text-xl font-semibold text-ink-900">Next step</h2>
+      <p className="mt-2 text-sm leading-7 text-ink-600">
+        Complete the transfer, then refresh or open the order page to follow the status.
+      </p>
+
+      <div className="mt-5 grid gap-3">
+        {[
+          { label: "Payment", value: paymentStatusMeta.label },
+          {
+            label: "Orders created",
+            value: createdOrders.length.toLocaleString("vi-VN"),
+          },
+          { label: "Order stage", value: orderStatusMeta.label },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="flex items-center justify-between gap-3 rounded-lg border border-ink-900/10 bg-cream-100/60 px-4 py-3"
+          >
+            <span className="text-sm text-ink-600">{stat.label}</span>
+            <strong className="text-sm font-semibold text-ink-900">{stat.value}</strong>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-5 flex flex-col gap-3">
+        {checkoutResult.paymentCheckoutUrl && (
+          <button
+            className={ui.primaryButton}
+            type="button"
+            onClick={() => navigateToExternalUrl(checkoutResult.paymentCheckoutUrl)}
+          >
+            Open PayOS
+          </button>
+        )}
+        {primaryOrderId && (
+          <Link
+            className={ui.secondaryButton}
+            to={`/payment/success?orderId=${primaryOrderId}`}
+          >
+            I have paid — refresh status
+          </Link>
+        )}
+        {primaryOrderId && (
+          <Link className={ui.secondaryButton} to={`/orders/${primaryOrderId}`}>
+            Track primary order
+          </Link>
+        )}
+        <Link className={ui.secondaryButton} to="/orders">
+          Order history
+        </Link>
+        <Link className={ui.secondaryButton} to="/cart">
+          Back to cart
+        </Link>
+      </div>
+    </>
+  ) : null;
+
   return (
     <main className={ui.page}>
-      <section className={ui.panel}>
-        <p className={ui.eyebrow}>Checkout result</p>
-        <h1 className={ui.bannerTitle}>Payment details ready</h1>
-        <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-700">
-          Your order has been created. Review the transfer details, complete the payment, then
-          track the order status from the next step.
-        </p>
-      </section>
+      <CheckoutLayout
+        stepper={<ConfirmStepper />}
+        summary={checkoutResult ? nextStepRail : null}
+      >
+        {/* Page header */}
+        <div className="mb-6">
+          <p className={ui.eyebrow}>Checkout result</p>
+          <h1 className="font-display text-3xl font-bold leading-tight tracking-tight text-ink-900 sm:text-4xl">
+            Payment details ready
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-ink-600">
+            Your order has been created. Review the transfer details, complete the payment, then
+            track the order status from the next step.
+          </p>
+        </div>
 
-      {loading ? (
-        <section className={ui.panel}>
-          <div className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
+        {/* Loading */}
+        {loading && (
+          <div className="rounded-xl border border-dashed border-ink-900/15 bg-cream-50/50 p-6 text-sm text-ink-600">
             Loading the payment details...
           </div>
-        </section>
-      ) : null}
+        )}
 
-      {!loading && error ? (
-        <section className={ui.panel}>
-          <div className="rounded-[1.5rem] border border-red-200 bg-red-50/80 p-6 text-sm leading-7 text-red-700">
+        {/* Error */}
+        {!loading && error && (
+          <div
+            role="alert"
+            className="rounded-xl border border-rose-200 bg-rose-50/80 p-6 text-sm leading-7 text-rose-700"
+          >
             {error}
           </div>
-        </section>
-      ) : null}
+        )}
 
-      {!loading && checkoutResult ? (
-        <section className="grid gap-6 xl:grid-cols-[1.04fr_0.96fr]">
+        {/* Result content */}
+        {!loading && checkoutResult && (
           <div className="grid gap-6">
-            <article className={`${ui.card} overflow-hidden bg-[linear-gradient(135deg,rgba(23,51,42,0.98),rgba(59,92,76,0.94))] text-white`}>
-              <div className="grid gap-4">
-                <span className="inline-flex w-fit rounded-full bg-white/14 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white">
+            {/* Hero status card */}
+            <article className="overflow-hidden rounded-xl border border-ink-900/10 shadow-soft">
+              <div className="bg-gradient-to-r from-matcha-900 to-matcha-700 px-6 py-6 text-cream-50">
+                <span className="inline-flex rounded-full bg-cream-50/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em]">
                   {checkoutResult.statusSummary || "Payment session created"}
                 </span>
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.18em] text-white/70">
-                    Total payment
-                  </p>
-                  <strong className="mt-3 block text-4xl font-bold">
-                    {formatPrice(checkoutResult.totalAmount)}
-                  </strong>
-                </div>
-                <div className="flex flex-wrap gap-3 text-sm text-white/82">
+                <p className="mt-4 text-xs font-bold uppercase tracking-[0.18em] text-cream-50/70">
+                  Total payment
+                </p>
+                <strong className="mt-2 block font-display text-4xl font-bold">
+                  {formatPrice(checkoutResult.totalAmount)}
+                </strong>
+                <div className="mt-4 flex flex-wrap gap-3 text-sm text-cream-50/80">
                   <span>{paymentStatusMeta.label}</span>
                   <span>{formatDeliveryTypeLabel(checkoutResult.deliveryType)}</span>
-                  {checkoutResult.promotionCode ? <span>{checkoutResult.promotionCode}</span> : null}
+                  {checkoutResult.promotionCode && (
+                    <span>{checkoutResult.promotionCode}</span>
+                  )}
                 </div>
               </div>
             </article>
 
+            {/* QR card — internals untouched */}
             <PaymentQrCard
               order={checkoutResult}
               title="PayOS QR"
               subtitle="Scan the QR code from your banking app or open PayOS in a new tab to finish payment."
             />
 
-            <article className={ui.card}>
-              <h2 className="text-2xl font-semibold text-tea-900">Delivery details</h2>
-              <div className="mt-5 grid gap-2 text-sm leading-7 text-stone-600">
+            {/* Delivery details */}
+            <article className="rounded-xl border border-ink-900/10 bg-cream-50 p-5 shadow-soft">
+              <h2 className="font-display text-xl font-semibold text-ink-900">Delivery details</h2>
+              <div className="mt-4 grid gap-2 text-sm leading-7 text-ink-600">
                 <span>Recipient: {checkoutResult.deliveryFullName || "N/A"}</span>
                 <span>Phone: {checkoutResult.deliveryPhoneNumber || "N/A"}</span>
                 <span>Address: {checkoutResult.deliveryAddress || "N/A"}</span>
                 <span>Payment: {paymentStatusMeta.label}</span>
                 <span>Order stage: {orderStatusMeta.label}</span>
-                {checkoutResult.scheduledDeliveryAt ? (
+                {checkoutResult.scheduledDeliveryAt && (
                   <span>Scheduled for: {formatDateTime(checkoutResult.scheduledDeliveryAt)}</span>
-                ) : null}
+                )}
                 {checkoutResult.shippingFeeAmount !== undefined &&
-                checkoutResult.shippingFeeAmount !== null ? (
-                  <span>Shipping fee: {formatPrice(checkoutResult.shippingFeeAmount)}</span>
-                ) : null}
+                  checkoutResult.shippingFeeAmount !== null && (
+                    <span>Shipping fee: {formatPrice(checkoutResult.shippingFeeAmount)}</span>
+                  )}
                 {checkoutResult.shippingDistanceKm !== undefined &&
-                checkoutResult.shippingDistanceKm !== null ? (
+                  checkoutResult.shippingDistanceKm !== null && (
+                    <span>
+                      Shipping distance:{" "}
+                      {formatShippingDistance(checkoutResult.shippingDistanceKm)}
+                    </span>
+                  )}
+                {checkoutResult.shippingFeeBreakdown?.length > 0 && (
                   <span>
-                    Shipping distance: {formatShippingDistance(checkoutResult.shippingDistanceKm)}
+                    Per-store breakdown:{" "}
+                    {formatShippingBreakdown(checkoutResult.shippingFeeBreakdown)}
                   </span>
-                ) : null}
-                {checkoutResult.shippingFeeBreakdown?.length ? (
-                  <span>
-                    Per-store breakdown: {formatShippingBreakdown(checkoutResult.shippingFeeBreakdown)}
-                  </span>
-                ) : null}
+                )}
               </div>
             </article>
 
-            <article className={ui.card}>
-              <h2 className="text-2xl font-semibold text-tea-900">Created orders</h2>
-              <div className="mt-5 grid gap-4">
+            {/* Created orders list */}
+            <article className="rounded-xl border border-ink-900/10 bg-cream-50 p-5 shadow-soft">
+              <h2 className="font-display text-xl font-semibold text-ink-900">Created orders</h2>
+              <div className="mt-4 grid gap-4">
                 {createdOrders.map((order) => (
-                  <article
+                  <div
                     key={order.id}
-                    className="rounded-[1.25rem] border border-matcha-900/10 bg-white/72 p-4"
+                    className="rounded-lg border border-ink-900/10 bg-cream-100/60 p-4"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <h3 className="text-lg font-semibold text-tea-900">{order.storeName}</h3>
-                        <p className="mt-1 text-sm text-stone-600">
-                          Order #{order.id} • {getOrderStatusMeta(order.status).label}
+                        <h3 className="font-display text-base font-semibold text-ink-900">
+                          {order.storeName}
+                        </h3>
+                        <p className="mt-1 text-sm text-ink-500">
+                          Order #{order.id} · {getOrderStatusMeta(order.status).label}
                         </p>
                       </div>
-                      <strong className="text-lg font-bold text-matcha-700">
-                        {formatPrice(order.totalAmount)}
-                      </strong>
+                      <strong className={ui.price}>{formatPrice(order.totalAmount)}</strong>
                     </div>
-                    <div className="mt-3 grid gap-1 text-sm text-stone-600">
+                    <div className="mt-3 grid gap-1 text-sm text-ink-600">
                       <span>Payment: {getPaymentStatusMeta(order.paymentStatus).label}</span>
                       <span>Delivery: {formatDeliveryTypeLabel(order.deliveryType)}</span>
-                      {order.shippingFeeAmount !== undefined && order.shippingFeeAmount !== null ? (
-                        <span>Shipping fee: {formatPrice(order.shippingFeeAmount)}</span>
-                      ) : null}
+                      {order.shippingFeeAmount !== undefined &&
+                        order.shippingFeeAmount !== null && (
+                          <span>Shipping fee: {formatPrice(order.shippingFeeAmount)}</span>
+                        )}
                     </div>
-                    <div className="mt-4 flex flex-wrap gap-3">
+                    <div className="mt-4">
                       <Link className={ui.primaryButton} to={`/orders/${order.id}`}>
                         Track this order
                       </Link>
                     </div>
-                  </article>
+                  </div>
                 ))}
               </div>
             </article>
           </div>
-
-          <aside className={`${ui.card} h-fit`}>
-            <h2 className="text-2xl font-semibold text-tea-900">Next step</h2>
-            <p className="mt-2 text-sm leading-7 text-stone-600">
-              Complete the transfer, then refresh or open the order page to follow the status from
-              preparing to delivery.
-            </p>
-
-            <div className="mt-5 grid gap-3">
-              <div className="rounded-[1.2rem] border border-matcha-900/10 bg-white/72 p-4">
-                <strong className="block text-lg font-bold text-tea-900">{paymentStatusMeta.label}</strong>
-                <span className="mt-1 block text-sm text-stone-600">Payment</span>
-              </div>
-              <div className="rounded-[1.2rem] border border-matcha-900/10 bg-white/72 p-4">
-                <strong className="block text-lg font-bold text-tea-900">
-                  {createdOrders.length.toLocaleString("vi-VN")}
-                </strong>
-                <span className="mt-1 block text-sm text-stone-600">Orders created</span>
-              </div>
-              <div className="rounded-[1.2rem] border border-matcha-900/10 bg-white/72 p-4">
-                <strong className="block text-lg font-bold text-tea-900">{orderStatusMeta.label}</strong>
-                <span className="mt-1 block text-sm text-stone-600">Current order stage</span>
-              </div>
-            </div>
-
-            <div className="mt-5 flex flex-wrap gap-3">
-              {checkoutResult.paymentCheckoutUrl ? (
-                <button
-                  className={ui.primaryButton}
-                  type="button"
-                  onClick={() => navigateToExternalUrl(checkoutResult.paymentCheckoutUrl)}
-                >
-                  Open PayOS
-                </button>
-              ) : null}
-
-              {primaryOrderId ? (
-                <Link className={ui.secondaryButton} to={`/payment/success?orderId=${primaryOrderId}`}>
-                  I have paid - refresh status
-                </Link>
-              ) : null}
-
-              {primaryOrderId ? (
-                <Link className={ui.secondaryButton} to={`/orders/${primaryOrderId}`}>
-                  Track primary order
-                </Link>
-              ) : null}
-
-              <Link className={ui.secondaryButton} to="/orders">
-                Order history
-              </Link>
-
-              <Link className={ui.secondaryButton} to="/cart">
-                Back to cart
-              </Link>
-            </div>
-          </aside>
-        </section>
-      ) : null}
+        )}
+      </CheckoutLayout>
     </main>
   );
 }

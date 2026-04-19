@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import AdminHomepageSidebar from "../components/AdminHomepageSidebar";
+import AdminPageHeader from "../components/admin/admin-page-header";
+import AdminStatCard from "../components/admin/admin-stat-card";
 import { sectionTabs } from "../components/admin/adminSchema";
 import { useAuth } from "../context/AuthContext";
 import { apiRequest, getApiErrorMessage } from "../lib/api";
@@ -648,137 +650,88 @@ export default function AdminHomePage() {
 
   return (
     <main className={ui.page}>
-      <div className="grid gap-6 xl:grid-cols-[18rem_minmax(0,1fr)]">
+      <div className="grid gap-5 xl:grid-cols-[18rem_minmax(0,1fr)]">
         <AdminHomepageSidebar />
-        <div className="grid gap-7">
+        <div className="grid gap-5">
           <section className={ui.panel}>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className={ui.eyebrow}>Overview</p>
-            <h2 className="text-3xl font-bold tracking-tight text-tea-900">
-              Performance Review
-            </h2>
-          </div>
+            <AdminPageHeader
+              eyebrow="Overview"
+              title="Performance Review"
+              actions={
+                <Link className={ui.secondaryButton} to={buildAdminWorkspacePath({ sectionKey: "orders" })}>
+                  Orders
+                </Link>
+              }
+            />
 
-          <Link className={ui.secondaryButton} to={buildAdminWorkspacePath({ sectionKey: "orders" })}>
-            Orders
-          </Link>
-        </div>
-
-        {error ? (
-          <div className="mt-5 rounded-2xl bg-red-100/80 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        ) : null}
-
-        <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1.85fr)]">
-          {metricCards[0] ? (
-            <article className="overflow-hidden rounded-[1.8rem] border border-matcha-700/15 bg-gradient-to-br from-[#203228] to-[#314838] p-6 text-white shadow-[0_18px_44px_rgba(34,40,24,0.2)]">
-              <div className="flex h-full min-h-[18rem] flex-col justify-between gap-8">
-                <p
-                  className="truncate whitespace-nowrap text-sm uppercase tracking-[0.22em] text-white/60"
-                  title={metricCards[0].label}
-                >
-                  {metricCards[0].label}
-                </p>
-                <strong
-                  className="block truncate text-[clamp(2.2rem,4.2vw,3.6rem)] font-semibold leading-none tracking-tight text-white"
-                  title={String(loading ? "Loading..." : metricCards[0].value)}
-                >
-                  {loading ? "Loading..." : metricCards[0].value}
-                </strong>
+            {error ? (
+              <div className="mt-4 rounded-lg border border-danger/20 bg-danger-soft px-3 py-2.5 text-sm text-danger">
+                {error}
               </div>
-            </article>
-          ) : null}
+            ) : null}
 
-          <div className="grid gap-3">
-            {metricCards.slice(1).map((card) => (
-              <article
-                key={card.label}
-                className="w-full overflow-hidden rounded-[1.45rem] border border-matcha-900/10 bg-white/75 p-4"
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <p
-                    className="min-w-0 truncate whitespace-nowrap text-xs uppercase tracking-[0.2em] text-stone-500 sm:text-sm"
-                    title={card.label}
-                  >
-                    {card.label}
-                  </p>
-                  <strong
-                    className="shrink-0 truncate whitespace-nowrap text-[clamp(1.2rem,2vw,1.7rem)] font-semibold leading-tight text-tea-900"
-                    title={String(loading ? "Loading..." : card.value)}
-                  >
-                    {loading ? "Loading..." : card.value}
-                  </strong>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {metricCards.map((card, idx) => (
+                <AdminStatCard
+                  key={card.label}
+                  label={card.label}
+                  value={loading ? "—" : card.value}
+                  featured={idx === 0}
+                />
+              ))}
+            </div>
           </section>
 
           <section className={ui.panel}>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className={ui.eyebrow}>Weekly Activity</p>
-                <h2 className="text-3xl font-bold tracking-tight text-tea-900">
-                  Orders over time
-                </h2>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
-                    From
-                  </label>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <AdminPageHeader eyebrow="Weekly Activity" title="Orders over time" />
+              <div className="flex flex-wrap items-end gap-3">
+                <label className="grid gap-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">From</span>
                   <input
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="rounded-[0.8rem] border border-matcha-900/10 bg-white/75 px-3 py-2 text-sm font-medium text-tea-900 transition hover:bg-white focus:border-matcha-500/50 focus:outline-none focus:ring-1 focus:ring-matcha-500/30"
+                    className={ui.input}
                   />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
-                    To
-                  </label>
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">To</span>
                   <input
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="rounded-[0.8rem] border border-matcha-900/10 bg-white/75 px-3 py-2 text-sm font-medium text-tea-900 transition hover:bg-white focus:border-matcha-500/50 focus:outline-none focus:ring-1 focus:ring-matcha-500/30"
+                    className={ui.input}
                   />
+                </label>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-ink-500">Total</p>
+                  <strong className="block font-mono text-xl font-semibold text-ink-900">
+                    {loading ? "—" : formatCount(totalWeeklyOrders)}
+                  </strong>
                 </div>
-              </div>
-              <div className="text-right">
-                <p className="text-xs uppercase tracking-[0.2em] text-stone-500">Total</p>
-                <strong className="mt-2 block text-3xl font-semibold text-tea-900">
-                  {loading ? "..." : formatCount(totalWeeklyOrders)}
-                </strong>
               </div>
             </div>
 
-            <p className="mt-3 text-xs text-stone-500">
-              📌 Chart displays maximum 7 days. If range exceeds 7 days, the last 7 days will be shown.
+            <p className="mt-2 text-xs text-ink-400">
+              Chart shows max 7 days. Longer ranges show the last 7 days.
             </p>
 
-            <div className="mt-6">
-              <div className="flex items-end justify-between gap-3">
+            <div className="mt-4">
+              <div className="flex items-end justify-between gap-2">
                 {weeklyOrdersSeries.map((day) => {
                   const barHeight = maxDayOrders > 0 ? (day.count / maxDayOrders) * 100 : 0;
                   return (
-                    <div
-                      key={day.isoDate}
-                      className="flex flex-1 flex-col items-center gap-2"
-                    >
-                      <div className="w-full rounded-t-[0.5rem] bg-matcha-500/20" style={{ height: `${Math.max(barHeight * 1.5, 8)}px` }}>
+                    <div key={day.isoDate} className="flex flex-1 flex-col items-center gap-1.5">
+                      <div className="w-full rounded-t bg-matcha-100" style={{ height: `${Math.max(barHeight * 1.2, 6)}px` }}>
                         <div
-                          className="w-full rounded-t-[0.5rem] bg-gradient-to-t from-matcha-500 to-matcha-400 transition-all"
-                          style={{ height: `${barHeight * 1.5}px` }}
+                          className="w-full rounded-t bg-matcha-500 transition-all"
+                          style={{ height: `${barHeight * 1.2}px` }}
                         />
                       </div>
                       <div className="text-center">
-                        <p className="text-xs font-semibold text-tea-900">{day.count}</p>
-                        <p className="text-xs text-stone-500">{day.date}</p>
+                        <p className="font-mono text-xs font-semibold text-ink-900">{day.count}</p>
+                        <p className="text-[11px] text-ink-400">{day.date}</p>
                       </div>
                     </div>
                   );
@@ -788,71 +741,58 @@ export default function AdminHomePage() {
           </section>
 
           <section className={ui.panel}>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className={ui.eyebrow}>Store Performance</p>
-                <h2 className="text-3xl font-bold tracking-tight text-tea-900">
-                  Orders by store
-                </h2>
-              </div>
-              <div className="grid gap-3 rounded-[1.4rem] border border-matcha-900/10 bg-white/80 p-4 sm:min-w-[24rem] sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-                <div className="grid gap-1">
-                  <label className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
-                    From
-                  </label>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <AdminPageHeader eyebrow="Store Performance" title="Orders by store" />
+              <div className="flex flex-wrap items-end gap-3 rounded-lg border border-ink-900/8 bg-cream-100 px-3 py-2.5 sm:min-w-[22rem]">
+                <label className="grid gap-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">From</span>
                   <input
                     type="date"
                     value={normalizedStoreRange.startDate}
                     onChange={(event) => handleStoreRangeChange("startDate", event.target.value)}
-                    className="rounded-[0.95rem] border border-matcha-900/10 bg-white px-3 py-2.5 text-sm font-medium text-tea-900 transition hover:bg-white focus:border-matcha-500/50 focus:outline-none focus:ring-1 focus:ring-matcha-500/30"
+                    className={ui.input}
                   />
-                </div>
-                <div className="grid gap-1">
-                  <label className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
-                    To
-                  </label>
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">To</span>
                   <input
                     type="date"
                     value={normalizedStoreRange.endDate}
                     onChange={(event) => handleStoreRangeChange("endDate", event.target.value)}
-                    className="rounded-[0.95rem] border border-matcha-900/10 bg-white px-3 py-2.5 text-sm font-medium text-tea-900 transition hover:bg-white focus:border-matcha-500/50 focus:outline-none focus:ring-1 focus:ring-matcha-500/30"
+                    className={ui.input}
                   />
-                </div>
-                <div className="text-right">
-                  <p className="text-xs uppercase tracking-[0.2em] text-stone-500">Total</p>
-                  <strong className="mt-2 block text-3xl font-semibold text-tea-900">
-                    {loading ? "..." : formatCount(totalStoreOrders)}
+                </label>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-ink-500">Total</p>
+                  <strong className="block font-mono text-xl font-semibold text-ink-900">
+                    {loading ? "—" : formatCount(totalStoreOrders)}
                   </strong>
                 </div>
               </div>
             </div>
 
-            <p className="mt-3 text-xs text-stone-500">
-              Only the latest 7 days are used. If you select a longer range, the system shows the
-              most recent 7 days ending at the chosen `To` date.
+            <p className="mt-2 text-xs text-ink-400">
+              Max 7 days. Longer ranges show the last 7 days ending at the chosen end date.
             </p>
 
-            <div className="mt-6">
+            <div className="mt-4">
               {ordersByStoreSeries.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {ordersByStoreSeries.map((store) => {
                     const barWidth = maxStoreOrders > 0 ? (store.count / maxStoreOrders) * 100 : 0;
                     return (
-                      <div
-                        key={store.storeName}
-                        className="flex flex-col gap-2"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="max-w-xs truncate text-sm font-semibold text-tea-900">
+                      <div key={store.storeName} className="flex flex-col gap-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="max-w-xs truncate text-sm font-medium text-ink-900">
                             {store.storeName}
                           </p>
-                          <span className="text-xs font-semibold text-stone-600">
-                            {store.count} orders
+                          <span className="font-mono text-xs font-semibold text-ink-600">
+                            {store.count}
                           </span>
                         </div>
-                        <div className="h-2 w-full rounded-full bg-matcha-500/20">
+                        <div className="h-1.5 w-full rounded-full bg-matcha-100">
                           <div
-                            className="h-2 rounded-full bg-gradient-to-r from-matcha-400 to-matcha-500 transition-all"
+                            className="h-1.5 rounded-full bg-matcha-500 transition-all"
                             style={{ width: `${barWidth}%` }}
                           />
                         </div>
@@ -861,121 +801,103 @@ export default function AdminHomePage() {
                   })}
                 </div>
               ) : (
-                <div className="rounded-[1.4rem] border border-dashed border-matcha-900/15 bg-white/65 p-4 text-sm text-stone-600">
-                  No orders data available for the selected date range.
+                <div className="rounded-lg border border-dashed border-ink-900/10 bg-cream-100 p-4 text-sm text-ink-400">
+                  No orders data for the selected date range.
                 </div>
               )}
             </div>
           </section>
 
-          <section className={`${ui.panel} overflow-hidden`}>
-            <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
-              <div className="text-center">
-                <p className={ui.eyebrow}>Best sellers</p>
-                <h2 className="text-3xl font-bold tracking-tight text-tea-900">
-                  {revenueSummary?.scopeStoreName
-                    ? `Top dishes in ${revenueSummary.scopeStoreName}`
-                    : "Top dishes in the current scope"}
-                </h2>
-                <p className="mx-auto mt-3 max-w-3xl text-sm leading-7 text-stone-600">
-                  This panel focuses on the dishes driving volume in the most recent 7-day window.
-                  If a longer range is selected, the system automatically falls back to the latest 7 days.
-                </p>
-              </div>
-
-              <div className="grid gap-4 rounded-[1.6rem] border border-matcha-900/10 bg-[#fbfaf6] p-5 lg:grid-cols-[1fr_1fr_auto_auto] lg:items-end">
-                <div className="grid gap-1">
-                  <label className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
-                    From
-                  </label>
+          <section className={ui.panel}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <AdminPageHeader
+                eyebrow="Best sellers"
+                title={
+                  revenueSummary?.scopeStoreName
+                    ? `Top dishes — ${revenueSummary.scopeStoreName}`
+                    : "Top dishes in current scope"
+                }
+                subtitle="Dishes driving volume in the last 7-day window."
+              />
+              <div className="flex flex-wrap items-end gap-3 rounded-lg border border-ink-900/8 bg-cream-100 px-3 py-2.5">
+                <label className="grid gap-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">From</span>
                   <input
                     type="date"
                     value={normalizedBestSellerRange.startDate}
                     onChange={(event) => handleBestSellerRangeChange("startDate", event.target.value)}
-                    className="rounded-[0.95rem] border border-matcha-900/10 bg-white px-3 py-2.5 text-sm font-medium text-tea-900 transition hover:bg-white focus:border-matcha-500/50 focus:outline-none focus:ring-1 focus:ring-matcha-500/30"
+                    className={ui.input}
                   />
-                </div>
-                <div className="grid gap-1">
-                  <label className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">
-                    To
-                  </label>
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">To</span>
                   <input
                     type="date"
                     value={normalizedBestSellerRange.endDate}
                     onChange={(event) => handleBestSellerRangeChange("endDate", event.target.value)}
-                    className="rounded-[0.95rem] border border-matcha-900/10 bg-white px-3 py-2.5 text-sm font-medium text-tea-900 transition hover:bg-white focus:border-matcha-500/50 focus:outline-none focus:ring-1 focus:ring-matcha-500/30"
+                    className={ui.input}
                   />
-                </div>
-                <div className="rounded-[1.15rem] border border-matcha-900/10 bg-white/85 px-4 py-3 text-center">
-                  <p className="text-xs uppercase tracking-[0.2em] text-stone-500">Total sold</p>
-                  <strong className="mt-2 block text-3xl font-semibold text-tea-900">
-                    {loading ? "..." : formatCount(totalBestSellerQuantity)}
+                </label>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-ink-500">Total sold</p>
+                  <strong className="block font-mono text-xl font-semibold text-ink-900">
+                    {loading ? "—" : formatCount(totalBestSellerQuantity)}
                   </strong>
                 </div>
-                <div className="flex justify-end lg:justify-start">
-                  <Link className={ui.secondaryButton} to={buildAdminWorkspacePath({ sectionKey: "feedbacks" })}>
-                    Customer feedback
-                  </Link>
-                </div>
+                <Link className={ui.secondaryButton} to={buildAdminWorkspacePath({ sectionKey: "feedbacks" })}>
+                  Customer feedback
+                </Link>
               </div>
+            </div>
 
+            <div className="mt-4">
               {loading ? (
-                <div className="rounded-[1.4rem] border border-dashed border-matcha-900/15 bg-white/65 p-4 text-sm text-stone-600">
-                  Loading analytics...
+                <div className="rounded-lg border border-dashed border-ink-900/10 bg-cream-100 p-4 text-sm text-ink-400">
+                  Loading analytics…
                 </div>
               ) : topSellingDishes.length ? (
-                <div className="grid gap-4 lg:grid-cols-2">
+                <div className="grid gap-3 lg:grid-cols-2">
                   {topSellingDishes.map((dish, index) => (
                     <article
                       key={`admin-home-top-selling-${dish.storeId ?? "all"}-${dish.dishId ?? index}`}
-                      className="rounded-[1.5rem] border border-matcha-900/10 bg-white/82 p-5 shadow-[0_18px_40px_rgba(79,70,45,0.08)]"
+                      className="rounded-lg border border-ink-900/8 bg-cream-50 p-4 shadow-soft"
                     >
-                      <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate text-xl font-semibold text-tea-900">
+                          <p className="truncate text-sm font-semibold text-ink-900">
                             {dish.dishName || "Dish"}
                           </p>
-                          <p className="mt-1 truncate text-sm text-stone-600">
+                          <p className="mt-0.5 truncate text-xs text-ink-500">
                             {dish.storeName || "All stores"}
                           </p>
                         </div>
-                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-matcha-500/10 text-sm font-semibold text-matcha-700">
+                        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-matcha-100 text-xs font-semibold text-matcha-700">
                           #{index + 1}
                         </span>
                       </div>
 
-                      <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                        <div className="rounded-[1rem] border border-matcha-900/10 bg-[#f8f4ea] p-3">
-                          <span className="block text-[11px] uppercase tracking-[0.16em] text-stone-500">
-                            Quantity sold
-                          </span>
-                          <strong className="mt-1 block text-lg text-tea-900">
-                            {formatCount(dish.quantitySold)}
-                          </strong>
-                        </div>
-                        <div className="rounded-[1rem] border border-matcha-900/10 bg-[#f8f4ea] p-3">
-                          <span className="block text-[11px] uppercase tracking-[0.16em] text-stone-500">
-                            Orders
-                          </span>
-                          <strong className="mt-1 block text-lg text-tea-900">
-                            {formatCount(dish.orderCount)}
-                          </strong>
-                        </div>
-                        <div className="rounded-[1rem] border border-matcha-900/10 bg-[#f8f4ea] p-3">
-                          <span className="block text-[11px] uppercase tracking-[0.16em] text-stone-500">
-                            Revenue
-                          </span>
-                          <strong className="mt-1 block text-lg text-tea-900">
-                            {formatCurrency(dish.revenue)}
-                          </strong>
-                        </div>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                        {[
+                          { label: "Qty sold", value: formatCount(dish.quantitySold) },
+                          { label: "Orders", value: formatCount(dish.orderCount) },
+                          { label: "Revenue", value: formatCurrency(dish.revenue) },
+                        ].map((stat) => (
+                          <div key={stat.label} className="rounded-md border border-ink-900/8 bg-beige-100 px-2.5 py-2">
+                            <span className="block text-[11px] uppercase tracking-[0.14em] text-ink-500">
+                              {stat.label}
+                            </span>
+                            <strong className="mt-0.5 block font-mono text-sm text-ink-900">
+                              {stat.value}
+                            </strong>
+                          </div>
+                        ))}
                       </div>
                     </article>
                   ))}
                 </div>
               ) : (
-                <div className="rounded-[1.4rem] border border-dashed border-matcha-900/15 bg-white/65 p-4 text-sm leading-7 text-stone-600">
-                  There is no top-selling dish data yet for the current analytics scope.
+                <div className="rounded-lg border border-dashed border-ink-900/10 bg-cream-100 p-4 text-sm text-ink-400">
+                  No top-selling dish data yet for the current analytics scope.
                 </div>
               )}
             </div>

@@ -5,6 +5,7 @@ import BrandLogo from "../components/BrandLogo";
 import QuickAddToCartButton from "../components/QuickAddToCartButton";
 import QuickFavoriteButton from "../components/QuickFavoriteButton";
 import SmartImage from "../components/SmartImage";
+import EditorialLayout from "../components/templates/editorial-layout";
 import { useAuth } from "../context/AuthContext";
 import useAdminOperationHref from "../hooks/useAdminOperationHref";
 import { getCartAvailabilityDecision, getCartSuccessMessage } from "../lib/cartAvailability";
@@ -33,45 +34,27 @@ function formatPromotionValue(promotion) {
   if (String(promotion?.discountType ?? "").toUpperCase() === "PERCENT") {
     return `${Number(promotion?.discountValue ?? 0).toLocaleString("en-US")}%`;
   }
-
   return formatCurrency(promotion?.discountValue ?? 0);
 }
 
 function formatPromotionTarget(promotion) {
   const normalized = String(promotion?.discountTarget ?? "ITEMS").toUpperCase();
-
-  if (normalized === "SHIPPING") {
-    return "Shipping fee";
-  }
-
-  if (normalized === "BOTH") {
-    return "Items + shipping";
-  }
-
+  if (normalized === "SHIPPING") return "Shipping fee";
+  if (normalized === "BOTH") return "Items + shipping";
   return "Signature items";
 }
 
 function statusLabel(store) {
-  if (store?.disabled) {
-    return store.disabledReason || "Temporarily unavailable";
-  }
-
-  if (store?.open) {
-    return "Serving now";
-  }
-
+  if (store?.disabled) return store.disabledReason || "Temporarily unavailable";
+  if (store?.open) return "Serving now";
   return "Updating";
 }
 
 function getStoreHoursLabel(store) {
-  if (String(store?.hours || "").trim()) {
-    return store.hours;
-  }
-
+  if (String(store?.hours || "").trim()) return store.hours;
   if (String(store?.openTime || "").trim() && String(store?.closeTime || "").trim()) {
     return `${store.openTime} - ${store.closeTime}`;
   }
-
   return "Daily service";
 }
 
@@ -103,8 +86,7 @@ function buildRoleHomePanel(auth, operationHref) {
     return {
       eyebrow: "Admin home",
       title: `Welcome back, ${displayName}.`,
-      description:
-        "Your admin homepage provides quick access to operations, store management, and system analytics.",
+      description: "Your admin homepage provides quick access to operations, store management, and system analytics.",
       facts: [
         { label: "Role", value: "Administrator" },
         { label: "Account", value: email },
@@ -121,8 +103,7 @@ function buildRoleHomePanel(auth, operationHref) {
     return {
       eyebrow: "Manager home",
       title: `Welcome back, ${displayName}.`,
-      description:
-        "Your manager homepage focuses on store operations and team management for your assigned location.",
+      description: "Your manager homepage focuses on store operations and team management for your assigned location.",
       facts: [
         { label: "Role", value: "Manager" },
         { label: "Account", value: email },
@@ -139,8 +120,7 @@ function buildRoleHomePanel(auth, operationHref) {
     return {
       eyebrow: "User home",
       title: `Welcome back, ${displayName}.`,
-      description:
-        "Your homepage highlights the sections used most often after sign-in: account details, membership, and order history.",
+      description: "Your homepage highlights the sections used most often after sign-in: account details, membership, and order history.",
       facts: [
         { label: "Role", value: "User" },
         { label: "Account", value: email },
@@ -158,8 +138,7 @@ function buildRoleHomePanel(auth, operationHref) {
     return {
       eyebrow: "Staff home",
       title: `Staff workspace for ${displayName}.`,
-      description:
-        "This homepage now surfaces your operational context first, then keeps the public storefront below.",
+      description: "This homepage now surfaces your operational context first, then keeps the public storefront below.",
       facts: [
         { label: "Role", value: "Staff" },
         { label: "Working store", value: workingStoreName },
@@ -176,8 +155,7 @@ function buildRoleHomePanel(auth, operationHref) {
     return {
       eyebrow: "Shipper home",
       title: `Delivery workspace for ${displayName}.`,
-      description:
-        "This homepage points you directly to the delivery board and keeps your assigned store visible after login.",
+      description: "This homepage points you directly to the delivery board and keeps your assigned store visible after login.",
       facts: [
         { label: "Role", value: "Shipper" },
         { label: "Working store", value: workingStoreName },
@@ -210,7 +188,6 @@ function SectionIntro({ eyebrow, title, description, action }) {
         <h2 className={ui.sectionTitle}>{title}</h2>
         {description ? <p className={ui.copy}>{description}</p> : null}
       </div>
-
       {action ? (
         <Link className={ui.secondaryButton} to={action.to}>
           {action.label}
@@ -256,39 +233,25 @@ export default function HomePage() {
           fetchPublicDishes({ page: 0, size: 6, sort: "top_rated", franchiseRequired: true }),
         ]);
 
-        if (cancelled) {
-          return;
-        }
+        if (cancelled) return;
 
         setHomeData(homeResponse);
         setTopStores(
-          homeResponse.featuredStores.length
-            ? homeResponse.featuredStores
-            : storesResponse.items,
+          homeResponse.featuredStores.length ? homeResponse.featuredStores : storesResponse.items,
         );
         setTopDishes(
-          homeResponse.featuredDishes.length
-            ? homeResponse.featuredDishes
-            : dishesResponse.items,
+          homeResponse.featuredDishes.length ? homeResponse.featuredDishes : dishesResponse.items,
         );
       } catch (requestError) {
-        if (cancelled) {
-          return;
-        }
-
+        if (cancelled) return;
         setError(requestError.message || "Unable to load the homepage.");
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     }
 
     loadHome();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   const featuredStore = topStores[0] ?? null;
@@ -301,39 +264,9 @@ export default function HomePage() {
     [homeData?.storeLocations, topStores],
   );
 
-  const overviewStats = useMemo(
-    () => [
-      { label: "Stores", value: topStores.length || 0, note: "currently active in the network" },
-      {
-        label: "Featured drinks",
-        value: topDishes.length || 0,
-        note: "pulled from the live signature catalog",
-      },
-      {
-        label: "Store locations",
-        value: locationHighlights.length || 0,
-        note: "ready to support dine-in and delivery growth",
-      },
-      {
-        label: "Latest news",
-        value: latestNews.length || 0,
-        note: "updated directly from backend publishing",
-      },
-      {
-        label: "Campaigns",
-        value: promotions.length || 0,
-        note: "available vouchers and current promotions",
-      },
-    ],
-    [latestNews.length, locationHighlights.length, promotions.length, topDishes.length, topStores.length],
-  );
-
   const featuredStoreFacts = useMemo(
     () => [
-      {
-        label: "Hours",
-        value: featuredStore ? getStoreHoursLabel(featuredStore) : "Daily service",
-      },
+      { label: "Hours", value: featuredStore ? getStoreHoursLabel(featuredStore) : "Daily service" },
       {
         label: "Reviews",
         value: featuredStore?.reviewCount
@@ -347,10 +280,7 @@ export default function HomePage() {
             ? `${Number(featuredStore.averageRating).toFixed(1)} / 5`
             : "Consistent service",
       },
-      {
-        label: "Specialty",
-        value: featuredStore?.specialty || "Signature drinks",
-      },
+      { label: "Specialty", value: featuredStore?.specialty || "Signature drinks" },
     ],
     [featuredStore],
   );
@@ -361,316 +291,166 @@ export default function HomePage() {
   const supportingStores = topStores.slice(1, 4);
   const locationCards = locationHighlights.slice(0, 4);
 
+  const heroContent = (
+    <div className="relative mx-auto max-w-7xl">
+      <p aria-hidden="true" className="mb-2 font-display text-3xl font-medium tracking-wider text-matcha-600/60">
+        抹茶
+      </p>
+      <p className={ui.eyebrow}>Premium Ceremonial Matcha</p>
+      <div className="mt-4 grid gap-8 lg:grid-cols-2 lg:items-center">
+        <div>
+          <BrandLogo size="lg" subtitle="Kamatcha" />
+          <h1 className="mt-6 max-w-[16ch] font-display text-4xl font-bold leading-[1.05] tracking-[-0.03em] text-ink-900 sm:text-5xl lg:text-6xl">
+            Sourced from Uji, Kyoto
+          </h1>
+          <p className="reveal-on-scroll mt-5 max-w-xl text-base leading-8 text-ink-600">
+            Kamatcha brings you authentic ceremonial-grade matcha, crafted with centuries of tradition.
+            Experience the art of tea in our calm, minimalist spaces.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-4">
+            <Link className={ui.primaryButton} to="/menu">Explore Collection</Link>
+            <Link className={ui.secondaryButton} to="/stores">Visit Store</Link>
+          </div>
+          <div className="mt-10 grid grid-cols-3 gap-4 border-t border-ink-900/10 pt-8">
+            {[
+              { value: topStores.length || "6", label: "Stores" },
+              { value: topDishes.length || "12", label: "Signature Items" },
+              { value: "Since 1832", label: "Heritage" },
+            ].map((stat) => (
+              <div key={stat.label} className="text-center">
+                <p className="font-display text-2xl font-bold text-ink-900 sm:text-3xl">{stat.value}</p>
+                <p className="mt-1 text-xs font-medium uppercase tracking-wider text-matcha-600">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-cream-100 lg:aspect-auto lg:h-80">
+          {featuredStore && featuredStoreImages[0] ? (
+            <SmartImage
+              className="h-full w-full object-cover transition-transform duration-700 hover:scale-105"
+              src={featuredStoreImages[0]}
+              alt={featuredStore.name || "Premium Matcha"}
+              loading="eager"
+              fallbackClassName="grid h-full w-full place-items-center bg-matcha-50 text-sm text-matcha-700"
+            />
+          ) : (
+            <div className="grid h-full min-h-[300px] w-full place-items-center bg-gradient-to-br from-matcha-50 to-matcha-100">
+              <div className="text-center">
+                <p className="font-display text-5xl text-matcha-300">抹茶</p>
+                <p className="mt-2 text-sm text-matcha-500">Premium Matcha</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
-    <main className={`${ui.page} relative pb-12`}>
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-28 hidden h-px w-[118vw] -translate-x-1/2 bg-gradient-to-r from-transparent via-[#d7c3a0] to-transparent xl:block"
-      />
-
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(21rem,0.92fr)]">
-        <section className="relative overflow-hidden rounded-[2.5rem] border border-matcha-900/10 bg-[linear-gradient(180deg,rgba(255,252,246,0.94),rgba(246,238,224,0.9))] p-6 shadow-[0_28px_80px_rgba(79,70,45,0.16)] sm:p-8 lg:p-10">
-          <div
-            aria-hidden="true"
-            className="absolute -left-12 top-12 h-44 w-44 rounded-full bg-[#efe1bd]/60 blur-3xl"
-          />
-          <div
-            aria-hidden="true"
-            className="absolute bottom-8 right-0 h-56 w-56 rounded-full bg-matcha-200/35 blur-3xl"
-          />
-
-          <div className="relative z-10">
-            <BrandLogo size="lg" subtitle="Calm tea spaces with consistent service" />
-
-            <h1 className="mt-8 max-w-[8ch] text-[clamp(3.2rem,9vw,5.7rem)] font-bold leading-[0.92] tracking-[-0.06em] text-tea-900">
-              Clean, calm, and consistent across every store.
-            </h1>
-
-            <p className="mt-6 max-w-2xl text-sm leading-8 text-stone-700 sm:text-[15px]">
-              Kamatcha is a tea house network built around a required signature lineup, tidy store
-              layouts, and a comfortable pace for longer stays. Each branch keeps its own local
-              personality while staying visually and operationally aligned with the brand.
-            </p>
-
-            <div className="mt-8 rounded-[2rem] border border-matcha-900/10 bg-white/72 p-5 shadow-[0_18px_45px_rgba(79,70,45,0.08)]">
-              <p className="text-[11px] font-extrabold uppercase tracking-[0.22em] text-tea-700">
-                {roleHomePanel.eyebrow}
-              </p>
-              <h2 className="mt-3 text-2xl font-semibold tracking-tight text-tea-900 sm:text-[2rem]">
-                {roleHomePanel.title}
-              </h2>
-              <p className="mt-3 text-sm leading-7 text-stone-600">{roleHomePanel.description}</p>
-
-              <div className="mt-5 grid gap-3 md:grid-cols-3">
-                {roleHomePanel.facts.map((fact) => (
-                  <article
-                    key={`${fact.label}-${fact.value}`}
-                    className="rounded-[1.3rem] border border-matcha-900/10 bg-[#fbf6ed] px-4 py-3"
-                  >
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">
-                      {fact.label}
-                    </p>
-                    <p className="mt-2 text-sm font-semibold text-tea-900">{fact.value}</p>
-                  </article>
-                ))}
-              </div>
-
-              <div className="mt-5 flex flex-wrap gap-3">
-                {roleHomePanel.actions.map((action) => (
-                  <Link
-                    key={action.to}
-                    className={action.primary ? ui.primaryButton : ui.secondaryButton}
-                    to={action.to}
-                  >
-                    {action.label}
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-              {overviewStats.map((stat) => (
-                <article
-                  key={`${stat.label}-${stat.value}`}
-                  className="rounded-[1.55rem] border border-matcha-900/10 bg-white/78 p-4"
-                >
-                  <strong className="block text-3xl font-bold tracking-tight text-tea-900">
-                    {stat.value}
-                  </strong>
-                  <span className="mt-1 block text-sm font-semibold text-matcha-700">
-                    {stat.label}
-                  </span>
-                  <p className="mt-2 text-xs leading-6 text-stone-500">{stat.note}</p>
-                </article>
-              ))}
-            </div>
+    <EditorialLayout hero={heroContent}>
+      {/* Role-based panel */}
+      <section className="rounded-xl border border-ink-900/10 bg-cream-50 p-6 shadow-soft sm:p-8">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-2xl">
+            <p className={ui.eyebrow}>{roleHomePanel.eyebrow}</p>
+            <h2 className={ui.sectionTitle}>{roleHomePanel.title}</h2>
+            <p className="mt-3 text-sm leading-7 text-ink-600">{roleHomePanel.description}</p>
           </div>
-        </section>
-
-        <aside className="relative overflow-hidden rounded-[2.5rem] border border-matcha-900/10 bg-[linear-gradient(180deg,rgba(255,251,245,0.94),rgba(244,236,223,0.92))] p-6 shadow-[0_28px_80px_rgba(79,70,45,0.16)] sm:p-8">
-          <div
-            aria-hidden="true"
-            className="absolute -right-8 top-10 h-36 w-36 rounded-full bg-[#efe1bd]/60 blur-3xl"
-          />
-
-          <div className="relative z-10 flex h-full flex-col gap-6">
-            <div>
-              <p className={ui.eyebrow}>Featured store</p>
-
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <h2 className="max-w-[14ch] text-3xl font-bold tracking-tight text-tea-900">
-                    {featuredStore?.name ?? "Kamatcha flagship highlight"}
-                  </h2>
-                  <p className="mt-3 max-w-xl text-sm leading-7 text-stone-600">
-                    {featuredStore?.description ||
-                      "A rotating spotlight branch with backend-driven details, service status, and live media."}
-                  </p>
-                </div>
-
-                <span className="inline-flex rounded-full border border-matcha-900/10 bg-white/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-matcha-700">
-                  {statusLabel(featuredStore)}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {(featuredStore?.serviceTags?.slice(0, 4) ?? []).map((tag) => (
-                <span key={tag} className={ui.pill}>
-                  {tag}
-                </span>
-              ))}
-              {featuredStore?.positionLabel ? (
-                <span className={ui.pill}>{featuredStore.positionLabel}</span>
-              ) : null}
-            </div>
-
-            {featuredStore ? (
-              <>
-                <div className="relative overflow-hidden rounded-[2rem] border border-matcha-900/10 bg-white/70 p-4">
-                  <div
-                    aria-hidden="true"
-                    className="absolute inset-y-6 left-0 w-4 rounded-r-full bg-[#a74428]"
-                  />
-                  <div
-                    aria-hidden="true"
-                    className="absolute inset-y-6 right-0 w-4 rounded-l-full bg-[#a74428]"
-                  />
-                  <SmartImage
-                    className="h-[22rem] w-full rounded-[1.45rem] object-cover"
-                    src={featuredStoreImages[0]}
-                    alt={featuredStore.name}
-                    loading="lazy"
-                    fallbackClassName="grid h-[22rem] w-full place-items-center rounded-[1.45rem] bg-stone-100 text-xs text-stone-500"
-                  />
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {featuredStoreFacts.map((fact) => (
-                    <article
-                      key={`${fact.label}-${fact.value}`}
-                      className="rounded-[1.35rem] border border-matcha-900/10 bg-white/72 px-4 py-3"
-                    >
-                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">
-                        {fact.label}
-                      </p>
-                      <p className="mt-2 text-sm font-semibold text-tea-900">{fact.value}</p>
-                    </article>
-                  ))}
-                </div>
-
-                <div className="grid gap-2 text-sm leading-7 text-stone-600">
-                  <span>Address: {featuredStore.address || "Not available"}</span>
-                  <span>Area: {featuredStore.area || "Not available"}</span>
-                  <span>
-                    Suggested use: {featuredStore.personality || "Comfortable for repeat daily visits"}
-                  </span>
-                </div>
-
-                <div className="mt-auto flex flex-wrap gap-3">
-                  <QuickFavoriteButton
-                    targetType="store"
-                    targetId={featuredStore.id}
-                    activeLabel="Store saved"
-                    inactiveLabel="Save store"
-                    onResult={(message) => setFavoriteMessage(message)}
-                  />
-                  <Link className={ui.secondaryButton} to={buildStorePath(featuredStore)}>
-                    View store
-                  </Link>
-                  <Link className={ui.secondaryButton} to="/stores">
-                    Open all stores
-                  </Link>
-                </div>
-
-                {favoriteMessage ? (
-                  <p className="text-sm leading-7 text-stone-600">{favoriteMessage}</p>
-                ) : null}
-              </>
-            ) : (
-              <div className="rounded-[1.75rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
-                No store data is available to show.
-              </div>
-            )}
+          <div className="flex flex-wrap gap-3">
+            {roleHomePanel.actions.map((action) => (
+              <Link
+                key={action.to}
+                className={action.primary ? ui.primaryButton : ui.secondaryButton}
+                to={action.to}
+              >
+                {action.label}
+              </Link>
+            ))}
           </div>
-        </aside>
+        </div>
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          {roleHomePanel.facts.map((fact) => (
+            <article key={`${fact.label}-${fact.value}`} className="rounded-xl border border-ink-900/10 bg-cream-100 p-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-matcha-600">{fact.label}</p>
+              <p className="mt-2 text-sm font-semibold text-ink-900">{fact.value}</p>
+            </article>
+          ))}
+        </div>
       </section>
 
+      {/* Error / loading */}
       {error ? (
         <section className={`${ui.panel} border-dashed`}>
-          <p className="text-sm leading-7 text-stone-600">{error}</p>
+          <p className="text-sm leading-7 text-ink-600">{error}</p>
         </section>
       ) : null}
-
       {loading ? (
         <section className={`${ui.panel} border-dashed`}>
-          <p className="text-sm leading-7 text-stone-600">Loading homepage...</p>
+          <p className="text-sm leading-7 text-ink-600">Loading homepage...</p>
         </section>
       ) : null}
 
       {!loading ? (
         <>
-          <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr_0.95fr]">
+          {/* Section divider */}
+          <div className={ui.sectionDivider}><span>Latest Updates</span></div>
+
+          {/* Spotlight 3-col */}
+          <section className="grid gap-6 lg:grid-cols-3">
+            {/* Campaign */}
             <article className={`${ui.panel} relative overflow-hidden`}>
-              <div
-                aria-hidden="true"
-                className="absolute right-0 top-0 h-32 w-32 rounded-full bg-[#efe1bd]/60 blur-3xl"
-              />
               <div className="relative z-10">
-                <p className={ui.eyebrow}>Campaign spotlight</p>
-                <h2 className="max-w-[11ch] text-3xl font-bold leading-tight tracking-tight text-tea-900">
-                  {spotlightPromotion?.name || "Promotions update live from checkout"}
+                <p className={ui.eyebrow}>Campaign</p>
+                <h2 className="font-display text-2xl font-semibold text-ink-900">
+                  {spotlightPromotion?.name || "Current Promotions"}
                 </h2>
-                <p className="mt-4 text-sm leading-7 text-stone-600">
-                  {spotlightPromotion?.description ||
-                    "Each promotion here is pulled from backend data and can be used directly during checkout when eligible."}
+                <p className="mt-3 text-sm leading-7 text-ink-600">
+                  {spotlightPromotion?.description || "Special offers available at checkout."}
                 </p>
-
-                <div className="mt-5 flex flex-wrap gap-2">
+                <div className="mt-4 flex flex-wrap gap-2">
                   {spotlightPromotion?.scope ? <span className={ui.pill}>{spotlightPromotion.scope}</span> : null}
-                  {spotlightPromotion ? (
-                    <span className={ui.pill}>{formatPromotionTarget(spotlightPromotion)}</span>
-                  ) : null}
-                  {spotlightPromotion?.creditCost > 0 ? (
-                    <span className={ui.pill}>{spotlightPromotion.creditCost} credit</span>
-                  ) : null}
+                  {spotlightPromotion ? <span className={ui.pill}>{formatPromotionTarget(spotlightPromotion)}</span> : null}
                 </div>
-
-                <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                  <article className="rounded-[1.4rem] border border-matcha-900/10 bg-white/75 p-4">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">
-                      Promo code
-                    </p>
-                    <p className="mt-2 text-lg font-semibold text-tea-900">
-                      {spotlightPromotion?.code || "Available in checkout"}
-                    </p>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <article className="rounded-xl border border-ink-900/10 bg-cream-100 p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-matcha-600">Code</p>
+                    <p className="mt-2 text-base font-semibold text-ink-900">{spotlightPromotion?.code || "At checkout"}</p>
                   </article>
-                  <article className="rounded-[1.4rem] border border-matcha-900/10 bg-white/75 p-4">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">
-                      Discount
-                    </p>
-                    <p className="mt-2 text-lg font-semibold text-matcha-700">
-                      {spotlightPromotion ? formatPromotionValue(spotlightPromotion) : "Dynamic pricing"}
+                  <article className="rounded-xl border border-ink-900/10 bg-cream-100 p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-matcha-600">Discount</p>
+                    <p className="mt-2 text-base font-semibold text-matcha-700">
+                      {spotlightPromotion ? formatPromotionValue(spotlightPromotion) : "Dynamic"}
                     </p>
                   </article>
                 </div>
-
-                {promotions.length > 1 ? (
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    {promotions.slice(1, 4).map((promotion) => (
-                      <span key={promotion.id || promotion.code} className={ui.pill}>
-                        {promotion.code}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-
-                <div className="mt-6 flex flex-wrap gap-3">
-                  <Link className={ui.primaryButton} to="/promotions">
-                    Open promotions
-                  </Link>
-                  {spotlightPromotion?.code ? (
-                    <Link
-                      className={ui.secondaryButton}
-                      to={`/cart?promotion=${encodeURIComponent(spotlightPromotion.code)}`}
-                    >
-                      Use at checkout
-                    </Link>
-                  ) : null}
+                <div className="mt-5">
+                  <Link className={ui.primaryButton} to="/promotions">View All</Link>
                 </div>
               </div>
             </article>
 
+            {/* News */}
             <article className={ui.panel}>
-              <p className={ui.eyebrow}>Latest news</p>
-              <h2 className="max-w-[11ch] text-3xl font-bold leading-tight tracking-tight text-tea-900">
-                {spotlightNews?.title || "Fresh notes from the Kamatcha network"}
+              <p className={ui.eyebrow}>News</p>
+              <h2 className="font-display text-2xl font-semibold text-ink-900">
+                {spotlightNews?.title || "Latest Updates"}
               </h2>
-              <p className="mt-4 text-sm leading-7 text-stone-600">
-                {spotlightNews?.summary ||
-                  "Publishing cards on the homepage stay connected to backend news so the landing page always has something current to read."}
+              <p className="mt-3 text-sm leading-7 text-ink-600">
+                {spotlightNews?.summary || "Stay connected with Kamatcha."}
               </p>
-
-              <div className="mt-6 grid gap-3">
-                {latestNews.slice(0, 3).map((newsItem) => {
+              <div className="mt-5 grid gap-3">
+                {latestNews.slice(0, 2).map((newsItem) => {
                   const newsPath = buildNewsPath(newsItem);
                   const canOpenNews = newsPath !== "/news";
-
                   return (
-                    <article
-                      key={newsItem.id}
-                      className="rounded-[1.35rem] border border-matcha-900/10 bg-white/72 p-4"
-                    >
-                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">
-                        {newsItem.relatedStoreName || "Kamatcha update"}
+                    <article key={newsItem.id} className="rounded-xl border border-ink-900/10 bg-cream-100 p-4">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-matcha-600">
+                        {newsItem.relatedStoreName || "Update"}
                       </p>
-                      <h3 className="mt-2 text-lg font-semibold tracking-tight text-tea-900">
-                        {newsItem.title}
-                      </h3>
-                      <p className="mt-2 text-sm leading-6 text-stone-600">{newsItem.summary}</p>
+                      <h3 className="mt-2 font-semibold text-ink-900">{newsItem.title}</h3>
                       {canOpenNews ? (
-                        <Link className="mt-3 inline-flex text-sm font-semibold text-matcha-700" to={newsPath}>
-                          Read article
+                        <Link className="mt-2 inline-flex text-sm font-medium text-matcha-700 transition hover:text-matcha-500" to={newsPath}>
+                          Read more →
                         </Link>
                       ) : null}
                     </article>
@@ -679,95 +459,64 @@ export default function HomePage() {
               </div>
             </article>
 
+            {/* Events */}
             <article className={ui.panel}>
-              <p className={ui.eyebrow}>Upcoming event</p>
-              <h2 className="max-w-[12ch] text-3xl font-bold leading-tight tracking-tight text-tea-900">
-                {spotlightEvent?.title || "Programs that keep the brand feeling active"}
+              <p className={ui.eyebrow}>Events</p>
+              <h2 className="font-display text-2xl font-semibold text-ink-900">
+                {spotlightEvent?.title || "Upcoming Events"}
               </h2>
-              <p className="mt-4 text-sm leading-7 text-stone-600">
-                {spotlightEvent?.summary ||
-                  "The homepage keeps event visibility high without turning the first screen into a crowded dashboard."}
+              <p className="mt-3 text-sm leading-7 text-ink-600">
+                {spotlightEvent?.summary || "Join us for special experiences."}
               </p>
-
-              <div className="mt-6 grid gap-3">
-                <article className="rounded-[1.35rem] border border-matcha-900/10 bg-white/72 p-4">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">
-                    Schedule
-                  </p>
-                  <p className="mt-2 text-sm font-semibold text-tea-900">
-                    {spotlightEvent?.schedule || "Updated from backend events"}
-                  </p>
+              <div className="mt-5 grid gap-3">
+                <article className="rounded-xl border border-ink-900/10 bg-cream-100 p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-matcha-600">Schedule</p>
+                  <p className="mt-2 text-sm font-semibold text-ink-900">{spotlightEvent?.schedule || "Coming soon"}</p>
                 </article>
-                <article className="rounded-[1.35rem] border border-matcha-900/10 bg-white/72 p-4">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">
-                    Location
-                  </p>
-                  <p className="mt-2 text-sm font-semibold text-tea-900">
-                    {spotlightEvent?.location || "Selected branches"}
-                  </p>
-                </article>
-                <article className="rounded-[1.35rem] border border-matcha-900/10 bg-white/72 p-4">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">
-                    Footprint
-                  </p>
-                  <p className="mt-2 text-sm font-semibold text-tea-900">
-                    {locationHighlights.length} active store areas in the current dataset
-                  </p>
+                <article className="rounded-xl border border-ink-900/10 bg-cream-100 p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-matcha-600">Location</p>
+                  <p className="mt-2 text-sm font-semibold text-ink-900">{spotlightEvent?.location || "Select stores"}</p>
                 </article>
               </div>
-
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link className={ui.primaryButton} to="/events">
-                  Open events
-                </Link>
-                <Link className={ui.secondaryButton} to="/stores">
-                  View store map
-                </Link>
+              <div className="mt-5">
+                <Link className={ui.primaryButton} to="/events">View Events</Link>
               </div>
             </article>
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
+          {/* Section divider */}
+          <div className={ui.sectionDivider}><span>Our Stores</span></div>
+
+          {/* Stores section */}
+          <section className="grid gap-6 xl:grid-cols-[0.75fr_1.25fr]">
             <article className={`${ui.panel} flex h-full flex-col justify-between`}>
               <div>
                 <SectionIntro
-                  eyebrow="Branch spotlight"
-                  title="A premium store rail with room for each location's own character."
-                  description="The homepage now treats stores like a curated rail instead of a flat grid, so the first impression feels more intentional and brand-led."
-                  action={{ to: "/stores", label: "Open store directory" }}
+                  eyebrow="Locations"
+                  title="Carefully curated spaces."
+                  description="Each store is designed to bring tranquility to your day."
+                  action={{ to: "/stores", label: "All Stores" }}
                 />
-
                 <div className="mt-6 grid gap-3">
                   {supportingStores.length ? (
                     supportingStores.map((store) => (
-                      <article
-                        key={store.id}
-                        className="rounded-[1.35rem] border border-matcha-900/10 bg-white/72 p-4"
-                      >
+                      <article key={store.id} className="rounded-xl border border-ink-900/10 bg-cream-100 p-4">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div>
-                            <p className="text-lg font-semibold tracking-tight text-tea-900">
-                              {store.name}
-                            </p>
-                            <p className="mt-1 text-sm text-stone-600">
-                              {store.area || store.address || "Kamatcha branch"}
-                            </p>
+                            <p className="font-semibold text-ink-900">{store.name}</p>
+                            <p className="mt-1 text-sm text-ink-600">{store.area || store.address || "Kamatcha branch"}</p>
                           </div>
                           <span className={ui.pill}>{statusLabel(store)}</span>
                         </div>
                       </article>
                     ))
                   ) : (
-                    <article className="rounded-[1.35rem] border border-dashed border-matcha-900/15 bg-white/55 p-4 text-sm text-stone-600">
-                      Additional store highlights will appear here once the dataset is available.
+                    <article className="rounded-xl border border-dashed border-beige-300 bg-cream-100/50 p-4 text-sm text-ink-600">
+                      Store listings loading...
                     </article>
                   )}
                 </div>
               </div>
-
-              {favoriteMessage ? (
-                <p className="mt-6 text-sm leading-7 text-stone-600">{favoriteMessage}</p>
-              ) : null}
             </article>
 
             <section className={ui.panel}>
@@ -778,57 +527,42 @@ export default function HomePage() {
                 autoMs={5000}
                 renderSlide={(store) => {
                   const imagePaths = normalizeImagePathList(store.imagePaths);
-
                   return (
-                    <article className="grid w-full gap-5 rounded-[1.95rem] border border-matcha-900/10 bg-white/78 p-5 text-left shadow-[0_18px_44px_rgba(79,70,45,0.08)] lg:grid-cols-[1.02fr_0.98fr]">
-                      <Link
-                        className="overflow-hidden rounded-[1.6rem] border border-matcha-900/10 bg-stone-100"
-                        to={buildStorePath(store)}
-                      >
+                    <article className="grid w-full gap-5 rounded-2xl border border-ink-900/10 bg-cream-100/80 p-5 text-left lg:grid-cols-2">
+                      <Link className="group relative overflow-hidden rounded-xl" to={buildStorePath(store)}>
                         <SmartImage
-                          className="h-80 w-full object-cover"
+                          className="aspect-[4/3] w-full object-cover transition-transform duration-500 group-hover:scale-105"
                           src={imagePaths[0]}
                           alt={store.name}
                           loading="lazy"
-                          fallbackClassName="grid h-80 w-full place-items-center bg-stone-100 text-xs text-stone-500"
+                          fallbackClassName="grid aspect-[4/3] w-full place-items-center bg-matcha-50 text-sm text-matcha-500"
                         />
                       </Link>
-
                       <div className="flex flex-col justify-between gap-4">
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
                             {store.positionLabel ? <span className={ui.pill}>{store.positionLabel}</span> : null}
                             <span className={ui.pill}>{statusLabel(store)}</span>
                           </div>
-
-                          <h3 className="mt-4 text-3xl font-semibold tracking-tight text-tea-900">
-                            {store.name}
-                          </h3>
-                          <p className="mt-2 text-base font-semibold text-matcha-700">
-                            {store.area || "Kamatcha branch"}
-                          </p>
-                          <p className="mt-4 text-sm leading-7 text-stone-600">
-                            {store.description || "Backend store content will appear here once published."}
+                          <h3 className="mt-4 font-display text-2xl font-semibold text-ink-900">{store.name}</h3>
+                          <p className="mt-2 text-sm font-medium text-matcha-700">{store.area || "Kamatcha branch"}</p>
+                          <p className="mt-3 text-sm leading-7 text-ink-600">
+                            {store.description || "A peaceful space for your daily matcha ritual."}
                           </p>
                         </div>
-
-                        <div className="grid gap-2 text-sm text-stone-600">
-                          <span>{store.address || "Address pending"}</span>
+                        <div className="flex flex-wrap gap-4 text-sm text-ink-500">
                           <span>{store.reviewCount || 0} reviews</span>
                           <span>{getStoreHoursLabel(store)}</span>
                         </div>
-
                         <div className="flex flex-wrap gap-3">
                           <QuickFavoriteButton
                             targetType="store"
                             targetId={store.id}
                             activeLabel="Saved"
-                            inactiveLabel="Save store"
+                            inactiveLabel="Save"
                             onResult={(message) => setFavoriteMessage(message)}
                           />
-                          <Link className={ui.secondaryButton} to={buildStorePath(store)}>
-                            View store
-                          </Link>
+                          <Link className={ui.secondaryButton} to={buildStorePath(store)}>Visit Store</Link>
                         </div>
                       </div>
                     </article>
@@ -838,19 +572,18 @@ export default function HomePage() {
             </section>
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-[1.18fr_0.82fr]">
+          {/* Section divider */}
+          <div className={ui.sectionDivider}><span>Featured Selection</span></div>
+
+          <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
             <section className={ui.panel}>
               <SectionIntro
-                eyebrow="Signature drinks"
-                title="The core menu still feels like a hero section, not a spreadsheet."
-                description="Featured drinks stay tied to live backend data, while the presentation keeps the landing page feeling editorial and easier to scan."
-                action={{ to: "/menu", label: "Browse menu" }}
+                eyebrow="Signature Collection"
+                title="Premium ceremonial matcha and artisan blends."
+                description="Each item is crafted with care, sourced from the finest tea gardens in Kyoto."
+                action={{ to: "/menu", label: "View Menu" }}
               />
-
-              {cartMessage ? (
-                <p className="mt-4 text-sm leading-7 text-stone-600">{cartMessage}</p>
-              ) : null}
-
+              {cartMessage ? <p className="mt-4 text-sm leading-7 text-ink-600">{cartMessage}</p> : null}
               <div className="mt-6">
                 <AutoCarousel
                   items={topDishes}
@@ -866,45 +599,32 @@ export default function HomePage() {
                     const canQuickAdd = Boolean(bestStoreId) && availability.allowed;
 
                     return (
-                      <article className="grid w-full gap-5 rounded-[1.95rem] border border-matcha-900/10 bg-white/78 p-5 text-left shadow-[0_18px_44px_rgba(79,70,45,0.08)] lg:grid-cols-[0.98fr_1.02fr]">
-                        <Link
-                          className="overflow-hidden rounded-[1.6rem] border border-matcha-900/10 bg-stone-100"
-                          to={`/menu/${item.id}`}
-                        >
+                      <article className="grid w-full gap-5 rounded-2xl border border-ink-900/10 bg-cream-100/80 p-5 text-left lg:grid-cols-2">
+                        <Link className="group relative overflow-hidden rounded-xl" to={`/menu/${item.id}`}>
                           <SmartImage
-                            className="h-80 w-full object-cover"
+                            className="aspect-square w-full object-cover transition-transform duration-500 group-hover:scale-105"
                             src={imagePaths[0]}
                             alt={item.name}
                             loading="lazy"
-                            fallbackClassName="grid h-80 w-full place-items-center bg-stone-100 text-xs text-stone-500"
+                            fallbackClassName="grid aspect-square w-full place-items-center bg-matcha-50 text-sm text-matcha-500"
                           />
                         </Link>
-
                         <div className="flex flex-col justify-between gap-4">
                           <div>
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className={ui.pill}>Core item</span>
+                              <span className={ui.pill}>Ceremonial</span>
                               {item.categoryName ? <span className={ui.pill}>{item.categoryName}</span> : null}
-                              {item.franchiseRequired ? <span className={ui.pill}>Required line</span> : null}
                             </div>
-
-                            <h3 className="mt-4 text-3xl font-semibold tracking-tight text-tea-900">
-                              {item.name}
-                            </h3>
-                            <p className="mt-2 text-base font-semibold text-matcha-700">
-                              {formatCurrency(item.price)}
-                            </p>
-                            <p className="mt-4 text-sm leading-7 text-stone-600">
-                              {item.description || "Signature menu content will appear here once available."}
+                            <h3 className="mt-4 font-display text-2xl font-semibold text-ink-900">{item.name}</h3>
+                            <p className={`mt-2 ${ui.price}`}>{formatCurrency(item.price)}</p>
+                            <p className="mt-3 text-sm leading-7 text-ink-600">
+                              {item.description || "Premium grade matcha from Kyoto."}
                             </p>
                           </div>
-
-                          <div className="grid gap-2 text-sm text-stone-600">
+                          <div className="flex flex-wrap gap-4 text-sm text-ink-500">
                             <span>{item.reviewCount || 0} reviews</span>
                             <span>{item.favoriteCount || 0} saves</span>
-                            {item.bestStore?.name ? <span>Recommended at {item.bestStore.name}</span> : null}
                           </div>
-
                           <div className="flex flex-wrap gap-3">
                             <QuickAddToCartButton
                               className={ui.primaryButton}
@@ -915,9 +635,8 @@ export default function HomePage() {
                               preorderMessage={getCartSuccessMessage(availability.preorderOnly)}
                               blockedMessage={
                                 item.bestStore
-                                  ? availability.reason ||
-                                    "This item cannot be added to the cart at the recommended store right now."
-                                  : "No eligible store is currently available for adding this item to the cart."
+                                  ? availability.reason || "Currently unavailable at this store."
+                                  : "No store available."
                               }
                               onResult={(message) => setCartMessage(message)}
                             />
@@ -925,12 +644,10 @@ export default function HomePage() {
                               targetType="dish"
                               targetId={item.id}
                               activeLabel="Saved"
-                              inactiveLabel="Save item"
+                              inactiveLabel="Save"
                               onResult={(message) => setFavoriteMessage(message)}
                             />
-                            <Link className={ui.secondaryButton} to={`/menu/${item.id}`}>
-                              View item
-                            </Link>
+                            <Link className={ui.ghostButton} to={`/menu/${item.id}`}>Details →</Link>
                           </div>
                         </div>
                       </article>
@@ -940,50 +657,40 @@ export default function HomePage() {
               </div>
             </section>
 
+            {/* Store locations */}
             <section className={`${ui.panel} flex flex-col justify-between`}>
               <div>
                 <SectionIntro
-                  eyebrow="Store footprint"
-                  title="Kamatcha stays legible by showing fewer locations at a time."
-                  description="Instead of pushing every store into one dense block, the homepage now turns the footprint into a cleaner set of location cards."
-                  action={{ to: "/stores", label: "View all locations" }}
+                  eyebrow="Store Locations"
+                  title="Find your nearest Kamatcha."
+                  description="Visit us at any of our carefully designed spaces."
+                  action={{ to: "/stores", label: "All Locations" }}
                 />
-
                 <div className="mt-6 grid gap-3">
                   {locationCards.length ? (
                     locationCards.map((store) => (
-                      <article
-                        key={store.id}
-                        className="rounded-[1.4rem] border border-matcha-900/10 bg-white/72 p-4"
-                      >
+                      <article key={store.id} className="rounded-xl border border-ink-900/10 bg-cream-100 p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="text-lg font-semibold tracking-tight text-tea-900">
-                              {store.area || store.name}
-                            </p>
-                            <p className="mt-1 text-sm text-stone-600">
-                              {store.positionLabel || store.address || "Kamatcha branch"}
-                            </p>
+                            <p className="font-semibold text-ink-900">{store.area || store.name}</p>
+                            <p className="mt-1 text-sm text-ink-600">{store.positionLabel || store.address || "Kamatcha branch"}</p>
                           </div>
                           <span className={ui.pill}>{statusLabel(store)}</span>
                         </div>
                       </article>
                     ))
                   ) : (
-                    <article className="rounded-[1.35rem] border border-dashed border-matcha-900/15 bg-white/55 p-4 text-sm text-stone-600">
-                      Location cards will appear here once the backend provides active store data.
+                    <article className="rounded-xl border border-dashed border-beige-300 bg-cream-100/50 p-4 text-sm text-ink-600">
+                      Store locations loading...
                     </article>
                   )}
                 </div>
               </div>
-
-              {favoriteMessage ? (
-                <p className="mt-6 text-sm leading-7 text-stone-600">{favoriteMessage}</p>
-              ) : null}
+              {favoriteMessage ? <p className="mt-6 text-sm leading-7 text-ink-600">{favoriteMessage}</p> : null}
             </section>
           </section>
         </>
       ) : null}
-    </main>
+    </EditorialLayout>
   );
 }

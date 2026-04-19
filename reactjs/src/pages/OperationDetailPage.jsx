@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
+import AdminPageHeader from "../components/admin/admin-page-header";
+import AdminStatCard from "../components/admin/admin-stat-card";
 import { useAuth } from "../context/AuthContext";
 import { apiRequest, getApiErrorMessage } from "../lib/api";
 import { ADMIN_SECTION_ROUTE_MAP } from "../lib/adminRoutes";
@@ -136,26 +138,20 @@ function StoreMetricChart({ color, items, metricKey, subtitle, title }) {
 
   return (
     <section className={ui.card}>
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-tea-700">
-            {subtitle}
-          </p>
-          <h2 className="mt-2 text-2xl font-semibold text-tea-900">{title}</h2>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <AdminPageHeader eyebrow={subtitle} title={title} />
         <span className={ui.pill}>Today</span>
       </div>
 
-      <div className="mt-6 rounded-[1.45rem] border border-matcha-900/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(243,246,239,0.9))] p-4">
-        <div className="h-56">
+      <div className="mt-4 rounded-lg border border-ink-900/8 bg-cream-100 p-3">
+        <div className="h-44">
           <svg className="h-full w-full" preserveAspectRatio="none" viewBox="0 0 100 100">
             <defs>
               <linearGradient id={`${metricKey}-line`} x1="0%" x2="100%" y1="0%" y2="0%">
                 <stop offset="0%" stopColor={color} />
-                <stop offset="100%" stopColor="#27402d" />
+                <stop offset="100%" stopColor="var(--color-matcha-900)" />
               </linearGradient>
             </defs>
-
             {polyline ? (
               <>
                 <polyline
@@ -171,9 +167,9 @@ function StoreMetricChart({ color, items, metricKey, subtitle, title }) {
                     key={point.key}
                     cx={point.x}
                     cy={point.y}
-                    fill="#27402d"
+                    fill="var(--color-matcha-900)"
                     r="2.1"
-                    stroke="#f8f5ef"
+                    stroke="var(--color-cream-50)"
                     strokeWidth="1.1"
                   />
                 ))}
@@ -182,13 +178,13 @@ function StoreMetricChart({ color, items, metricKey, subtitle, title }) {
           </svg>
         </div>
 
-        <div className="mt-4 grid grid-cols-6 gap-3 xl:grid-cols-8">
+        <div className="mt-3 grid grid-cols-6 gap-2 xl:grid-cols-8">
           {items.filter((_, index) => index % 3 === 0).map((item) => (
             <div key={item.key} className="text-center">
-              <div className="text-sm font-semibold text-tea-900">
+              <div className="font-mono text-xs font-semibold text-ink-900">
                 {Number(item[metricKey] ?? 0)}
               </div>
-              <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-400">
                 {item.label}
               </div>
             </div>
@@ -366,8 +362,8 @@ export default function OperationDetailPage() {
     return (
       <main className={ui.page}>
         <section className={ui.panel}>
-          <div className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
-            Loading operational detail...
+          <div className="rounded-lg border border-dashed border-ink-900/10 bg-cream-100 p-4 text-sm text-ink-400">
+            Loading operational detail…
           </div>
         </section>
       </main>
@@ -378,7 +374,7 @@ export default function OperationDetailPage() {
     return (
       <main className={ui.page}>
         <section className={ui.panel}>
-          <div className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
+          <div className="rounded-lg border border-dashed border-ink-900/10 bg-cream-100 p-4 text-sm text-ink-400">
             {error || "Store operations are unavailable."}
           </div>
         </section>
@@ -388,249 +384,153 @@ export default function OperationDetailPage() {
 
   const readinessCards = [
     { label: "Catalog items", value: formatCompactNumber(publicStoreDetail?.stats?.availableItemCount ?? 0) },
-    { label: "Average rating", value: averageRating.toFixed(1) },
+    { label: "Avg rating", value: averageRating.toFixed(1) },
     { label: "Reviews", value: formatCompactNumber(reviewCount) },
     { label: "Last updated", value: formatDateTime(storeData.updatedAt) },
   ];
 
   return (
     <main className={ui.page}>
+      {/* Store header */}
       <section className={ui.panel}>
-        <div className="flex flex-wrap items-start justify-between gap-5">
-          <div>
-            <p className={ui.eyebrow}>Operation Detail</p>
-            <h1 className="max-w-[13ch] text-4xl font-bold leading-none tracking-tight text-tea-900 sm:text-5xl">
-              {storeData.name}
-            </h1>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-600">
-              Monitor the live operating state of one Kamatcha store: orders, revenue, menu
-              performance, customer signal, and urgent operational alerts.
-            </p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <AdminPageHeader
+            eyebrow="Operation Detail"
+            title={storeData.name}
+            subtitle="Monitor live operating state: orders, revenue, menu performance, and operational alerts."
+            actions={
+              <div className="flex flex-wrap gap-2">
+                <Link className={ui.secondaryButton} to={ADMIN_SECTION_ROUTE_MAP.stores}>
+                  Back to stores
+                </Link>
+                <Link className={ui.secondaryButton} to={buildStorePath(storeData)}>
+                  Public page
+                </Link>
+              </div>
+            }
+          />
 
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link className={ui.secondaryButton} to={ADMIN_SECTION_ROUTE_MAP.stores}>
-                Back to store list
-              </Link>
-              <Link className={ui.secondaryButton} to={buildStorePath(storeData)}>
-                Public store page
-              </Link>
-            </div>
-          </div>
-
-          <div className="grid gap-4 lg:min-w-[22rem] lg:grid-cols-[1fr_0.9fr]">
-            <article className="rounded-[1.5rem] border border-matcha-900/10 bg-white/78 p-5">
-              <div className="grid gap-2 text-sm leading-7 text-stone-600">
-                <span className={ui.pill}>{storeData.area || "Store"}</span>
+          {/* Store info + readiness */}
+          <div className="grid gap-3 lg:min-w-[20rem] lg:grid-cols-[1fr_0.85fr]">
+            <div className="rounded-lg border border-ink-900/8 bg-cream-50 p-3 text-xs leading-6 text-ink-600">
+              <span className={ui.pill}>{storeData.area || "Store"}</span>
+              <div className="mt-2 grid gap-1">
                 <span>{storeData.address || "Address unavailable"}</span>
                 <span>Phone: {storeData.phoneNumber || "Not set"}</span>
-                <span>Hours: {formatTime(storeData.openTime)} - {formatTime(storeData.closeTime)}</span>
+                <span>Hours: {formatTime(storeData.openTime)} – {formatTime(storeData.closeTime)}</span>
                 <span>Email: {storeData.contactEmail || "Not set"}</span>
               </div>
-            </article>
-
-            <article className="rounded-[1.5rem] bg-[#203228] p-5 text-white shadow-[0_20px_44px_rgba(32,50,40,0.22)]">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/60">
-                Readiness
-              </p>
-              <div className="mt-4 grid gap-3">
+            </div>
+            <div className="rounded-lg border border-matcha-700/20 bg-matcha-900 p-3 text-cream-50">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-cream-50/60">Readiness</p>
+              <div className="mt-2 grid gap-2">
                 {readinessCards.map((entry) => (
                   <div key={entry.label}>
-                    <p className="text-xs uppercase tracking-[0.16em] text-white/55">
-                      {entry.label}
-                    </p>
-                    <strong className="mt-1 block text-lg font-semibold">{entry.value}</strong>
+                    <p className="text-[10px] uppercase tracking-[0.14em] text-cream-50/50">{entry.label}</p>
+                    <strong className="block font-mono text-sm font-semibold">{entry.value}</strong>
                   </div>
                 ))}
               </div>
-            </article>
+            </div>
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        {/* KPI strip */}
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {[
             { label: "Revenue today", value: formatCurrency(paidRevenue), featured: true },
-            { label: "Completed orders", value: formatCompactNumber(completedOrders.length) },
+            { label: "Completed", value: formatCompactNumber(completedOrders.length) },
             { label: "Live orders", value: formatCompactNumber(liveOrders.length) },
-            { label: "Average ticket", value: formatCurrency(completedOrders.length ? paidRevenue / completedOrders.length : 0) },
-            { label: "Item sold", value: formatCompactNumber(topItems.reduce((sum, item) => sum + item.quantity, 0)) },
+            { label: "Avg ticket", value: formatCurrency(completedOrders.length ? paidRevenue / completedOrders.length : 0) },
+            { label: "Items sold", value: formatCompactNumber(topItems.reduce((sum, item) => sum + item.quantity, 0)) },
           ].map((card) => (
-            <article
-              key={card.label}
-              className={
-                card.featured
-                  ? "rounded-[1.6rem] border border-matcha-700/15 bg-gradient-to-br from-[#203228] to-[#314838] p-5 text-white shadow-[0_18px_44px_rgba(34,40,24,0.2)] sm:col-span-2 xl:col-span-1"
-                  : "rounded-[1.45rem] border border-matcha-900/10 bg-white/75 p-4"
-              }
-            >
-              <p className={card.featured ? "text-xs uppercase tracking-[0.2em] text-white/60" : "text-xs uppercase tracking-[0.2em] text-stone-500"}>
-                {card.label}
-              </p>
-              <strong className={card.featured ? "mt-4 block text-3xl font-semibold tracking-tight text-white" : "mt-3 block text-3xl font-semibold text-tea-900"}>
-                {card.value}
-              </strong>
-            </article>
+            <AdminStatCard key={card.label} label={card.label} value={card.value} featured={card.featured} />
           ))}
         </div>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1fr_0.92fr]">
-        <StoreMetricChart
-          color="#8faa66"
-          items={hourlySeries}
-          metricKey="orders"
-          subtitle="Sales trend"
-          title="Orders by hour"
-        />
+      {/* Charts row */}
+      <section className="grid gap-5 xl:grid-cols-[1fr_0.92fr]">
+        <StoreMetricChart color="var(--color-matcha-500)" items={hourlySeries} metricKey="orders" subtitle="Sales trend" title="Orders by hour" />
 
         <section className={ui.card}>
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-tea-700">
-                Operational health
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold text-tea-900">
-                Queue and completion status
-              </h2>
-            </div>
-          </div>
-
-          <div className="mt-6 grid gap-3">
+          <AdminPageHeader eyebrow="Operational health" title="Queue status" />
+          <div className="mt-4 grid gap-2">
             {orderStatusSummary.map((entry) => (
-              <article
-                key={entry.status}
-                className="flex items-center justify-between rounded-[1.2rem] border border-matcha-900/10 bg-white/75 px-4 py-4"
-              >
-                <div>
-                  <p className="text-sm font-semibold text-tea-900">
-                    {entry.status.replaceAll("_", " ")}
-                  </p>
-                  <p className="mt-1 text-xs uppercase tracking-[0.14em] text-stone-500">
-                    Current queue status
-                  </p>
-                </div>
-                <span className={`rounded-full px-3 py-1.5 text-xs font-semibold ${statusTone(entry.status)}`}>
+              <div key={entry.status} className="flex items-center justify-between rounded-md border border-ink-900/8 bg-cream-100 px-3 py-2">
+                <span className="text-xs font-medium text-ink-800">{entry.status.replaceAll("_", " ")}</span>
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusTone(entry.status)}`}>
                   {formatCompactNumber(entry.count)}
                 </span>
-              </article>
+              </div>
             ))}
           </div>
         </section>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1fr_0.92fr]">
-        <StoreMetricChart
-          color="#c87b3a"
-          items={hourlySeries}
-          metricKey="revenue"
-          subtitle="Sales trend"
-          title="Revenue by hour"
-        />
+      <section className="grid gap-5 xl:grid-cols-[1fr_0.92fr]">
+        <StoreMetricChart color="var(--color-matcha-400)" items={hourlySeries} metricKey="revenue" subtitle="Revenue trend" title="Revenue by hour" />
 
         <section className={ui.card}>
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-tea-700">
-                Alerts and actions
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold text-tea-900">
-                What needs attention now
-              </h2>
-            </div>
+          <div className="flex items-center justify-between gap-2">
+            <AdminPageHeader eyebrow="Alerts" title="Needs attention" />
             <span className={ui.pill}>{formatCompactNumber(delayedOrders.length)} delayed</span>
           </div>
-
-          <div className="mt-6 grid gap-3">
+          <div className="mt-4 grid gap-2">
             {delayedOrders.length ? delayedOrders.map((order) => (
-              <article
-                key={order.id}
-                className="rounded-[1.2rem] border border-amber-200 bg-amber-50/80 p-4 text-sm leading-7 text-amber-900"
-              >
-                Order #{order.id} is still open after 30 minutes.
-              </article>
+              <div key={order.id} className="rounded-md border border-warn/20 bg-warn-soft px-3 py-2 text-xs text-warn">
+                Order #{order.id} — open over 30 min.
+              </div>
             )) : (
-              <article className="rounded-[1.2rem] border border-matcha-900/10 bg-white/75 p-4 text-sm leading-7 text-stone-600">
-                No time-sensitive operational alerts are active right now.
-              </article>
+              <div className="rounded-md border border-ink-900/8 bg-cream-100 px-3 py-2 text-xs text-ink-400">
+                No operational alerts right now.
+              </div>
             )}
           </div>
         </section>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-2">
+      {/* Bottom product + queue */}
+      <section className="grid gap-5 xl:grid-cols-2">
         <section className={ui.card}>
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-tea-700">
-                Product performance
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold text-tea-900">
-                Best-selling items today
-              </h2>
-            </div>
-            <span className={ui.pill}>{formatCompactNumber(topItems.length)} ranked item</span>
+          <div className="flex items-center justify-between gap-2">
+            <AdminPageHeader eyebrow="Product performance" title="Best-selling today" />
+            <span className={ui.pill}>{formatCompactNumber(topItems.length)} items</span>
           </div>
-
-          <div className="mt-6 grid gap-3">
+          <div className="mt-4 grid gap-2">
             {topItems.length ? topItems.map((item) => (
-              <article
-                key={item.key}
-                className="rounded-[1.3rem] border border-matcha-900/10 bg-white/72 p-4"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h3 className="text-lg font-semibold text-tea-900">{item.name}</h3>
-                    <p className="mt-1 text-sm text-stone-600">
-                      {formatCompactNumber(item.quantity)} sold today
-                    </p>
-                  </div>
-                  <span className={ui.pill}>Top item</span>
+              <div key={item.key} className="flex items-center justify-between rounded-md border border-ink-900/8 bg-cream-100 px-3 py-2">
+                <div>
+                  <span className="block text-xs font-medium text-ink-900">{item.name}</span>
+                  <span className="text-[11px] text-ink-400">{formatCompactNumber(item.quantity)} sold</span>
                 </div>
-              </article>
+                <span className={ui.pill}>Top item</span>
+              </div>
             )) : (
-              <article className="rounded-[1.3rem] border border-dashed border-matcha-900/15 bg-white/55 p-5 text-sm text-stone-600">
-                No product data has been recorded for the store today.
-              </article>
+              <div className="rounded-md border border-dashed border-ink-900/10 bg-cream-100 px-3 py-4 text-xs text-ink-400">
+                No product data recorded today.
+              </div>
             )}
           </div>
         </section>
 
         <section className={ui.card}>
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-tea-700">
-                Live order queue
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold text-tea-900">
-                Open orders by status
-              </h2>
-            </div>
-            <span className={ui.pill}>{formatCompactNumber(liveOrders.length)} live order</span>
+          <div className="flex items-center justify-between gap-2">
+            <AdminPageHeader eyebrow="Live queue" title="Open orders by status" />
+            <span className={ui.pill}>{formatCompactNumber(liveOrders.length)} live</span>
           </div>
-
-          <div className="mt-6 grid gap-3">
+          <div className="mt-4 grid gap-2">
             {openOrdersByStatus.length ? openOrdersByStatus.map((entry) => (
-              <article
-                key={entry.status}
-                className="rounded-[1.3rem] border border-matcha-900/10 bg-white/72 p-4"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h3 className="text-lg font-semibold text-tea-900">
-                      {entry.status.replaceAll("_", " ")}
-                    </h3>
-                    <p className="mt-1 text-sm text-stone-600">
-                      Orders currently in this queue stage.
-                    </p>
-                  </div>
-                  <span className={`rounded-full px-3 py-1.5 text-xs font-semibold ${statusTone(entry.status)}`}>
-                    {formatCompactNumber(entry.count)}
-                  </span>
-                </div>
-              </article>
+              <div key={entry.status} className="flex items-center justify-between rounded-md border border-ink-900/8 bg-cream-100 px-3 py-2">
+                <span className="text-xs font-medium text-ink-800">{entry.status.replaceAll("_", " ")}</span>
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusTone(entry.status)}`}>
+                  {formatCompactNumber(entry.count)}
+                </span>
+              </div>
             )) : (
-              <article className="rounded-[1.3rem] border border-dashed border-matcha-900/15 bg-white/55 p-5 text-sm text-stone-600">
-                There are no open orders in the queue right now.
-              </article>
+              <div className="rounded-md border border-dashed border-ink-900/10 bg-cream-100 px-3 py-4 text-xs text-ink-400">
+                No open orders in the queue.
+              </div>
             )}
           </div>
         </section>

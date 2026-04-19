@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import AccountLayout from "../components/templates/account-layout";
 import InvoicePreviewModal from "../components/InvoicePreviewModal";
 import OrderStatusTracker from "../components/OrderStatusTracker";
 import PaymentQrCard from "../components/PaymentQrCard";
@@ -77,30 +78,6 @@ export default function OrdersPage() {
 
   useToastMessage(error, { type: "error", title: "Orders" });
   useToastMessage(paymentMessage, { type: "info", title: "Payment" });
-
-  useEffect(() => {
-    const normalizedPaymentStatus = String(orderDetail?.paymentStatus ?? "").toUpperCase();
-    const refreshKey = orderDetail?.id
-      ? `${orderDetail.id}:${orderDetail.paidAt ?? orderDetail.updatedAt ?? normalizedPaymentStatus}`
-      : "";
-
-    if (!auth.hasRole("USER") || normalizedPaymentStatus !== "PAID" || !refreshKey) {
-      return;
-    }
-
-    if (paidProfileRefreshRef.current === refreshKey) {
-      return;
-    }
-
-    paidProfileRefreshRef.current = refreshKey;
-    void auth.refreshMe().catch(() => {});
-  }, [
-    auth,
-    orderDetail?.id,
-    orderDetail?.paidAt,
-    orderDetail?.paymentStatus,
-    orderDetail?.updatedAt,
-  ]);
 
   useEffect(() => {
     const normalizedPaymentStatus = String(orderDetail?.paymentStatus ?? "").toUpperCase();
@@ -345,45 +322,76 @@ export default function OrdersPage() {
     }
   };
 
+  /* ---------- Account nav rail ---------- */
+  const profileRail = (
+    <div className="grid gap-4">
+      <div>
+        <p className={ui.eyebrow}>Account</p>
+        <h2 className="font-display text-xl font-semibold text-ink-900">Order history</h2>
+      </div>
+      <nav aria-label="Account sections" className="grid gap-1">
+        {[
+          { href: "/account", label: "Overview" },
+          { href: "/orders", label: "Orders", active: true },
+          { href: "/account/levels", label: "Membership" },
+          { href: "/account/addresses", label: "Addresses" },
+          { href: "/account/favorites", label: "Favorites" },
+        ].map((link) => (
+          <Link
+            key={link.href}
+            className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+              link.active
+                ? "bg-matcha-500/10 font-semibold text-matcha-800"
+                : "text-ink-700 hover:bg-cream-100"
+            }`}
+            to={link.href}
+          >
+            {link.label}
+          </Link>
+        ))}
+      </nav>
+
+      {/* Stats summary */}
+      <div className="grid gap-2">
+        {[
+          { label: "Total orders", value: formatCompactNumber(orders.length) },
+          { label: "Active", value: formatCompactNumber(orderStats.activeCount) },
+          { label: "Completed", value: formatCompactNumber(orderStats.completedCount) },
+          { label: "Total spend", value: formatPrice(orderStats.totalAmount) },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="flex items-center justify-between gap-2 rounded-lg border border-ink-900/10 bg-cream-100/60 px-3 py-2"
+          >
+            <span className="text-xs text-ink-500">{stat.label}</span>
+            <strong className="text-xs font-semibold text-ink-900">{stat.value}</strong>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <main className={ui.page}>
-      <section className={ui.panel}>
-        <div className="flex flex-wrap items-end justify-between gap-3">
+      <AccountLayout profile={profileRail}>
+      <div>
+        <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
           <div>
             <p className={ui.eyebrow}>Orders</p>
-            <h1 className={ui.bannerTitle}>Order history</h1>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-700">
+            <h1 className="font-display text-3xl font-bold leading-tight tracking-tight text-ink-900 sm:text-4xl">
+              Order history
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-ink-600">
               Track orders created from checkout, their processing status, and item-by-item details.
             </p>
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            { label: "Total orders", value: formatCompactNumber(orders.length) },
-            { label: "Active", value: formatCompactNumber(orderStats.activeCount) },
-            { label: "Completed", value: formatCompactNumber(orderStats.completedCount) },
-            { label: "Total spend", value: formatPrice(orderStats.totalAmount) },
-          ].map((stat) => (
-            <article
-              key={stat.label}
-              className="rounded-[1.3rem] border border-matcha-900/10 bg-white/72 p-4"
-            >
-              <strong className="block text-2xl font-bold text-tea-900">{stat.value}</strong>
-              <span className="mt-1 block text-sm text-stone-600">{stat.label}</span>
-            </article>
-          ))}
-        </div>
-
-        {error ? <p className="mt-4 text-sm leading-7 text-stone-600">{error}</p> : null}
-        {cartMessage ? <p className="mt-2 text-sm leading-7 text-stone-600">{cartMessage}</p> : null}
-        {favoriteMessage ? (
-          <p className="mt-2 text-sm leading-7 text-stone-600">{favoriteMessage}</p>
-        ) : null}
-        {paymentMessage ? (
-          <p className="mt-2 text-sm leading-7 text-stone-600">{paymentMessage}</p>
-        ) : null}
-      </section>
+        {error && <p className="mt-4 text-sm leading-7 text-ink-600">{error}</p>}
+        {cartMessage && <p className="mt-2 text-sm leading-7 text-ink-600">{cartMessage}</p>}
+        {favoriteMessage && <p className="mt-2 text-sm leading-7 text-ink-600">{favoriteMessage}</p>}
+        {paymentMessage && <p className="mt-2 text-sm leading-7 text-ink-600">{paymentMessage}</p>}
+      </div>
 
       {loading ? (
         <section className={ui.panel}>
@@ -695,6 +703,7 @@ export default function OrdersPage() {
         order={orderDetail}
         onClose={() => setInvoiceModalOpen(false)}
       />
+      </AccountLayout>
     </main>
   );
 }

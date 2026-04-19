@@ -1,70 +1,242 @@
 @import "tailwindcss";
 
+/* ─────────────────────────────────────────────
+   KAMATCHA ZEN — DESIGN TOKENS (Tailwind v4)
+   ───────────────────────────────────────────── */
 @theme {
-  --font-sans: "Trebuchet MS", "Gill Sans", "Segoe UI", sans-serif;
-  --color-matcha-50: #f7f1e3;
-  --color-matcha-100: #efe6cf;
-  --color-matcha-200: #dde4ca;
-  --color-matcha-300: #b9c59a;
-  --color-matcha-500: #718355;
-  --color-matcha-700: #596c3d;
-  --color-matcha-900: #222818;
-  --color-tea-300: #b08e76;
-  --color-tea-500: #8d6a52;
-  --color-tea-700: #6f4e37;
-  --color-tea-900: #35261a;
-  --color-foam: #fff8ef;
+  /* ── Matcha green scale ── */
+  --color-matcha-50:  #f4f7f0;
+  --color-matcha-100: #e4ecdd;
+  --color-matcha-200: #c9d9ba;
+  --color-matcha-300: #a8c290;
+  --color-matcha-400: #8aab68;
+  --color-matcha-500: #7a9a3e;
+  --color-matcha-600: #647f33;
+  --color-matcha-700: #4a6426;
+  --color-matcha-800: #364a1c;
+  --color-matcha-900: #2a3a1e;
+
+  /* ── Cream scale ── */
+  --color-cream-50:  #fbf8f1;
+  --color-cream-100: #f5f0e4;
+  --color-cream-200: #ede4d0;
+
+  /* ── Beige scale ── */
+  --color-beige-100: #f0ebe0;
+  --color-beige-200: #e5dece;
+  --color-beige-300: #d4cbba;
+  --color-beige-400: #bfb49f;
+
+  /* ── Ink (text/dark) scale ── */
+  --color-ink-400: #8a8f82;
+  --color-ink-500: #6e7467;
+  --color-ink-600: #5a5f52;
+  --color-ink-700: #3f4439;
+  --color-ink-800: #2e3229;
+  --color-ink-900: #1f231a;
+
+  /* ── Semantic aliases ── */
+  --color-bg:            var(--color-cream-50);
+  --color-surface:       var(--color-cream-100);
+  --color-surface-raised: var(--color-cream-50);
+  --color-border-hairline: oklch(0% 0 0 / 0.08);
+  --color-accent:        var(--color-matcha-500);
+  --color-accent-soft:   var(--color-matcha-100);
+
+  /* ── Semantic status (muted) ── */
+  --color-success: #4a7c45;
+  --color-success-soft: #e6f0e5;
+  --color-warn:    #8a6a20;
+  --color-warn-soft: #f5eedb;
+  --color-danger:  #8a3028;
+  --color-danger-soft: #f5e5e3;
+
+  /* ── Typography ── */
+  --font-display: 'Noto Serif Display', 'Lora', serif;
+  --font-sans:    'Inter', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', monospace;
+
+  /* ── Ma (間) spacing — Zen whitespace ── */
+  --spacing-ma-xs:  8px;
+  --spacing-ma-sm:  16px;
+  --spacing-ma-md:  24px;
+  --spacing-ma-lg:  40px;
+  --spacing-ma-xl:  64px;
+  --spacing-ma-2xl: 96px;
+
+  /* ── Border radii ── */
+  --radius-sm:   6px;
+  --radius-md:   12px;
+  --radius-lg:   20px;
+  --radius-xl:   28px;
+  --radius-pill: 999px;
+
+  /* ── Shadows ── */
+  --shadow-hairline: inset 0 0 0 1px oklch(0% 0 0 / 0.08);
+  --shadow-soft: 0 4px 16px oklch(35% 0.08 140 / 0.08);
+  --shadow-lift: 0 8px 32px oklch(35% 0.08 140 / 0.12);
 }
 
+/* ─────────────────────────────────────────────
+   BASE LAYER
+   ───────────────────────────────────────────── */
 @layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
   html {
     scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
   }
 
   body {
+    margin: 0;
     min-height: 100vh;
-    background:
-      radial-gradient(circle at top left, rgba(217, 196, 144, 0.75), transparent 28%),
-      radial-gradient(circle at 85% 15%, rgba(113, 131, 85, 0.18), transparent 25%),
-      linear-gradient(135deg, #efe5d2 0%, #ece2cc 38%, #d8e1c6 100%);
-    color: var(--color-tea-900);
+    background-color: var(--color-bg);
+    color: var(--color-ink-900);
     font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-optical-sizing: auto;
   }
 
-  body,
   #root {
     margin: 0;
     min-height: 100vh;
   }
 
-  * {
-    box-sizing: border-box;
-  }
-
   a {
     text-decoration: none;
+    color: inherit;
   }
 
-  button,
-  input,
-  textarea,
-  select {
+  button, input, textarea, select {
     font: inherit;
   }
+
+  img, video, svg {
+    display: block;
+    max-width: 100%;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--color-ink-900);
+    margin: 0;
+  }
+
+  /* Fluid display headings */
+  h1 { font-size: clamp(2rem, 4vw + 1rem, 3.75rem); }
+  h2 { font-size: clamp(1.5rem, 2.5vw + 0.75rem, 2.5rem); }
+  h3 { font-size: clamp(1.25rem, 1.5vw + 0.5rem, 1.875rem); }
+
+  p { margin: 0; }
+
+  /* Focus ring */
+  :focus-visible {
+    outline: 2px solid var(--color-matcha-500);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Selection */
+  ::selection {
+    background-color: var(--color-matcha-200);
+    color: var(--color-ink-900);
+  }
+
+  /* Scrollbar (Webkit) */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--color-cream-100); }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-beige-300);
+    border-radius: var(--radius-pill);
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-ink-400); }
 }
 
-@keyframes toast-slide-in {
-  from {
+/* ─────────────────────────────────────────────
+   UTILITIES LAYER
+   ───────────────────────────────────────────── */
+@layer utilities {
+  /* ── Gradients ── */
+  .gradient-matcha-mist {
+    background-image: linear-gradient(
+      135deg,
+      var(--color-cream-50) 0%,
+      var(--color-matcha-50) 50%,
+      var(--color-cream-100) 100%
+    );
+  }
+
+  .gradient-stone {
+    background-image: linear-gradient(
+      135deg,
+      var(--color-beige-100) 0%,
+      var(--color-cream-200) 50%,
+      var(--color-beige-200) 100%
+    );
+  }
+
+  /* ── Scroll reveal motion ── */
+  .reveal-on-scroll {
     opacity: 0;
-    transform: translateY(-18px);
+    transform: translateY(8px);
+    transition: opacity 500ms ease-out, transform 500ms ease-out;
   }
 
-  to {
+  .reveal-on-scroll.in-view {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
-}
 
-.toast-enter {
-  animation: toast-slide-in 180ms ease-out;
+  /* Reduced motion kill-switch */
+  @media (prefers-reduced-motion: reduce) {
+    .reveal-on-scroll,
+    .reveal-on-scroll.in-view {
+      transition: none !important;
+      opacity: 1 !important;
+      transform: none !important;
+    }
+  }
+
+  /* ── Toast animation ── */
+  @keyframes toast-slide-in {
+    from { opacity: 0; transform: translateY(-12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .toast-enter {
+    animation: toast-slide-in 180ms ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .toast-enter {
+      animation: none !important;
+    }
+  }
+
+  /* ── Density: Airy (customer default) ── */
+  .density-airy {
+    font-size: 16px;
+    line-height: 1.6;
+  }
+
+  /* ── Density: Compact (admin / employee) ── */
+  .density-compact {
+    font-size: 14px;
+    line-height: 1.5;
+    --spacing-ma-xs:  6px;
+    --spacing-ma-sm:  12px;
+    --spacing-ma-md:  16px;
+    --spacing-ma-lg:  24px;
+    --spacing-ma-xl:  40px;
+    --spacing-ma-2xl: 64px;
+  }
 }

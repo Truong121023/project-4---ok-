@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import CheckoutLayout from "../components/templates/checkout-layout";
 import { ApiError } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { useSiteData } from "../context/SiteDataContext";
@@ -39,6 +40,43 @@ function getMinDateTimeLocalValue() {
   const now = new Date();
   const shifted = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
   return shifted.toISOString().slice(0, 16);
+}
+
+/** Checkout stepper — highlights "Delivery" + "Payment" step */
+function CheckoutStepper() {
+  const steps = ["Cart", "Delivery", "Payment", "Confirm"];
+  return (
+    <nav aria-label="Checkout steps">
+      <ol className="flex items-center gap-2 overflow-x-auto">
+        {steps.map((step, idx) => {
+          const isActive = idx === 1 || idx === 2;
+          const isPast = idx === 0;
+          return (
+            <li key={step} className="flex items-center gap-2">
+              {idx > 0 && (
+                <span
+                  aria-hidden="true"
+                  className={`h-px w-6 shrink-0 sm:w-10 ${isPast ? "bg-matcha-300" : "bg-beige-300"}`}
+                />
+              )}
+              <span
+                className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] ${
+                  isActive
+                    ? "bg-matcha-500 text-cream-50"
+                    : isPast
+                      ? "bg-matcha-100 text-matcha-700"
+                      : "bg-cream-100 text-ink-400"
+                }`}
+              >
+                <span className="hidden sm:inline">{step}</span>
+                <span className="sm:hidden">{idx + 1}</span>
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  );
 }
 
 export default function CheckoutPage() {
@@ -106,8 +144,9 @@ export default function CheckoutPage() {
 
   const selectedDeliveryAddress = useMemo(
     () =>
-      deliveryAddresses.find((address) => String(address.id) === String(selectedDeliveryAddressId)) ??
-      null,
+      deliveryAddresses.find(
+        (address) => String(address.id) === String(selectedDeliveryAddressId),
+      ) ?? null,
     [deliveryAddresses, selectedDeliveryAddressId],
   );
 
@@ -153,7 +192,9 @@ export default function CheckoutPage() {
 
       if (!selectedDeliveryAddress.deliveryAddress) {
         setResolvedDeliveryLocation(null);
-        setDeliveryLocationError("Shipping fee will be finalized after address coordinates are available.");
+        setDeliveryLocationError(
+          "Shipping fee will be finalized after address coordinates are available.",
+        );
         setDeliveryLocationLoading(false);
         return;
       }
@@ -188,7 +229,9 @@ export default function CheckoutPage() {
       } catch {
         if (!cancelled) {
           setResolvedDeliveryLocation(null);
-          setDeliveryLocationError("Shipping fee will be finalized after address coordinates are available.");
+          setDeliveryLocationError(
+            "Shipping fee will be finalized after address coordinates are available.",
+          );
         }
       } finally {
         if (!cancelled) {
@@ -284,7 +327,9 @@ export default function CheckoutPage() {
         return;
       }
 
-      setPricingPreviewNotice(result.message || "Final shipping fee will be confirmed at checkout.");
+      setPricingPreviewNotice(
+        result.message || "Final shipping fee will be confirmed at checkout.",
+      );
       setPricingPreviewLoading(false);
     }
 
@@ -435,211 +480,266 @@ export default function CheckoutPage() {
     }
   };
 
+  /* ---------- Loading ---------- */
   if (userDataLoading) {
     return (
       <main className={ui.page}>
-        <section className={ui.panel}>
-          <p className={ui.eyebrow}>Checkout</p>
-          <h1 className={ui.bannerTitle}>Preparing payment details</h1>
-          <div className="mt-6 rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
-            Syncing your cart, addresses, and pricing preview...
+        <CheckoutLayout stepper={<CheckoutStepper />}>
+          <div>
+            <p className={ui.eyebrow}>Checkout</p>
+            <h1 className="font-display text-3xl font-bold tracking-tight text-ink-900">
+              Preparing payment details
+            </h1>
+            <div className="mt-6 rounded-xl border border-dashed border-ink-900/15 bg-cream-50/50 p-6 text-sm text-ink-600">
+              Syncing your cart, addresses, and pricing preview...
+            </div>
           </div>
-        </section>
+        </CheckoutLayout>
       </main>
     );
   }
 
+  /* ---------- Empty cart ---------- */
   if (!cartItems.length) {
     return (
       <main className={ui.page}>
-        <section className={ui.panel}>
-          <p className={ui.eyebrow}>Checkout</p>
-          <h1 className={ui.bannerTitle}>There is nothing to pay yet</h1>
-          <div className="mt-6 rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-8 text-sm leading-7 text-stone-600">
-            Your cart is empty. Add items first, then come back here to create the payment order.
+        <CheckoutLayout stepper={<CheckoutStepper />}>
+          <div>
+            <p className={ui.eyebrow}>Checkout</p>
+            <h1 className="font-display text-3xl font-bold tracking-tight text-ink-900">
+              Nothing to pay yet
+            </h1>
+            <div className="mt-6 rounded-xl border border-dashed border-ink-900/15 bg-cream-50/50 p-8 text-sm leading-7 text-ink-600">
+              Your cart is empty. Add items first, then come back here to create the payment order.
+            </div>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link className={ui.primaryButton} to="/menu">
+                Browse menu
+              </Link>
+              <Link className={ui.secondaryButton} to="/cart">
+                Back to cart
+              </Link>
+            </div>
           </div>
-          <div className="mt-5 flex flex-wrap gap-3">
-            <Link className={ui.primaryButton} to="/menu">
-              Browse menu
-            </Link>
-            <Link className={ui.secondaryButton} to="/cart">
-              Back to cart
-            </Link>
-          </div>
-        </section>
+        </CheckoutLayout>
       </main>
     );
   }
 
+  /* ---------- Submitting spinner ---------- */
   if (checkoutSubmitting) {
     return (
       <main className={ui.page}>
-        <section className={`${ui.panel} mx-auto max-w-3xl`}>
-          <p className={ui.eyebrow}>Checkout</p>
-          <h1 className={ui.bannerTitle}>Creating your payment request</h1>
-          <div className="mt-6 rounded-[2rem] border border-matcha-900/10 bg-white/70 p-8 shadow-[0_18px_44px_rgba(79,70,45,0.08)]">
-            <div className="flex items-center gap-4">
-              <span className="h-12 w-12 animate-spin rounded-full border-4 border-matcha-200 border-t-matcha-700" />
-              <div>
-                <p className="text-lg font-semibold text-tea-900">
-                  Please wait while Kamatcha prepares the PayOS QR.
-                </p>
-                <p className="mt-2 text-sm leading-7 text-stone-600">
-                  We are creating the order, checking the payment link, and retrying automatically
-                  if payOS reports that the previous payment code already exists.
-                </p>
-              </div>
+        <CheckoutLayout stepper={<CheckoutStepper />} centered>
+          <div className="flex flex-col items-center gap-6 py-4 text-center">
+            <span
+              aria-label="Loading"
+              className="h-12 w-12 animate-spin rounded-full border-4 border-matcha-200 border-t-matcha-700"
+            />
+            <div>
+              <p className="font-display text-lg font-semibold text-ink-900">
+                Creating your payment request
+              </p>
+              <p className="mt-2 text-sm leading-7 text-ink-600">
+                Preparing the PayOS QR. Please wait...
+              </p>
             </div>
-
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              <article className="rounded-[1.25rem] border border-matcha-900/10 bg-[#fbf6ed] px-4 py-3">
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">
-                  Delivery
-                </p>
-                <p className="mt-2 text-sm font-semibold text-tea-900">
-                  {formatDeliveryType(deliveryType)}
-                </p>
-              </article>
-              <article className="rounded-[1.25rem] border border-matcha-900/10 bg-[#fbf6ed] px-4 py-3">
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">
-                  Address
-                </p>
-                <p className="mt-2 text-sm font-semibold text-tea-900">
-                  {selectedDeliveryAddress?.fullName || "Selected address"}
-                </p>
-              </article>
-              <article className="rounded-[1.25rem] border border-matcha-900/10 bg-[#fbf6ed] px-4 py-3">
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">
-                  Total
-                </p>
-                <p className="mt-2 text-sm font-semibold text-tea-900">
-                  {formatPrice(previewTotalAmount)}
-                </p>
-              </article>
+            <div className="w-full grid gap-3 sm:grid-cols-3">
+              {[
+                { label: "Delivery", value: formatDeliveryType(deliveryType) },
+                {
+                  label: "Address",
+                  value: selectedDeliveryAddress?.fullName || "Selected address",
+                },
+                { label: "Total", value: formatPrice(previewTotalAmount) },
+              ].map((stat) => (
+                <div
+                  key={stat.label}
+                  className="rounded-lg border border-ink-900/10 bg-cream-100/60 px-4 py-3 text-left"
+                >
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink-400">
+                    {stat.label}
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-ink-900">{stat.value}</p>
+                </div>
+              ))}
             </div>
           </div>
-        </section>
+        </CheckoutLayout>
       </main>
     );
   }
 
+  /* ---------- Order summary rail ---------- */
+  const summaryRail = (
+    <>
+      <h2 className="font-display text-xl font-semibold text-ink-900">Payment summary</h2>
+
+      <div className="mt-5 grid gap-3">
+        {[
+          { label: "Line items", value: formatCompactNumber(cartItems.length) },
+          { label: "Total qty", value: formatCompactNumber(cartCount) },
+          { label: "Item subtotal", value: formatPrice(cartSubtotal) },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="flex items-center justify-between gap-3 rounded-lg border border-ink-900/10 bg-cream-100/60 px-4 py-3"
+          >
+            <span className="text-sm text-ink-600">{stat.label}</span>
+            <strong className="text-sm font-semibold text-ink-900">{stat.value}</strong>
+          </div>
+        ))}
+
+        {showDiscountBreakdown && (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-matcha-200 bg-matcha-50/60 px-4 py-3">
+            <span className="text-sm text-matcha-700">
+              {pricingPreview?.promotionCode
+                ? `Discount (${pricingPreview.promotionCode})`
+                : "Discount"}
+            </span>
+            <strong className="text-sm font-semibold text-matcha-700">
+              -{formatPrice(previewDiscountAmount)}
+            </strong>
+          </div>
+        )}
+
+        {pricingSummary?.shippingFeeAmount !== null &&
+          pricingSummary?.shippingFeeAmount !== undefined && (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-ink-900/10 bg-cream-100/60 px-4 py-3">
+              <span className="text-sm text-ink-600">
+                {pricingPreview?.source === "backend" ? "Shipping fee" : "Est. shipping"}
+              </span>
+              <strong className="text-sm font-semibold text-ink-900">
+                {formatPrice(pricingSummary.shippingFeeAmount)}
+              </strong>
+            </div>
+          )}
+
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-ink-900/10 bg-ink-900/5 px-4 py-3">
+          <span className="text-sm font-semibold text-ink-900">
+            {pricingPreview?.source === "backend" ? "Final total" : "Est. total"}
+          </span>
+          <strong className={ui.price}>{formatPrice(previewTotalAmount)}</strong>
+        </div>
+      </div>
+
+      {/* Notices */}
+      {(pricingPreviewLoading || deliveryLocationLoading || pricingPreviewNotice ||
+        deliveryLocationError || voucherNotice || voucherError || notice) && (
+        <div className="mt-4 grid gap-1 rounded-lg border border-ink-900/10 bg-cream-100/60 px-4 py-3 text-sm leading-7 text-ink-600">
+          {(pricingPreviewLoading || deliveryLocationLoading) && (
+            <p>
+              {normalizedPromotionCode
+                ? `Recalculating with ${normalizedPromotionCode}...`
+                : "Updating pricing preview..."}
+            </p>
+          )}
+          {pricingSummary?.shippingDistanceKm !== undefined &&
+            pricingSummary?.shippingDistanceKm !== null && (
+              <p>Distance: {formatShippingDistance(pricingSummary.shippingDistanceKm)}</p>
+            )}
+          {pricingSummary?.shippingFeeBreakdown?.length > 0 && (
+            <p>Breakdown: {formatShippingBreakdown(pricingSummary.shippingFeeBreakdown)}</p>
+          )}
+          {pricingPreview?.statusSummary && <p>{pricingPreview.statusSummary}</p>}
+          {deliveryLocationError && <p>{deliveryLocationError}</p>}
+          {pricingPreviewNotice && <p>{pricingPreviewNotice}</p>}
+          {voucherNotice && <p className="text-matcha-700">{voucherNotice}</p>}
+          {voucherError && <p className="text-rose-700">{voucherError}</p>}
+          {notice && <p className="text-rose-700">{notice}</p>}
+        </div>
+      )}
+
+      <div className="mt-5 flex flex-col gap-3">
+        <button
+          className={ui.primaryButton}
+          type="button"
+          disabled={
+            !cartItems.length ||
+            !selectedDeliveryAddressId ||
+            (deliveryType === "SCHEDULED" && !scheduledDeliveryAt)
+          }
+          onClick={handleCheckout}
+        >
+          Create order and show payment QR
+        </button>
+        <Link className={ui.secondaryButton} to="/cart">
+          Edit cart
+        </Link>
+      </div>
+    </>
+  );
+
+  /* ---------- Main form ---------- */
   return (
     <main className={ui.page}>
-      <section className={ui.panel}>
-        <div className="flex flex-wrap items-end justify-between gap-3">
+      <CheckoutLayout stepper={<CheckoutStepper />} summary={summaryRail}>
+        {/* Header */}
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className={ui.eyebrow}>Checkout</p>
-            <h1 className={ui.bannerTitle}>Payment details</h1>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-700">
+            <h1 className="font-display text-3xl font-bold leading-tight tracking-tight text-ink-900 sm:text-4xl">
+              Payment details
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-ink-600">
               Review the cart, choose delivery details, and create the order before you transfer
               money with PayOS.
             </p>
           </div>
-
           <Link className={ui.secondaryButton} to="/cart">
             Back to cart
           </Link>
         </div>
-      </section>
 
-      <section className="mx-auto grid w-full max-w-3xl gap-6">
-        <aside className={`${ui.card} h-fit`}>
-          <h2 className="text-2xl font-semibold text-tea-900">Payment summary</h2>
+        {/* Delivery address */}
+        <section className="rounded-xl border border-ink-900/10 bg-cream-50 p-5 shadow-soft">
+          <h2 className="font-display text-lg font-semibold text-ink-900">Delivery address</h2>
 
-          <div className="mt-5 grid gap-3">
-            <div className="rounded-[1.2rem] border border-matcha-900/10 bg-white/72 p-4">
-              <strong className="block text-lg font-bold text-tea-900">
-                {formatCompactNumber(cartItems.length)}
-              </strong>
-              <span className="mt-1 block text-sm text-stone-600">Line items</span>
-            </div>
-            <div className="rounded-[1.2rem] border border-matcha-900/10 bg-white/72 p-4">
-              <strong className="block text-lg font-bold text-tea-900">
-                {formatCompactNumber(cartCount)}
-              </strong>
-              <span className="mt-1 block text-sm text-stone-600">Total quantity</span>
-            </div>
-            <div className="rounded-[1.2rem] border border-matcha-900/10 bg-white/72 p-4">
-              <strong className="block text-lg font-bold text-tea-900">{formatPrice(cartSubtotal)}</strong>
-              <span className="mt-1 block text-sm text-stone-600">Item subtotal</span>
-            </div>
-            {showDiscountBreakdown ? (
-              <div className="rounded-[1.2rem] border border-matcha-900/10 bg-white/72 p-4">
-                <strong className="block text-lg font-bold text-matcha-700">
-                  -{formatPrice(previewDiscountAmount)}
-                </strong>
-                <span className="mt-1 block text-sm text-stone-600">
-                  {pricingPreview?.promotionCode
-                    ? `Discount from ${pricingPreview.promotionCode}`
-                    : normalizedPromotionCode
-                      ? `Discount preview for ${normalizedPromotionCode}`
-                      : "Discount"}
-                </span>
-              </div>
-            ) : null}
-            {pricingSummary?.shippingFeeAmount !== null && pricingSummary?.shippingFeeAmount !== undefined ? (
-              <div className="rounded-[1.2rem] border border-matcha-900/10 bg-white/72 p-4">
-                <strong className="block text-lg font-bold text-tea-900">
-                  {formatPrice(pricingSummary.shippingFeeAmount)}
-                </strong>
-                <span className="mt-1 block text-sm text-stone-600">
-                  {pricingPreview?.source === "backend" ? "Shipping fee" : "Estimated shipping fee"}
-                </span>
-              </div>
-            ) : null}
-            <div className="rounded-[1.2rem] border border-matcha-900/10 bg-white/72 p-4">
-              <strong className="block text-lg font-bold text-tea-900">
-                {formatPrice(previewTotalAmount)}
-              </strong>
-              <span className="mt-1 block text-sm text-stone-600">
-                {pricingPreview?.source === "backend" ? "Final total" : "Estimated total"}
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-5 grid gap-4 rounded-[1rem] border border-matcha-900/10 bg-stone-50/90 p-4">
-            <div className="grid gap-2">
-              <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                Delivery address
-              </span>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <select
-                  className={`${ui.input} min-w-0 flex-1`}
-                  value={selectedDeliveryAddressId}
-                  onChange={(event) => setSelectedDeliveryAddressId(event.target.value)}
-                >
-                  {deliveryAddresses.length ? (
-                    deliveryAddresses.map((address) => (
-                      <option key={address.id} value={address.id}>
-                        {address.primary ? "[Primary] " : ""}
-                        {address.fullName} - {address.phoneNumber}
-                      </option>
-                    ))
-                  ) : (
-                    <option value="">No saved addresses</option>
-                  )}
-                </select>
-                <Link
-                  className="inline-flex shrink-0 items-center justify-center rounded-2xl border border-matcha-900/10 bg-white/80 px-4 py-3.5 text-sm font-semibold text-tea-900 transition hover:-translate-y-0.5 hover:bg-white"
-                  to="/account/addresses"
-                >
-                  Manage addresses
-                </Link>
-              </div>
+          <div className="mt-4 grid gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <select
+                className={`${ui.input} min-w-0 flex-1`}
+                value={selectedDeliveryAddressId}
+                onChange={(event) => setSelectedDeliveryAddressId(event.target.value)}
+              >
+                {deliveryAddresses.length ? (
+                  deliveryAddresses.map((address) => (
+                    <option key={address.id} value={address.id}>
+                      {address.primary ? "[Primary] " : ""}
+                      {address.fullName} - {address.phoneNumber}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">No saved addresses</option>
+                )}
+              </select>
+              <Link
+                className={`${ui.secondaryButton} shrink-0`}
+                to="/account/addresses"
+              >
+                Manage addresses
+              </Link>
             </div>
 
-            {selectedDeliveryAddress ? (
-              <div className="rounded-[1rem] border border-matcha-900/10 bg-white/80 p-4 text-sm leading-7 text-stone-600">
-                <p className="font-semibold text-tea-900">
-                  {selectedDeliveryAddress.fullName} - {selectedDeliveryAddress.phoneNumber}
+            {selectedDeliveryAddress && (
+              <div className="rounded-lg border border-ink-900/10 bg-cream-100/60 px-4 py-3 text-sm leading-7 text-ink-600">
+                <p className="font-semibold text-ink-900">
+                  {selectedDeliveryAddress.fullName} — {selectedDeliveryAddress.phoneNumber}
                 </p>
                 <p className="mt-1">{selectedDeliveryAddress.deliveryAddress}</p>
               </div>
-            ) : null}
+            )}
+          </div>
+        </section>
 
+        {/* Delivery type */}
+        <section className="mt-5 rounded-xl border border-ink-900/10 bg-cream-50 p-5 shadow-soft">
+          <h2 className="font-display text-lg font-semibold text-ink-900">Delivery type</h2>
+
+          <div className="mt-4 grid gap-4">
             <label className="grid gap-2">
-              <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                Delivery type
+              <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">
+                Type
               </span>
               <select
                 className={ui.input}
@@ -651,9 +751,9 @@ export default function CheckoutPage() {
               </select>
             </label>
 
-            {deliveryType === "SCHEDULED" ? (
+            {deliveryType === "SCHEDULED" && (
               <label className="grid gap-2">
-                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">
                   Schedule for
                 </span>
                 <input
@@ -664,11 +764,18 @@ export default function CheckoutPage() {
                   onChange={(event) => setScheduledDeliveryAt(event.target.value)}
                 />
               </label>
-            ) : null}
+            )}
+          </div>
+        </section>
 
+        {/* Promotion code */}
+        <section className="mt-5 rounded-xl border border-ink-900/10 bg-cream-50 p-5 shadow-soft">
+          <h2 className="font-display text-lg font-semibold text-ink-900">Promotion code</h2>
+
+          <div className="mt-4 grid gap-4">
             <label className="grid gap-2">
-              <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                Promotion code
+              <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">
+                Code
               </span>
               <input
                 className={ui.input}
@@ -679,29 +786,31 @@ export default function CheckoutPage() {
               />
             </label>
 
-            <div className="rounded-[1rem] border border-matcha-900/10 bg-white/80 p-4 text-sm leading-7 text-stone-600">
-              <p className="font-semibold text-tea-900">Quick tip</p>
+            <div className="rounded-lg border border-ink-900/10 bg-cream-100/60 px-4 py-3 text-sm leading-7 text-ink-600">
+              <p className="font-semibold text-ink-900">Quick tip</p>
               <p className="mt-1">
-                Try <strong className="text-matcha-700">KAMATCHASHIP</strong> on any delivery order.
-                Older voucher codes may require credit redemption first or only work with signature
-                items.
+                Try{" "}
+                <strong className="text-matcha-700">KAMATCHASHIP</strong> on any delivery order.
               </p>
-              {normalizedPromotionCode ? (
+              {normalizedPromotionCode && (
                 <p className="mt-2 text-matcha-700">
                   {pricingPreviewLoading
-                    ? `Recalculating the order total with ${normalizedPromotionCode}...`
+                    ? `Recalculating with ${normalizedPromotionCode}...`
                     : pricingPreview?.promotionCode
-                      ? `${pricingPreview.promotionCode} is now reflected in the order total.`
-                      : `Checking whether ${normalizedPromotionCode} can be applied to this order.`}
+                      ? `${pricingPreview.promotionCode} applied.`
+                      : `Checking ${normalizedPromotionCode}...`}
                 </p>
-              ) : null}
+              )}
             </div>
 
-            {voucherLoading ? <span className="text-sm text-stone-600">Loading vouchers...</span> : null}
-            {readyToUseVouchers.length ? (
-              <div className="grid gap-3">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                  Ready to use now
+            {voucherLoading && (
+              <span className="text-sm text-ink-600">Loading vouchers...</span>
+            )}
+
+            {readyToUseVouchers.length > 0 && (
+              <div className="grid gap-2">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">
+                  Ready to use
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {readyToUseVouchers.slice(0, 4).map((voucher) => (
@@ -716,10 +825,11 @@ export default function CheckoutPage() {
                   ))}
                 </div>
               </div>
-            ) : null}
-            {ownedVouchers.length ? (
-              <div className="grid gap-3">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+            )}
+
+            {ownedVouchers.length > 0 && (
+              <div className="grid gap-2">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">
                   Redeemed credit vouchers
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -735,17 +845,20 @@ export default function CheckoutPage() {
                   ))}
                 </div>
               </div>
-            ) : null}
+            )}
+
             {redeemableCreditVouchers.slice(0, 2).map((voucher) => (
               <div
                 key={voucher.id || voucher.code}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-[1rem] border border-matcha-900/10 bg-white/90 px-4 py-3"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-ink-900/10 bg-cream-100/60 px-4 py-3"
               >
-                <div className="grid gap-1">
-                  <strong className="text-sm text-tea-900">{voucher.name || voucher.code}</strong>
-                  <span className="text-sm text-stone-600">
+                <div>
+                  <p className="text-sm font-semibold text-ink-900">
+                    {voucher.name || voucher.code}
+                  </p>
+                  <p className="text-sm text-ink-600">
                     Redeem with {Number(voucher.creditCost ?? 0).toLocaleString("vi-VN")} credits
-                  </span>
+                  </p>
                 </div>
                 <button
                   className={ui.primaryButton}
@@ -758,49 +871,8 @@ export default function CheckoutPage() {
               </div>
             ))}
           </div>
-
-          <div className="mt-4 rounded-[1rem] border border-matcha-900/10 bg-white/72 p-4 text-sm leading-7 text-stone-600">
-            {pricingPreviewLoading || deliveryLocationLoading ? (
-              <p>
-                {normalizedPromotionCode
-                  ? `Recalculating the order total with ${normalizedPromotionCode}...`
-                  : "Updating pricing preview..."}
-              </p>
-            ) : null}
-            {pricingSummary?.shippingDistanceKm !== undefined &&
-            pricingSummary?.shippingDistanceKm !== null ? (
-              <p>Shipping distance: {formatShippingDistance(pricingSummary.shippingDistanceKm)}</p>
-            ) : null}
-            {pricingSummary?.shippingFeeBreakdown?.length ? (
-              <p>Per-store breakdown: {formatShippingBreakdown(pricingSummary.shippingFeeBreakdown)}</p>
-            ) : null}
-            {pricingPreview?.statusSummary ? <p>{pricingPreview.statusSummary}</p> : null}
-            {deliveryLocationError ? <p>{deliveryLocationError}</p> : null}
-            {pricingPreviewNotice ? <p>{pricingPreviewNotice}</p> : null}
-            {voucherNotice ? <p>{voucherNotice}</p> : null}
-            {voucherError ? <p>{voucherError}</p> : null}
-            {notice ? <p>{notice}</p> : null}
-          </div>
-
-          <div className="mt-5 flex flex-wrap gap-3">
-            <button
-              className={ui.primaryButton}
-              type="button"
-              disabled={
-                !cartItems.length ||
-                !selectedDeliveryAddressId ||
-                (deliveryType === "SCHEDULED" && !scheduledDeliveryAt)
-              }
-              onClick={handleCheckout}
-            >
-              Create order and show payment QR
-            </button>
-            <Link className={ui.secondaryButton} to="/cart">
-              Edit cart
-            </Link>
-          </div>
-        </aside>
-      </section>
+        </section>
+      </CheckoutLayout>
     </main>
   );
 }

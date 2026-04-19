@@ -1,19 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import SmartImage from "../components/SmartImage";
+import CatalogLayout from "../components/templates/catalog-layout";
+import { EmptyState } from "../components/ui/empty-state";
+import { Skeleton } from "../components/ui/skeleton";
 import { fetchPublicDishes } from "../lib/siteApi";
 import { ui } from "../ui";
 
 function buildCategoryOptions(items) {
-  const categoryMap = new Map();
-
+  const map = new Map();
   items.forEach((item) => {
-    if (!item.categoryId || !item.categoryName) {
-      return;
-    }
-
-    if (!categoryMap.has(item.categoryId)) {
-      categoryMap.set(item.categoryId, {
+    if (!item.categoryId || !item.categoryName) return;
+    if (!map.has(item.categoryId)) {
+      map.set(item.categoryId, {
         id: item.categoryId,
         title: item.categoryName,
         image: item.categoryImage,
@@ -21,9 +20,16 @@ function buildCategoryOptions(items) {
       });
     }
   });
+  return Array.from(map.values()).sort((a, b) => a.title.localeCompare(b.title, "vi"));
+}
 
-  return Array.from(categoryMap.values()).sort((left, right) =>
-    left.title.localeCompare(right.title, "vi"),
+function CategoryCardSkeleton() {
+  return (
+    <div className="rounded-xl border border-ink-900/10 bg-cream-50 p-5 shadow-soft">
+      <Skeleton className="mb-4 aspect-square w-full rounded-lg" />
+      <Skeleton className="h-5 w-2/3 mb-2" />
+      <Skeleton className="h-4 w-full" />
+    </div>
   );
 }
 
@@ -36,88 +42,88 @@ export default function CategoryPage() {
   const categories = useMemo(() => buildCategoryOptions(dishes), [dishes]);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadData() {
+      setLoading(true);
+      setError("");
       try {
-        setLoading(true);
-        const result = await fetchPublicDishes();
-
-        if (!result.ok) {
-          setError(result.message);
-          return;
+        const result = await fetchPublicDishes({ page: 0, size: 200 });
+        if (!cancelled) {
+          setDishes(Array.isArray(result.items) ? result.items : (Array.isArray(result.data) ? result.data : []));
         }
-
-        setDishes(result.data);
       } catch (err) {
-        setError("Failed to load categories");
+        if (!cancelled) setError(err.message || "Failed to load categories");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
     void loadData();
+    return () => { cancelled = true; };
   }, [location]);
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-matcha-500 border-t-transparent" />
-          <p className="text-stone-600">Loading categories...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">{error}</p>
-          <button
-            className={ui.primaryButton}
-            onClick={() => window.location.reload()}
-          >
-            Try again
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-8 text-center">
-        <h1 className="text-3xl font-bold text-tea-900">Categories</h1>
-        <p className="mt-2 text-stone-600">
-          Explore our menu by category
+    <main className="bg-bg min-h-screen">
+      <div className="mx-auto w-full max-w-7xl px-4 pb-2 pt-8 sm:px-6 lg:px-8">
+        <p className={ui.eyebrow}>Categories</p>
+        <h1 className={ui.bannerTitle}>Explore our menu</h1>
+        <p className={ui.copy}>
+          Browse all menu categories and discover your next favourite drink.
+        </p>
+        {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
+        <p className="mt-3 text-sm text-ink-500">
+          <strong className="text-ink-800">{categories.length}</strong> categories
         </p>
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <CatalogLayout
+        loading={loading}
+        skeleton={
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {Array.from({ length: 8 }, (_, i) => <CategoryCardSkeleton key={i} />)}
+          </div>
+        }
+        empty={
+          <EmptyState
+            icon="🍵"
+            title="No categories yet"
+            description="Check back soon for our full menu."
+          />
+        }
+      >
         {categories.map((category) => (
           <Link
             key={category.id}
             to={`/menu?category=${category.id}`}
-            className="group rounded-[1.6rem] border border-matcha-900/10 bg-white p-6 shadow-[0_10px_24px_rgba(79,70,45,0.08)] transition hover:-translate-y-1 hover:shadow-[0_20px_40px_rgba(79,70,45,0.12)]"
+            className="group flex flex-col overflow-hidden rounded-xl border border-ink-900/10 bg-cream-50 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-lift"
           >
-            <div className="aspect-square mb-4 overflow-hidden rounded-2xl bg-matcha-50">
+            {/* Category image */}
+            <div className="aspect-square overflow-hidden bg-beige-100">
               <SmartImage
                 src={category.image}
                 alt={category.title}
-                className="h-full w-full object-cover transition group-hover:scale-105"
+                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
               />
             </div>
-            <h3 className="text-lg font-semibold text-tea-900">
-              {category.title}
-            </h3>
-            {category.description && (
-              <p className="mt-2 text-sm text-stone-600 line-clamp-2">
-                {category.description}
+
+            {/* Text */}
+            <div className="flex flex-1 flex-col gap-2 p-4">
+              <h2 className="font-display text-base font-semibold text-ink-900 leading-snug">
+                {category.title}
+              </h2>
+              {category.description ? (
+                <p className="text-sm text-ink-500 line-clamp-2 leading-relaxed">
+                  {category.description}
+                </p>
+              ) : null}
+              <p className="mt-auto pt-2 text-xs font-semibold text-matcha-600 uppercase tracking-widest">
+                Browse →
               </p>
-            )}
+            </div>
           </Link>
         ))}
-      </div>
-    </div>
+      </CatalogLayout>
+    </main>
   );
 }

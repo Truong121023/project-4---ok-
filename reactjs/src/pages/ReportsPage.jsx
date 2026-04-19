@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
+import AdminDataTable from "../components/admin/admin-data-table";
+import AdminPageHeader from "../components/admin/admin-page-header";
+import AdminStatCard from "../components/admin/admin-stat-card";
 import { useAuth } from "../context/AuthContext";
 import { getApiErrorMessage } from "../lib/api";
 import { formatDateTimeVn, formatNumberVi } from "../lib/locale";
@@ -326,297 +329,215 @@ export default function ReportsPage() {
     URL.revokeObjectURL(downloadUrl);
   };
 
+  const tableColumns = [
+    {
+      key: "order",
+      header: "Order",
+      render: (row) => (
+        <div>
+          <strong className="block text-xs font-semibold text-ink-900">#{row.id}</strong>
+          <span className="text-[11px] text-ink-400">{row.deliveryFullName || "N/A"}</span>
+        </div>
+      ),
+    },
+    {
+      key: "store",
+      header: "Store",
+      render: (row) => (
+        <span className="text-xs text-ink-800">{row.storeLabel}</span>
+      ),
+    },
+    {
+      key: "completed",
+      header: "Completed",
+      render: (row) => (
+        <span className="text-xs text-ink-600">{formatDateTime(resolveCompletedDate(row))}</span>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (row) => (
+        <div>
+          <span className="block text-xs text-ink-800">{row.status || "N/A"}</span>
+          <span className="text-[11px] text-ink-400">{row.paymentStatus || "N/A"}</span>
+        </div>
+      ),
+    },
+    {
+      key: "storeRevenue",
+      header: "Store rev.",
+      render: (row) => <span className="font-mono text-xs text-ink-800">{formatCurrency(row.storeRevenue)}</span>,
+    },
+    {
+      key: "orderRevenue",
+      header: "Order rev.",
+      render: (row) => <span className="font-mono text-xs font-semibold text-matcha-700">{formatCurrency(row.orderRevenue)}</span>,
+    },
+    {
+      key: "portfolio",
+      header: "Portfolio",
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[11px] text-ink-400">{Math.round(row.revenueRatio)}%</span>
+          <div className="h-1.5 w-20 overflow-hidden rounded-full bg-beige-200">
+            <div className="h-full rounded-full bg-matcha-500" style={{ width: `${row.revenueRatio}%` }} />
+          </div>
+        </div>
+      ),
+    },
+  ];
+
   if (!isAdmin && !isManager) {
     return <Navigate replace to="/unauthorized" />;
   }
 
   return (
     <main className={ui.page}>
+      {/* Header */}
       <section className={ui.panel}>
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className={ui.eyebrow}>Reports</p>
-            <h1 className="text-3xl font-semibold text-tea-900 sm:text-4xl">
-              Order and revenue analytics
-            </h1>
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-stone-600">
-              {isAdmin
-                ? "Track completed orders, compare store contribution, and review revenue distribution across the network."
-                : "Track completed orders and revenue contribution for your assigned store scope."}
-            </p>
-          </div>
-          <span className={ui.pill}>
-            {isAdmin ? "Admin scope" : auth.user?.workingStoreName || "Manager scope"}
-          </span>
-        </div>
+        <AdminPageHeader
+          eyebrow="Reports"
+          title="Order and revenue analytics"
+          subtitle={
+            isAdmin
+              ? "Track completed orders, compare store contribution, and review revenue distribution across the network."
+              : "Track completed orders and revenue contribution for your assigned store scope."
+          }
+          actions={
+            <span className={ui.pill}>
+              {isAdmin ? "Admin scope" : auth.user?.workingStoreName || "Manager scope"}
+            </span>
+          }
+        />
       </section>
 
       <section className={ui.panel}>
-        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(20rem,0.82fr)]">
-          <div className="grid min-w-0 content-start self-start gap-4">
-            <div className="rounded-[1.75rem] border border-matcha-900/10 bg-white/60 p-4">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-tea-700">
-                  Reports workspace
-                </p>
-                <p className="mt-2 text-sm leading-7 text-stone-600">
-                  Use the date range and search field below to inspect order and store revenue.
-                </p>
-              </div>
-
-              <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(11rem,1fr)_minmax(11rem,1fr)_minmax(0,1.35fr)]">
-                <label className="grid min-w-0 gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
-                    Start date
-                  </span>
-                  <input
-                    className={`${ui.input} min-w-0 pr-10`}
-                    type="date"
-                    value={startDate}
-                    onChange={(event) => {
-                      setStartDate(event.target.value);
-                      setActivePreset("");
-                    }}
-                  />
-                </label>
-
-                <label className="grid min-w-0 gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
-                    End date
-                  </span>
-                  <input
-                    className={`${ui.input} min-w-0 pr-10`}
-                    type="date"
-                    value={endDate}
-                    onChange={(event) => {
-                      setEndDate(event.target.value);
-                      setActivePreset("");
-                    }}
-                  />
-                </label>
-
-                <div className="grid gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
-                    Quick range
-                  </span>
-                  <div className="flex flex-wrap items-end gap-3">
-                    {[
-                      { key: "today", label: "Today" },
-                      { key: "7d", label: "Last 7 days" },
-                      { key: "30d", label: "Last 30 days" },
-                    ].map((preset) => (
-                      <button
-                        key={preset.key}
-                        className={activePreset === preset.key ? ui.primaryButton : ui.secondaryButton}
-                        type="button"
-                        onClick={() => handlePreset(preset.key)}
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {error ? (
-                <div className="mt-5 rounded-[1.5rem] border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
-                  {error}
-                </div>
-              ) : null}
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              {[
-                {
-                  label: "Total orders",
-                  value: formatCompactNumber(completedOrders.length),
-                  note: `${formatCompactNumber(filteredRows.length)} visible rows`,
-                },
-                {
-                  label: "Total stores",
-                  value: formatCompactNumber(totalStores),
-                  note: `Top store: ${topStoreName}`,
-                },
-                {
-                  label: "Revenue per store",
-                  value: totalStores ? formatCurrency(totalRevenue / totalStores) : formatCurrency(0),
-                  note: "Average across reporting stores",
-                },
-                {
-                  label: "Revenue per order",
-                  value: formatCurrency(averageOrderValue),
-                  note: `${formatCompactNumber(completedPaidOrders.length)} paid completed orders`,
-                },
-              ].map((card) => (
-                <article
-                  key={card.label}
-                  className="min-w-0 rounded-[1.55rem] border border-matcha-900/10 bg-white/78 p-5 shadow-[0_18px_44px_rgba(79,70,45,0.08)]"
-                >
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
-                    {card.label}
-                  </p>
-                  <strong className="mt-3 block min-h-[3.4rem] break-words text-[clamp(1.05rem,1.35vw,1.7rem)] font-semibold leading-tight text-tea-900">
-                    {card.value}
-                  </strong>
-                  <p className="mt-2 break-words text-xs leading-6 text-stone-500">{card.note}</p>
-                </article>
-              ))}
-            </div>
-
-            <div className="overflow-hidden rounded-[1.75rem] border border-matcha-900/10 bg-white/72 shadow-[0_18px_44px_rgba(79,70,45,0.08)]">
-              <div className="flex flex-col gap-3 border-b border-matcha-900/8 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
-                <label className="min-w-0 flex-1">
-                  <span className="sr-only">Search orders and stores</span>
+        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,0.75fr)]">
+          {/* Left column */}
+          <div className="grid min-w-0 gap-4">
+            {/* Filters toolbar */}
+            <div className="rounded-lg border border-ink-900/8 bg-cream-100 px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-500">
+                Reports workspace
+              </p>
+              <div className="mt-3 flex flex-wrap gap-3">
+                <label className="grid min-w-[9rem] gap-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">Start</span>
                   <input
                     className={ui.input}
-                    type="text"
-                    placeholder="Search orders or stores..."
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
+                    type="date"
+                    value={startDate}
+                    onChange={(event) => { setStartDate(event.target.value); setActivePreset(""); }}
                   />
                 </label>
-
-                <div className="flex flex-wrap items-center gap-3 text-sm text-stone-500 lg:justify-end">
-                  <span>{formatCompactNumber(filteredRows.length)} selected rows</span>
-                  <button className={ui.secondaryButton} type="button" onClick={handleExportExcel}>
-                    Export Excel
-                  </button>
+                <label className="grid min-w-[9rem] gap-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">End</span>
+                  <input
+                    className={ui.input}
+                    type="date"
+                    value={endDate}
+                    onChange={(event) => { setEndDate(event.target.value); setActivePreset(""); }}
+                  />
+                </label>
+                <div className="flex flex-wrap items-end gap-2">
+                  {[
+                    { key: "today", label: "Today" },
+                    { key: "7d", label: "7 days" },
+                    { key: "30d", label: "30 days" },
+                  ].map((preset) => (
+                    <button
+                      key={preset.key}
+                      className={activePreset === preset.key ? ui.primaryButton : ui.secondaryButton}
+                      type="button"
+                      onClick={() => handlePreset(preset.key)}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
                 </div>
               </div>
-
-              {loading ? (
-                <div className="p-6 text-sm text-stone-600">Loading report data...</div>
-              ) : revenueRows.length ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full border-separate border-spacing-0 text-left">
-                    <thead>
-                      <tr className="text-[11px] uppercase tracking-[0.16em] text-stone-500">
-                        <th className="border-b border-matcha-900/8 px-5 py-4 font-semibold">Order</th>
-                        <th className="border-b border-matcha-900/8 px-5 py-4 font-semibold">Store</th>
-                        <th className="border-b border-matcha-900/8 px-5 py-4 font-semibold">Completed</th>
-                        <th className="border-b border-matcha-900/8 px-5 py-4 font-semibold">Status</th>
-                        <th className="border-b border-matcha-900/8 px-5 py-4 font-semibold">Revenue per store</th>
-                        <th className="border-b border-matcha-900/8 px-5 py-4 font-semibold">Revenue per order</th>
-                        <th className="border-b border-matcha-900/8 px-5 py-4 font-semibold">Portfolio</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {revenueRows.map((order) => (
-                        <tr key={order.id} className="text-sm text-stone-600">
-                          <td className="border-b border-matcha-900/8 px-5 py-4 align-top">
-                            <div>
-                              <strong className="block text-tea-900">Order #{order.id}</strong>
-                              <span className="mt-1 block text-xs text-stone-500">
-                                Customer: {order.deliveryFullName || "N/A"}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="border-b border-matcha-900/8 px-5 py-4 align-top">
-                            <div>
-                              <strong className="block text-tea-900">{order.storeLabel}</strong>
-                              <span className="mt-1 block text-xs text-stone-500">
-                                {isAdmin ? "Network scope" : "Assigned store scope"}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="border-b border-matcha-900/8 px-5 py-4 align-top">
-                            {formatDateTime(resolveCompletedDate(order))}
-                          </td>
-                          <td className="border-b border-matcha-900/8 px-5 py-4 align-top">
-                            <div className="grid gap-1">
-                              <span className="text-tea-900">{order.status || "N/A"}</span>
-                              <span className="text-xs text-stone-500">
-                                Payment: {order.paymentStatus || "N/A"}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="border-b border-matcha-900/8 px-5 py-4 align-top text-tea-900">
-                            {formatCurrency(order.storeRevenue)}
-                          </td>
-                          <td className="border-b border-matcha-900/8 px-5 py-4 align-top text-matcha-700">
-                            {formatCurrency(order.orderRevenue)}
-                          </td>
-                          <td className="border-b border-matcha-900/8 px-5 py-4 align-top">
-                            <div className="flex items-center gap-3">
-                              <span className="text-xs text-stone-500">
-                                {Math.round(order.revenueRatio)}%
-                              </span>
-                              <div className="h-2 w-24 overflow-hidden rounded-full bg-stone-200">
-                                <div
-                                  className="h-full rounded-full bg-[#4f7cff]"
-                                  style={{ width: `${order.revenueRatio}%` }}
-                                />
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="p-6 text-sm text-stone-600">
-                  No completed orders match the selected date range or search query.
+              {error && (
+                <div className="mt-3 rounded-lg border border-danger/20 bg-danger-soft px-3 py-2 text-sm text-danger">
+                  {error}
                 </div>
               )}
             </div>
+
+            {/* KPI cards */}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                { label: "Total orders", value: formatCompactNumber(completedOrders.length), note: `${formatCompactNumber(filteredRows.length)} visible` },
+                { label: "Total stores", value: formatCompactNumber(totalStores), note: `Top: ${topStoreName}` },
+                { label: "Rev / store", value: totalStores ? formatCurrency(totalRevenue / totalStores) : formatCurrency(0), note: "Avg across stores" },
+                { label: "Rev / order", value: formatCurrency(averageOrderValue), note: `${formatCompactNumber(completedPaidOrders.length)} paid` },
+              ].map((card) => (
+                <AdminStatCard key={card.label} label={card.label} value={card.value} note={card.note} />
+              ))}
+            </div>
+
+            {/* Data table */}
+            <AdminDataTable
+              columns={tableColumns}
+              rows={revenueRows}
+              loading={loading}
+              loadingText="Loading report data…"
+              emptyText="No completed orders match the selected date range or search query."
+              stickyHeader
+              toolbar={
+                <input
+                  className={ui.input}
+                  type="text"
+                  placeholder="Search orders or stores…"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                />
+              }
+              toolbarEnd={
+                <>
+                  <span className="text-xs text-ink-400">{formatCompactNumber(filteredRows.length)} rows</span>
+                  <button className={ui.secondaryButton} type="button" onClick={handleExportExcel}>
+                    Export CSV
+                  </button>
+                </>
+              }
+            />
           </div>
 
-          <section className="grid min-w-0 gap-4">
-            <div className={`${ui.card} sticky top-6`}>
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-tea-700">
-                    Report summary
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold text-tea-900">
-                    Performance in selected range
-                  </h2>
-                </div>
-                <span className={ui.pill}>{formatCompactNumber(filteredRows.length)} rows</span>
+          {/* Right column — summary sidebar */}
+          <aside className="grid min-w-0 gap-4">
+            <div className={`${ui.card} sticky top-4`}>
+              <AdminPageHeader
+                eyebrow="Summary"
+                title="Performance in range"
+                actions={
+                  <span className={ui.pill}>{formatCompactNumber(filteredRows.length)} rows</span>
+                }
+              />
+
+              <div className="mt-3 rounded-lg border border-matcha-200 bg-matcha-50 px-3 py-2.5 text-xs leading-5 text-ink-700">
+                Only <strong>COMPLETED</strong> orders in the date range are counted.
+                <strong> Paid pending</strong> = paid but not yet completed.
               </div>
 
-              <div className="mt-5 rounded-[1.5rem] border border-matcha-900/10 bg-matcha-500/10 px-4 py-4 text-sm leading-7 text-stone-700">
-                This report only counts orders that reached <strong>COMPLETED</strong> inside the
-                selected date range. The <strong>Paid pending</strong> card below shows orders that
-                were already paid but have not reached <strong>COMPLETED</strong> yet.
-              </div>
-
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 {[
-                  { label: "Completed orders", value: formatCompactNumber(completedOrders.length) },
+                  { label: "Completed", value: formatCompactNumber(completedOrders.length) },
                   { label: "Paid pending", value: formatCompactNumber(paidPendingOrders.length) },
-                  { label: "Revenue", value: formatCurrency(totalRevenue) },
-                  { label: "Average order", value: formatCurrency(averageOrderValue) },
+                  { label: "Revenue", value: formatCurrency(totalRevenue), featured: true },
+                  { label: "Avg order", value: formatCurrency(averageOrderValue) },
                 ].map((card) => (
-                  <article
-                    key={card.label}
-                    className="min-w-0 rounded-[1.4rem] border border-matcha-900/10 bg-white/75 p-5"
-                  >
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
-                      {card.label}
-                    </p>
-                    <strong className="mt-3 block min-h-[3.6rem] break-words text-[clamp(1rem,1.2vw,1.55rem)] font-semibold leading-tight text-tea-900">
-                      {card.value}
-                    </strong>
-                  </article>
+                  <AdminStatCard key={card.label} label={card.label} value={card.value} featured={card.featured} />
                 ))}
               </div>
 
-              <div className="mt-6 rounded-[1.5rem] border border-matcha-900/10 bg-white/70 px-4 py-4 text-sm leading-7 text-stone-700">
-                <p>
-                  Range: <strong>{startDate || "N/A"}</strong> to <strong>{endDate || "N/A"}</strong>
-                </p>
-                <p className="mt-2">
-                  Scope:{" "}
-                  <strong>{isAdmin ? "Admin scope" : auth.user?.workingStoreName || "Manager scope"}</strong>
-                </p>
-                <p className="mt-2">
-                  Store coverage: <strong>{formatCompactNumber(totalStores)}</strong>
-                </p>
+              <div className="mt-4 rounded-lg border border-ink-900/8 bg-cream-100 px-3 py-2.5 text-xs leading-5 text-ink-700">
+                <p>Range: <strong>{startDate || "N/A"}</strong> – <strong>{endDate || "N/A"}</strong></p>
+                <p className="mt-1">Scope: <strong>{isAdmin ? "Admin" : auth.user?.workingStoreName || "Manager"}</strong></p>
+                <p className="mt-1">Stores: <strong>{formatCompactNumber(totalStores)}</strong></p>
               </div>
             </div>
-          </section>
+          </aside>
         </div>
       </section>
     </main>

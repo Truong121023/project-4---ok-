@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import AuthLayout from "../components/templates/auth-layout";
 import { useAuth } from "../context/AuthContext";
 import { useToastMessage } from "../hooks/useToastMessage";
 import { getApiErrorMessage } from "../lib/api";
@@ -25,14 +26,8 @@ export default function ForgotPasswordPage() {
   const [sendingOtp, setSendingOtp] = useState(false);
   const [resetting, setResetting] = useState(false);
 
-  useToastMessage(error, {
-    type: "error",
-    title: "Unable to process",
-  });
-  useToastMessage(notice, {
-    type: "success",
-    title: "Notice",
-  });
+  useToastMessage(error, { type: "error", title: "Unable to process" });
+  useToastMessage(notice, { type: "success", title: "Notice" });
 
   if (auth.isAuthenticated) {
     return <Navigate replace to={getDefaultAuthenticatedPath(auth.user)} />;
@@ -40,10 +35,7 @@ export default function ForgotPasswordPage() {
 
   const handleChange = (event) => {
     const { name, value } = event.target;
-    setForm((current) => ({
-      ...current,
-      [name]: value,
-    }));
+    setForm((current) => ({ ...current, [name]: value }));
   };
 
   const handleRequestOtp = async (event) => {
@@ -51,12 +43,8 @@ export default function ForgotPasswordPage() {
     setSendingOtp(true);
     setError("");
     setNotice("");
-
     try {
-      const response = await auth.requestResetOtp({
-        email: form.email,
-      });
-
+      const response = await auth.requestResetOtp({ email: form.email });
       setOtpRequested(true);
       setOtpExpiresAt(response?.otpExpiresAt ?? "");
       setNotice(response?.message ?? "OTP sent. Please check your email.");
@@ -85,7 +73,6 @@ export default function ForgotPasswordPage() {
         otp: form.otp,
         newPassword: form.newPassword,
       });
-
       navigate("/login", {
         replace: true,
         state: {
@@ -102,141 +89,151 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <main className={ui.page}>
-      <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-        <div className={`${ui.panel} flex flex-col gap-5`}>
-          <div>
-            <p className={ui.eyebrow}>Kamatcha</p>
-            <h1 className={ui.bannerTitle}>Reset your password with email OTP</h1>
-            <p className={ui.copy}>
-              Request an OTP by email, then enter the verification code and your new password to
-              reset the account.
-            </p>
+    <AuthLayout wide>
+      {/* Eyebrow */}
+      <p aria-hidden="true" className="mb-1 font-display text-2xl font-medium tracking-wider text-matcha-600/50">
+        抹茶
+      </p>
+      <p className={ui.eyebrow}>Kamatcha</p>
+      <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-ink-900">
+        Reset password
+      </h1>
+      <p className="mt-2 text-sm leading-7 text-ink-600">
+        Request an OTP by email, then enter the code and your new password.
+      </p>
+
+      {/* Steps */}
+      <div className="mt-5 grid grid-cols-2 gap-3">
+        {[
+          { step: "1", label: "Request OTP", note: "Enter email to receive code" },
+          { step: "2", label: "Set new password", note: "Use OTP to create new password" },
+        ].map(({ step, label, note }) => (
+          <div key={step} className="rounded-xl border border-ink-900/10 bg-cream-100 p-3">
+            <span className="inline-block rounded-full bg-matcha-500 px-2 py-0.5 text-[10px] font-bold text-cream-50">
+              {step}
+            </span>
+            <p className="mt-2 text-xs font-semibold text-ink-900">{label}</p>
+            <p className="mt-0.5 text-[11px] text-ink-500">{note}</p>
           </div>
+        ))}
+      </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <article className={ui.card}>
-              <span className={ui.pill}>Step 1</span>
-              <h2 className="mt-4 text-lg font-semibold text-tea-900">Request OTP</h2>
-              <p className={`${ui.muted} mt-3`}>
-                Enter your email to receive the password reset verification code.
-              </p>
-            </article>
+      {otpExpiresAt ? (
+        <div className="mt-4 rounded-xl border border-ink-900/10 bg-cream-100 px-4 py-3 text-sm leading-7 text-ink-600">
+          OTP expires at: {otpExpiresAt}
+        </div>
+      ) : null}
 
-            <article className={ui.card}>
-              <span className={ui.pill}>Step 2</span>
-              <h2 className="mt-4 text-lg font-semibold text-tea-900">Set new password</h2>
-              <p className={`${ui.muted} mt-3`}>
-                Use the OTP you just received to create a new password for the account.
-              </p>
-            </article>
-          </div>
-
-          {otpExpiresAt ? (
-            <div className="rounded-[1.5rem] border border-matcha-900/10 bg-white/65 px-5 py-4 text-sm leading-7 text-stone-600">
-              OTP expires at: {otpExpiresAt}
-            </div>
-          ) : null}
+      {/* Step 1 — Request OTP */}
+      <form className="mt-6 grid gap-4" onSubmit={handleRequestOtp}>
+        <div>
+          <p className={ui.eyebrow}>Step 1</p>
+          <p className="font-display text-xl font-semibold text-ink-900">Send reset code</p>
         </div>
 
-        <div className={`${ui.panel} grid gap-6`}>
-          <form className="grid gap-4" onSubmit={handleRequestOtp}>
-            <div>
-              <p className={ui.eyebrow}>Request OTP</p>
-              <p className="text-3xl font-bold tracking-tight text-tea-900">Send reset code</p>
-            </div>
+        <label className="grid gap-2">
+          <span className="text-sm font-semibold text-ink-900">Email</span>
+          <input
+            className={ui.input}
+            type="email"
+            name="email"
+            placeholder="user@kamatcha.com"
+            value={form.email}
+            onChange={handleChange}
+            required
+          />
+        </label>
 
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold text-tea-900">Email</span>
-              <input
-                className={ui.input}
-                type="email"
-                name="email"
-                placeholder="user.anna@kamatcha.local"
-                value={form.email}
-                onChange={handleChange}
-                required
-              />
-            </label>
+        <button className={ui.primaryButton} disabled={sendingOtp} type="submit" aria-busy={sendingOtp}>
+          {sendingOtp ? "Sending OTP..." : otpRequested ? "Resend OTP" : "Send OTP"}
+        </button>
+      </form>
 
-            <button className={ui.primaryButton} disabled={sendingOtp} type="submit">
-              {sendingOtp ? "Sending OTP..." : otpRequested ? "Resend OTP" : "Send OTP"}
-            </button>
-          </form>
+      {/* Divider */}
+      <div className="my-6 h-px bg-ink-900/10" />
 
-          <form className="grid gap-4 border-t border-matcha-900/10 pt-6" onSubmit={handleResetPassword}>
-            <div>
-              <p className={ui.eyebrow}>Reset Password</p>
-              <p className="text-3xl font-bold tracking-tight text-tea-900">Enter OTP</p>
-            </div>
-
-            {notice ? (
-              <div className="rounded-2xl bg-matcha-500/12 px-4 py-3 text-sm text-matcha-700">
-                {notice}
-              </div>
-            ) : null}
-
-            {error ? (
-              <div className="rounded-2xl bg-red-100/80 px-4 py-3 text-sm text-red-700">
-                {error}
-              </div>
-            ) : null}
-
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold text-tea-900">OTP</span>
-              <input
-                className={ui.input}
-                name="otp"
-                placeholder="Enter the OTP code"
-                value={form.otp}
-                onChange={handleChange}
-                required
-              />
-            </label>
-
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold text-tea-900">New password</span>
-              <input
-                className={ui.input}
-                type="password"
-                name="newPassword"
-                placeholder="Enter a new password"
-                value={form.newPassword}
-                onChange={handleChange}
-                autoComplete="new-password"
-                required
-              />
-            </label>
-
-            <label className="grid gap-2">
-              <span className="text-sm font-semibold text-tea-900">Confirm new password</span>
-              <input
-                className={ui.input}
-                type="password"
-                name="confirmPassword"
-                placeholder="Re-enter the new password"
-                value={form.confirmPassword}
-                onChange={handleChange}
-                autoComplete="new-password"
-                required
-              />
-            </label>
-
-            <button className={ui.primaryButton} disabled={resetting || !otpRequested} type="submit">
-              {resetting ? "Resetting..." : "Reset password"}
-            </button>
-          </form>
-
-          <div className="flex flex-wrap gap-3 text-sm text-stone-600">
-            <Link className="font-semibold text-matcha-700" to="/login">
-              Back to sign in
-            </Link>
-            <Link className="font-semibold text-matcha-700" to="/register">
-              Create account
-            </Link>
-          </div>
+      {/* Step 2 — Reset password */}
+      <form
+        className="grid gap-4"
+        onSubmit={handleResetPassword}
+        aria-describedby={error ? "forgot-error" : undefined}
+      >
+        <div>
+          <p className={ui.eyebrow}>Step 2</p>
+          <p className="font-display text-xl font-semibold text-ink-900">Enter OTP &amp; new password</p>
         </div>
-      </section>
-    </main>
+
+        {notice ? (
+          <div className="rounded-xl border border-matcha-200 bg-matcha-50 px-4 py-3 text-sm text-matcha-700">
+            {notice}
+          </div>
+        ) : null}
+
+        {error ? (
+          <div id="forgot-error" role="alert" className="rounded-xl border border-danger-soft bg-danger-soft px-4 py-3 text-sm text-danger">
+            {error}
+          </div>
+        ) : null}
+
+        <label className="grid gap-2">
+          <span className="text-sm font-semibold text-ink-900">OTP</span>
+          <input
+            className={ui.input}
+            name="otp"
+            placeholder="Enter the OTP code"
+            value={form.otp}
+            onChange={handleChange}
+            required
+          />
+        </label>
+
+        <label className="grid gap-2">
+          <span className="text-sm font-semibold text-ink-900">New password</span>
+          <input
+            className={ui.input}
+            type="password"
+            name="newPassword"
+            placeholder="Enter a new password"
+            value={form.newPassword}
+            onChange={handleChange}
+            autoComplete="new-password"
+            required
+          />
+        </label>
+
+        <label className="grid gap-2">
+          <span className="text-sm font-semibold text-ink-900">Confirm new password</span>
+          <input
+            className={ui.input}
+            type="password"
+            name="confirmPassword"
+            placeholder="Re-enter the new password"
+            value={form.confirmPassword}
+            onChange={handleChange}
+            autoComplete="new-password"
+            required
+          />
+        </label>
+
+        <button
+          className={ui.primaryButton}
+          disabled={resetting || !otpRequested}
+          type="submit"
+          aria-busy={resetting}
+        >
+          {resetting ? "Resetting..." : "Reset password"}
+        </button>
+      </form>
+
+      {/* Footer links */}
+      <div className="mt-5 flex flex-wrap gap-4 text-sm text-ink-600">
+        <Link className="font-semibold text-matcha-700 hover:text-matcha-500" to="/login">
+          Back to sign in
+        </Link>
+        <Link className="font-semibold text-matcha-700 hover:text-matcha-500" to="/register">
+          Create account
+        </Link>
+      </div>
+    </AuthLayout>
   );
 }

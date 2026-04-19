@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import ContentSectionsBlock from "../components/ContentSectionsBlock";
 import MediaLibrary from "../components/MediaLibrary";
+import AdminPageHeader from "../components/admin/admin-page-header";
 import { useAuth } from "../context/AuthContext";
 import { apiRequest, getApiErrorMessage } from "../lib/api";
 import { ADMIN_SECTION_ROUTE_MAP } from "../lib/adminRoutes";
@@ -88,8 +89,8 @@ export default function AdminNewsPreviewPage() {
     return (
       <main className={ui.page}>
         <section className={ui.panel}>
-          <div className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
-            Loading news preview...
+          <div className="rounded-lg border border-dashed border-ink-900/10 bg-cream-100 p-4 text-sm text-ink-400">
+            Loading news preview…
           </div>
         </section>
       </main>
@@ -100,7 +101,7 @@ export default function AdminNewsPreviewPage() {
     return (
       <main className={ui.page}>
         <section className={ui.panel}>
-          <div className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
+          <div className="rounded-lg border border-dashed border-ink-900/10 bg-cream-100 p-4 text-sm text-ink-400">
             {error || "News article not found."}
           </div>
         </section>
@@ -113,45 +114,43 @@ export default function AdminNewsPreviewPage() {
 
   return (
     <main className={ui.page}>
-      <section className={`${ui.panel} grid gap-6 xl:grid-cols-[1fr_0.9fr]`}>
+      {/* Header + media */}
+      <section className={`${ui.panel} grid gap-5 xl:grid-cols-[1fr_0.85fr]`}>
         <div>
-          <p className={ui.eyebrow}>Admin News Preview</p>
-          <h1 className="max-w-[18ch] text-4xl font-bold leading-tight tracking-tight text-tea-900 sm:text-5xl">
-            {newsItem.title}
-          </h1>
-          <p className="mt-5 max-w-3xl text-sm leading-7 text-stone-700">{newsItem.summary}</p>
+          <AdminPageHeader
+            eyebrow="Admin News Preview"
+            title={newsItem.title}
+            subtitle={newsItem.summary}
+            actions={
+              <div className="flex flex-wrap gap-2">
+                <Link className={ui.secondaryButton} to={ADMIN_SECTION_ROUTE_MAP.news}>
+                  Back to news
+                </Link>
+                {canOpenPublicArticle && (
+                  <Link className={ui.secondaryButton} to={publicNewsPath}>
+                    Public article
+                  </Link>
+                )}
+                {(newsItem.relatedStoreId || newsItem.relatedStoreSlug) && (
+                  <Link
+                    className={ui.primaryButton}
+                    to={buildStorePath({ storeId: newsItem.relatedStoreId, storeSlug: newsItem.relatedStoreSlug })}
+                  >
+                    Related store
+                  </Link>
+                )}
+              </div>
+            }
+          />
 
-          <div className="mt-5 flex flex-wrap gap-2">
+          {/* Metadata pills */}
+          <div className="mt-3 flex flex-wrap gap-1.5">
             <span className={ui.pill}>{newsItem.published !== false ? "Active" : "Inactive"}</span>
-            {newsItem.featured ? <span className={ui.pill}>Featured</span> : null}
+            {newsItem.featured && <span className={ui.pill}>Featured</span>}
             <span className={ui.pill}>{formatDateTime(newsItem.publishedAt)}</span>
             {(newsItem.tags ?? []).map((tag) => (
-              <span key={tag} className={ui.pill}>
-                {tag}
-              </span>
+              <span key={tag} className={ui.pill}>{tag}</span>
             ))}
-          </div>
-
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link className={ui.secondaryButton} to={ADMIN_SECTION_ROUTE_MAP.news}>
-              Back to news
-            </Link>
-            {canOpenPublicArticle ? (
-              <Link className={ui.secondaryButton} to={publicNewsPath}>
-                Open public article
-              </Link>
-            ) : null}
-            {newsItem.relatedStoreId || newsItem.relatedStoreSlug ? (
-              <Link
-                className={ui.primaryButton}
-                to={buildStorePath({
-                  storeId: newsItem.relatedStoreId,
-                  storeSlug: newsItem.relatedStoreSlug,
-                })}
-              >
-                View related store
-              </Link>
-            ) : null}
           </div>
         </div>
 
@@ -159,21 +158,25 @@ export default function AdminNewsPreviewPage() {
           images={newsItem.imagePaths}
           alt={newsItem.title}
           badge={newsItem.relatedStoreName || "Kamatcha"}
-          heroClassName="h-80"
-          thumbnailClassName="h-24"
+          heroClassName="h-64"
+          thumbnailClassName="h-20"
         />
       </section>
 
+      {/* Content — sandboxed preview, no script execution */}
       <section className={ui.panel}>
-        <p className={ui.eyebrow}>Content</p>
-        <div className="grid gap-4 text-sm leading-8 text-stone-700">
-          {String(newsItem.content ?? "")
-            .split(/\n+/)
-            .map((block) => block.trim())
-            .filter(Boolean)
-            .map((block, index) => (
-              <p key={`${newsItem.id}-block-${index}`}>{block}</p>
-            ))}
+        <p className={ui.eyebrow}>Content preview</p>
+        {/* Render as plain text blocks — no dangerouslySetInnerHTML to prevent XSS */}
+        <div className="mt-3 rounded-lg border border-ink-900/8 bg-cream-50 p-4">
+          <div className="grid gap-3 text-sm leading-7 text-ink-700">
+            {String(newsItem.content ?? "")
+              .split(/\n+/)
+              .map((block) => block.trim())
+              .filter(Boolean)
+              .map((block, index) => (
+                <p key={`${newsItem.id}-block-${index}`}>{block}</p>
+              ))}
+          </div>
         </div>
       </section>
 

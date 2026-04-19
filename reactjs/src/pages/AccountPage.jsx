@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import UserFeedbackForm from "../components/UserFeedbackForm";
+import AccountLayout from "../components/templates/account-layout";
 import { useAuth } from "../context/AuthContext";
 import { useSiteData } from "../context/SiteDataContext";
 import useAdminOperationHref from "../hooks/useAdminOperationHref";
@@ -1056,8 +1057,91 @@ export default function AccountPage() {
     }
   };
 
+  /* ---------- Profile rail ---------- */
+  const profileRail = (
+    <div className="grid gap-4">
+      {/* Avatar + name */}
+      <div className="text-center">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-matcha-500 to-matcha-700 text-xl font-bold text-cream-50">
+          {String(auth.user?.fullName ?? "U").charAt(0).toUpperCase()}
+        </div>
+        <p className="mt-3 font-display text-base font-semibold text-ink-900">
+          {auth.user?.fullName || "Account"}
+        </p>
+        <p className="mt-1 text-xs text-ink-500 break-all">{auth.user?.email || ""}</p>
+      </div>
+
+      {/* Tier badge */}
+      {isUser && (
+        <div className="rounded-lg border border-matcha-200 bg-matcha-50/60 px-4 py-3 text-center">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-matcha-700">
+            {featuredLevel?.levelName || featuredLevel?.levelCode || "Member"}
+          </p>
+          <p className="mt-1 text-xs text-ink-500">
+            {formatCount(auth.user?.membershipPoints ?? 0)} pts
+          </p>
+        </div>
+      )}
+
+      {/* Role badge */}
+      <div className="rounded-lg border border-ink-900/10 bg-cream-100/60 px-4 py-2 text-center">
+        <span className={ui.pill}>{auth.user?.role || "User"}</span>
+      </div>
+
+      {/* Quick credit */}
+      {isUser && (
+        <div className="rounded-lg border border-ink-900/10 bg-cream-100/60 px-4 py-3 text-center">
+          <p className="text-xs text-ink-500">Credit points</p>
+          <strong className="block text-lg font-semibold text-ink-900">
+            {formatCount(auth.user?.creditPoints ?? 0)}
+          </strong>
+        </div>
+      )}
+
+      {/* Nav links */}
+      <nav aria-label="Account sections" className="grid gap-1">
+        {[
+          { href: "/account", label: "Overview", key: "overview" },
+          ...(isUser
+            ? [
+                { href: "/account/orders", label: "My orders", key: "orders" },
+                { href: "/account/levels", label: "Membership", key: "levels" },
+                { href: "/account/favorites", label: "Favorites", key: "favorites" },
+                { href: "/account/addresses", label: "Addresses", key: "addresses" },
+                { href: "/account/reviews", label: "Reviews", key: "reviews" },
+                { href: "/account/feedbacks", label: "Feedback", key: "feedbacks" },
+              ]
+            : []),
+        ].map((link) => (
+          <Link
+            key={link.key}
+            className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+              activeAccountSection === link.key
+                ? "bg-matcha-500/10 text-matcha-800 font-semibold"
+                : "text-ink-700 hover:bg-cream-100"
+            }`}
+            to={link.href}
+          >
+            {link.label}
+          </Link>
+        ))}
+      </nav>
+
+      {/* Sign out */}
+      <button
+        className={ui.secondaryButton}
+        type="button"
+        disabled={loggingOut}
+        onClick={handleLogout}
+      >
+        {loggingOut ? "Signing out..." : "Sign out"}
+      </button>
+    </div>
+  );
+
   return (
     <main className={ui.page}>
+      {/* Admin privileged nav bar (unchanged) */}
       {isPrivilegedAccount ? (
         <section className={`${ui.panel} !gap-0 !px-5 !py-5`}>
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-matcha-900/10 pb-4">
@@ -1177,6 +1261,7 @@ export default function AccountPage() {
         </div>
       ) : null}
 
+      <AccountLayout profile={profileRail}>
       {activeAccountSection === "overview" ? (
         <section className="grid gap-6 xl:grid-cols-[1fr_0.92fr]">
           <section className={`${ui.panel} grid gap-5`}>
@@ -1243,185 +1328,186 @@ export default function AccountPage() {
           </section>
 
           <section className="grid gap-5">
+
+          <div className="grid gap-5 rounded-[1.75rem] border border-matcha-900/10 bg-white/55 p-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className={ui.eyebrow}>Security</p>
+                <h2 className="text-2xl font-semibold text-tea-900">Reset password</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-7 text-stone-600">
+                  Request an OTP to your current account email, then enter the OTP and your new
+                  password here. The verification code will be sent to <strong>{auth.user?.email ?? "your email"}</strong>.
+                </p>
+              </div>
+
+              <button
+                className={ui.secondaryButton}
+                type="button"
+                onClick={handleRequestPasswordResetOtp}
+              >
+                {passwordOtpSending ? "Sending OTP..." : "Send OTP"}
+              </button>
+            </div>
+
+            {passwordResetNotice ? (
+              <div className="rounded-2xl bg-matcha-500/12 px-4 py-3 text-sm text-matcha-700">
+                {passwordResetNotice}
+              </div>
+            ) : null}
+
+            {passwordResetError ? (
+              <div className="rounded-2xl bg-red-100/80 px-4 py-3 text-sm text-red-700">
+                {passwordResetError}
+              </div>
+            ) : null}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="grid gap-2">
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  Account email
+                </span>
+                <input className={ui.input} type="email" value={auth.user?.email ?? ""} disabled />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  OTP expires at
+                </span>
+                <input
+                  className={ui.input}
+                  type="text"
+                  value={passwordOtpExpiresAt || "Request OTP to receive an expiry time"}
+                  disabled
+                />
+              </label>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <label className="grid gap-2">
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  OTP
+                </span>
+                <input
+                  className={ui.input}
+                  type="text"
+                  value={passwordResetForm.otp}
+                  onChange={(event) => handlePasswordResetFormChange("otp", event.target.value)}
+                  placeholder="Enter the OTP code"
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  New password
+                </span>
+                <input
+                  className={ui.input}
+                  type="password"
+                  value={passwordResetForm.newPassword}
+                  onChange={(event) =>
+                    handlePasswordResetFormChange("newPassword", event.target.value)
+                  }
+                  placeholder="Enter a new password"
+                  autoComplete="new-password"
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  Confirm password
+                </span>
+                <input
+                  className={ui.input}
+                  type="password"
+                  value={passwordResetForm.confirmPassword}
+                  onChange={(event) =>
+                    handlePasswordResetFormChange("confirmPassword", event.target.value)
+                  }
+                  placeholder="Re-enter the new password"
+                  autoComplete="new-password"
+                />
+              </label>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                className={ui.primaryButton}
+                type="button"
+                onClick={handleResetPasswordInProfile}
+              >
+                {passwordResetLoading ? "Resetting..." : "Reset password in profile"}
+              </button>
+            </div>
+          </div>
+
+          {isUser ? (
             <div className="grid gap-5 rounded-[1.75rem] border border-matcha-900/10 bg-white/55 p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className={ui.eyebrow}>Security</p>
-                  <h2 className="text-2xl font-semibold text-tea-900">Reset password</h2>
-                  <p className="mt-2 max-w-2xl text-sm leading-7 text-stone-600">
-                    Request an OTP to your current account email, then enter the OTP and your new
-                    password here. The verification code will be sent to <strong>{auth.user?.email ?? "your email"}</strong>.
-                  </p>
+                  <p className={ui.eyebrow}>Membership</p>
+                  <h2 className="text-2xl font-semibold text-tea-900">Current level snapshot</h2>
                 </div>
 
-                <button
-                  className={ui.secondaryButton}
-                  type="button"
-                  onClick={handleRequestPasswordResetOtp}
-                >
-                  {passwordOtpSending ? "Sending OTP..." : "Send OTP"}
-                </button>
+                <Link className={ui.secondaryButton} to="/account/levels">
+                  Open membership
+                </Link>
               </div>
 
-              {passwordResetNotice ? (
-                <div className="rounded-2xl bg-matcha-500/12 px-4 py-3 text-sm text-matcha-700">
-                  {passwordResetNotice}
-                </div>
-              ) : null}
-
-              {passwordResetError ? (
+              {memberLevelsError ? (
                 <div className="rounded-2xl bg-red-100/80 px-4 py-3 text-sm text-red-700">
-                  {passwordResetError}
+                  {memberLevelsError}
                 </div>
               ) : null}
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="grid gap-2">
-                  <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                    Account email
-                  </span>
-                  <input className={ui.input} type="email" value={auth.user?.email ?? ""} disabled />
-                </label>
-
-                <label className="grid gap-2">
-                  <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                    OTP expires at
-                  </span>
-                  <input
-                    className={ui.input}
-                    type="text"
-                    value={passwordOtpExpiresAt || "Request OTP to receive an expiry time"}
-                    disabled
-                  />
-                </label>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-3">
-                <label className="grid gap-2">
-                  <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                    OTP
-                  </span>
-                  <input
-                    className={ui.input}
-                    type="text"
-                    value={passwordResetForm.otp}
-                    onChange={(event) => handlePasswordResetFormChange("otp", event.target.value)}
-                    placeholder="Enter the OTP code"
-                  />
-                </label>
-
-                <label className="grid gap-2">
-                  <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                    New password
-                  </span>
-                  <input
-                    className={ui.input}
-                    type="password"
-                    value={passwordResetForm.newPassword}
-                    onChange={(event) =>
-                      handlePasswordResetFormChange("newPassword", event.target.value)
-                    }
-                    placeholder="Enter a new password"
-                    autoComplete="new-password"
-                  />
-                </label>
-
-                <label className="grid gap-2">
-                  <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                    Confirm password
-                  </span>
-                  <input
-                    className={ui.input}
-                    type="password"
-                    value={passwordResetForm.confirmPassword}
-                    onChange={(event) =>
-                      handlePasswordResetFormChange("confirmPassword", event.target.value)
-                    }
-                    placeholder="Re-enter the new password"
-                    autoComplete="new-password"
-                  />
-                </label>
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                <button
-                  className={ui.primaryButton}
-                  type="button"
-                  onClick={handleResetPasswordInProfile}
-                >
-                  {passwordResetLoading ? "Resetting..." : "Reset password in profile"}
-                </button>
-              </div>
-            </div>
-
-            {isUser ? (
-              <div className="grid gap-5 rounded-[1.75rem] border border-matcha-900/10 bg-white/55 p-5">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <p className={ui.eyebrow}>Membership</p>
-                    <h2 className="text-2xl font-semibold text-tea-900">Current level snapshot</h2>
-                  </div>
-
-                  <Link className={ui.secondaryButton} to="/account/levels">
-                    Open membership
-                  </Link>
+              {memberLevelsLoading ? (
+                <div className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
+                  Loading membership levels...
                 </div>
+              ) : featuredLevel ? (
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <article className="rounded-3xl border border-matcha-900/10 bg-white/65 p-5">
+                    <p className="text-sm text-stone-600">Current tier</p>
+                    <strong className="mt-2 block text-2xl text-tea-900">
+                      {featuredLevel.levelName || featuredLevel.levelCode || "Member"}
+                    </strong>
+                    <p className="mt-2 text-sm font-semibold text-matcha-700">
+                      {featuredLevel.levelCode || "ACTIVE"}
+                    </p>
+                  </article>
 
-                {memberLevelsError ? (
-                  <div className="rounded-2xl bg-red-100/80 px-4 py-3 text-sm text-red-700">
-                    {memberLevelsError}
-                  </div>
-                ) : null}
+                  <article className="rounded-3xl border border-matcha-900/10 bg-white/65 p-5">
+                    <p className="text-sm text-stone-600">Membership points</p>
+                    <strong className="mt-2 block text-2xl text-tea-900">
+                      {formatCount(membershipPoints)}
+                    </strong>
+                    <p className="mt-2 text-sm text-stone-600">
+                      1,000 VND paid = 1 membership point.
+                    </p>
+                  </article>
 
-                {memberLevelsLoading ? (
-                  <div className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
-                    Loading membership levels...
-                  </div>
-                ) : featuredLevel ? (
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    <article className="rounded-3xl border border-matcha-900/10 bg-white/65 p-5">
-                      <p className="text-sm text-stone-600">Current tier</p>
-                      <strong className="mt-2 block text-2xl text-tea-900">
-                        {featuredLevel.levelName || featuredLevel.levelCode || "Member"}
-                      </strong>
-                      <p className="mt-2 text-sm font-semibold text-matcha-700">
-                        {featuredLevel.levelCode || "ACTIVE"}
-                      </p>
-                    </article>
-
-                    <article className="rounded-3xl border border-matcha-900/10 bg-white/65 p-5">
-                      <p className="text-sm text-stone-600">Membership points</p>
-                      <strong className="mt-2 block text-2xl text-tea-900">
-                        {formatCount(membershipPoints)}
-                      </strong>
-                      <p className="mt-2 text-sm text-stone-600">
-                        1,000 VND paid = 1 membership point.
-                      </p>
-                    </article>
-
-                    <article className="rounded-3xl border border-matcha-900/10 bg-white/65 p-5">
-                      <p className="text-sm text-stone-600">Next tier</p>
-                      <strong className="mt-2 block text-2xl text-tea-900">
-                        {featuredLevel.nextLevelName || "Top tier reached"}
-                      </strong>
-                      <p className="mt-2 text-sm text-stone-600">
-                        {featuredLevel.nextLevelName
-                          ? `${formatCount(
-                              Math.max(0, nextMembershipThreshold - membershipPoints),
-                            )} more points needed.`
-                          : "You have reached the highest active tier."}
-                      </p>
-                    </article>
-                  </div>
-                ) : (
-                  <div className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
-                    No membership tier data is available yet.
-                  </div>
-                )}
-              </div>
-            ) : null}
-          </section>
+                  <article className="rounded-3xl border border-matcha-900/10 bg-white/65 p-5">
+                    <p className="text-sm text-stone-600">Next tier</p>
+                    <strong className="mt-2 block text-2xl text-tea-900">
+                      {featuredLevel.nextLevelName || "Top tier reached"}
+                    </strong>
+                    <p className="mt-2 text-sm text-stone-600">
+                      {featuredLevel.nextLevelName
+                        ? `${formatCount(
+                            Math.max(0, nextMembershipThreshold - membershipPoints),
+                          )} more points needed.`
+                        : "You have reached the highest active tier."}
+                    </p>
+                  </article>
+                </div>
+              ) : (
+                <div className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
+                  No membership tier data is available yet.
+                </div>
+              )}
+            </div>
+          ) : null}
         </section>
+      </section>
       ) : null}
 
       {isUser && activeAccountSection === "levels" ? (
@@ -2195,6 +2281,7 @@ export default function AccountPage() {
           </div>
         </section>
       ) : null}
+      </AccountLayout>
     </main>
   );
 }
