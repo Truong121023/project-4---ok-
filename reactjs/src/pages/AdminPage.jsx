@@ -5420,17 +5420,17 @@ export default function AdminPage({ forcedSection = "" }) {
               </div>
             ) : (
               <div className="mt-5 rounded-[1.3rem] border border-dashed border-matcha-900/15 bg-[#fcfaf4] p-4 text-sm text-stone-600">
-                No best seller data is available in the current scope yet.
+                {t("storeAnalytics.noBestSellerData")}
               </div>
             )}
           </article>
 
           <article className="rounded-[1.5rem] border border-matcha-900/10 bg-[linear-gradient(180deg,rgba(36,56,46,0.98),rgba(53,80,60,0.96))] p-4 text-white">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/65">
-              Revenue control
+              {t("storeAnalytics.revenueControl")}
             </p>
             <h4 className="mt-2 text-lg font-semibold">
-              What to watch this week
+              {t("storeAnalytics.watchThisWeek")}
             </h4>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
