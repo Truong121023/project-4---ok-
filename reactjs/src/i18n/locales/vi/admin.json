@@ -346,6 +346,7 @@
     "hint": "Dùng luồng này để nhanh chóng đổi mật khẩu cho tài khoản đã chọn. Backend giữ nguyên các trường khác và chỉ cập nhật mật khẩu mới.",
     "saveNewPassword": "Lưu mật khẩu mới",
     "updating": "Đang cập nhật...",
+    "close": "Đóng",
     "cancel": "Hủy",
     "unknownRole": "Không xác định",
     "unnamedAccount": "Tài khoản chưa đặt tên"

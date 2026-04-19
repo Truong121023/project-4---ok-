@@ -4969,14 +4969,14 @@ export default function AdminPage({ forcedSection = "" }) {
               onClick={() => closePasswordModal()}
               disabled={passwordModal.loading}
             >
-              {t("passwordModal.cancel")}
+              {t("passwordModal.close")}
             </button>
           </div>
 
           <div className="mt-6 grid gap-4 rounded-[1.5rem] border border-matcha-900/10 bg-white/70 p-5 text-sm leading-7 text-stone-700 sm:grid-cols-2">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Role</p>
-              <p className="mt-1 font-semibold text-tea-900">{passwordModal.role || "Unknown"}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">{t("passwordModal.roleLabel")}</p>
+              <p className="mt-1 font-semibold text-tea-900">{passwordModal.role || t("passwordModal.unknownRole")}</p>
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Store scope</p>

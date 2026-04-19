@@ -346,6 +346,7 @@
     "hint": "Use this flow to quickly change the password for the selected account. The backend keeps all other user fields unchanged and only updates the new password.",
     "saveNewPassword": "Save new password",
     "updating": "Updating...",
+    "close": "Close",
     "cancel": "Cancel",
     "unknownRole": "Unknown",
     "unnamedAccount": "Unnamed account"
