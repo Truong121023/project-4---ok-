@@ -4979,21 +4979,21 @@ export default function AdminPage({ forcedSection = "" }) {
               <p className="mt-1 font-semibold text-tea-900">{passwordModal.role || t("passwordModal.unknownRole")}</p>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Store scope</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">{t("passwordModal.storeScope")}</p>
               <p className="mt-1 font-semibold text-tea-900">
-                {passwordModal.workingStoreName || "Not assigned to a specific store"}
+                {passwordModal.workingStoreName || t("passwordModal.noStoreAssigned")}
               </p>
             </div>
           </div>
 
           <div className="mt-6 grid gap-4">
             <label className="grid gap-2">
-              <span className="text-sm font-semibold text-tea-900">New password</span>
+              <span className="text-sm font-semibold text-tea-900">{t("passwordModal.newPassword")}</span>
               <input
                 className={ui.input}
                 type="password"
                 autoComplete="new-password"
-                placeholder="Enter the new password"
+                placeholder={t("passwordModal.newPasswordPlaceholder")}
                 value={passwordModal.password}
                 onChange={(event) => handlePasswordModalChange("password", event.target.value)}
                 disabled={passwordModal.loading}
@@ -5001,12 +5001,12 @@ export default function AdminPage({ forcedSection = "" }) {
             </label>
 
             <label className="grid gap-2">
-              <span className="text-sm font-semibold text-tea-900">Confirm new password</span>
+              <span className="text-sm font-semibold text-tea-900">{t("passwordModal.confirmNewPassword")}</span>
               <input
                 className={ui.input}
                 type="password"
                 autoComplete="new-password"
-                placeholder="Re-enter the new password"
+                placeholder={t("passwordModal.confirmNewPasswordPlaceholder")}
                 value={passwordModal.confirmPassword}
                 onChange={(event) =>
                   handlePasswordModalChange("confirmPassword", event.target.value)
@@ -5017,8 +5017,7 @@ export default function AdminPage({ forcedSection = "" }) {
           </div>
 
           <div className="mt-5 rounded-[1.5rem] border border-matcha-900/10 bg-matcha-500/10 px-4 py-4 text-sm leading-7 text-stone-700">
-            Use this flow to quickly change the password for the selected account. The backend
-            keeps all other user fields unchanged and only updates the new password.
+            {t("passwordModal.hint")}
           </div>
 
           {passwordModal.error ? (
@@ -5029,7 +5028,7 @@ export default function AdminPage({ forcedSection = "" }) {
 
           <div className="mt-6 flex flex-wrap gap-3">
             <button className={ui.primaryButton} type="submit" disabled={passwordModal.loading}>
-              {passwordModal.loading ? "Updating..." : "Save new password"}
+              {passwordModal.loading ? t("passwordModal.updating") : t("passwordModal.saveNewPassword")}
             </button>
             <button
               className={ui.secondaryButton}
