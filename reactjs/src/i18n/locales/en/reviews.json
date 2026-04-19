@@ -1,0 +1,53 @@
+{
+  "page": {
+    "eyebrow": "Reviews",
+    "title": "Customer reviews",
+    "subtitle": "Choose a store to filter by branch, then narrow by menu item or event.",
+    "storeLabel": "Store: {{name}}",
+    "showing": "Showing {{count}} reviews",
+    "loadError": "Unable to load reviews."
+  },
+  "filters": {
+    "storeScope": "Store scope",
+    "allStores": "All stores",
+    "filterByType": "Filter by type",
+    "allInStore": "All in store",
+    "all": "All",
+    "store": "Store",
+    "menuItem": "Menu item",
+    "event": "Event",
+    "specificTarget": "Specific target",
+    "chooseStore": "Choose a store first",
+    "loading": "Loading...",
+    "allTarget": "All {{label}}",
+    "noTarget": "No {{label}} yet",
+    "sortBy": "Sort by",
+    "newestFirst": "Newest first",
+    "oldestFirst": "Oldest first",
+    "highestRated": "Highest rated",
+    "lowestRated": "Lowest rated",
+    "label": "Review filters"
+  },
+  "card": {
+    "defaultTitle": "Customer review",
+    "noComment": "The customer did not leave a detailed comment.",
+    "defaultUser": "Kamatcha customer",
+    "saved": "Saved",
+    "saveStore": "Save store",
+    "saveItem": "Save item",
+    "viewStore": "View store",
+    "viewEvent": "View event",
+    "viewItem": "View item",
+    "viewDetails": "View details",
+    "typeStore": "Store",
+    "typeEvent": "Event",
+    "typeDish": "Item",
+    "typeContent": "Content",
+    "noStore": "No store currently serving this item.",
+    "notReady": "Not ready."
+  },
+  "empty": {
+    "title": "No reviews found",
+    "description": "Try changing the filters to see more reviews."
+  }
+}

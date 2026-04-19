@@ -1,0 +1,110 @@
+{
+  "page": {
+    "eyebrow": "Orders",
+    "title": "Order history",
+    "subtitle": "Track orders created from checkout, their processing status, and item-by-item details.",
+    "loading": "Loading order history...",
+    "noOrders": "You do not have any orders yet.",
+    "loadError": "Unable to load order history.",
+    "loadDetailError": "Unable to load order details."
+  },
+  "nav": {
+    "overview": "Overview",
+    "orders": "Orders",
+    "membership": "Membership",
+    "addresses": "Addresses",
+    "favorites": "Favorites"
+  },
+  "stats": {
+    "totalOrders": "Total orders",
+    "active": "Active",
+    "completed": "Completed",
+    "totalSpend": "Total spend"
+  },
+  "detail": {
+    "title": "Order detail",
+    "chooseOrder": "Choose an order",
+    "loading": "Loading details...",
+    "clickToView": "Click an order on the left to view its details.",
+    "orderNumber": "Order #{{id}}",
+    "viewDetails": "View details"
+  },
+  "orderCard": {
+    "lineItems_one": "{{count}} line item",
+    "lineItems_other": "{{count}} line items",
+    "products_one": "{{count}} product",
+    "products_other": "{{count}} products",
+    "store": "Store: {{value}}",
+    "deliveryType": "Delivery type: {{value}}",
+    "shippingFee": "Shipping fee: {{value}}",
+    "creditEarned": "Credit earned: {{count}} pts",
+    "scheduledFor": "Scheduled for: {{value}}",
+    "promotionScope": "Promotion scope: {{value}}",
+    "recipient": "Recipient: {{value}}",
+    "invoice": "Invoice: {{value}}"
+  },
+  "detailFields": {
+    "status": "Status: {{value}}",
+    "payment": "Payment: {{value}}",
+    "paymentProvider": "Payment provider: {{value}}",
+    "paymentReference": "Payment reference: {{value}}",
+    "invoiceReady": "Invoice ready: Yes",
+    "invoiceNumber": "Invoice number: {{value}}",
+    "invoiceIssuedAt": "Invoice issued at: {{value}}",
+    "subtotal": "Subtotal: {{value}}",
+    "discount": "Discount: {{value}}",
+    "shippingFee": "Shipping fee: {{value}}",
+    "creditEarned": "Credit earned: {{count}} pts",
+    "shippingDistance": "Shipping distance: {{value}}",
+    "shippingBreakdown": "Shipping breakdown: {{value}}",
+    "total": "Total: {{value}}",
+    "promotionCode": "Promotion code: {{value}}",
+    "promotionScope": "Promotion scope: {{value}}",
+    "eligibleAmount": "Eligible amount: {{value}}",
+    "promotionDishIds": "Promotion dish IDs: {{value}}",
+    "deliveryType": "Delivery type: {{value}}",
+    "scheduledFor": "Scheduled for: {{value}}",
+    "preparingStaff": "Preparing staff: {{value}}",
+    "deliveryRider": "Delivery rider: {{value}}",
+    "deliverTo": "Deliver to: {{name}} - {{phone}}",
+    "deliveryAddress": "Delivery address: {{value}}",
+    "paymentExpiresAt": "Payment expires at: {{value}}",
+    "paidAt": "Paid at: {{value}}",
+    "createdAt": "Created at: {{value}}",
+    "updatedAt": "Updated at: {{value}}"
+  },
+  "payment": {
+    "eyebrow": "Payment",
+    "refreshPayment": "Refresh payment",
+    "refreshing": "Refreshing...",
+    "createNewPayos": "Create new PayOS payment",
+    "creatingNewPayos": "Creating new PayOS...",
+    "payNow": "Pay now",
+    "openInvoice": "Open invoice",
+    "expiredSession": "The current PayOS session is no longer usable. Use <strong>Create new PayOS payment</strong> to generate a fresh payment session.",
+    "refreshError": "Unable to refresh payment status.",
+    "createError": "Unable to create a new PayOS payment.",
+    "orderNotFound": "Unable to find the order to refresh payment status.",
+    "createNotFound": "Unable to find the order to create a new PayOS payment.",
+    "paid": "The order has been paid successfully.",
+    "cancelled": "The payment was cancelled.",
+    "refreshed": "The latest payment status has been refreshed.",
+    "newLinkReady": "A new PayOS payment link has been created. Redirecting now...",
+    "newQrReady": "A new PayOS payment session is ready. Scan the QR code below to continue.",
+    "notEligible": "This order is no longer eligible for a new payment session.",
+    "couldNotCreate": "The system could not create a new PayOS payment session for this order yet. Please try again shortly."
+  },
+  "item": {
+    "quantity": "Quantity: {{count}}",
+    "unitPrice": "Unit price: {{value}}",
+    "addToCart": "Add to cart",
+    "saved": "Saved",
+    "saveItem": "Save item",
+    "viewItem": "View item",
+    "itemNotReady": "This item is not ready to be added to the cart again yet."
+  },
+  "qr": {
+    "title": "PayOS QR",
+    "subtitle": "Scan the latest PayOS QR directly from paymentQrCode, or continue checkout with the payment button."
+  }
+}

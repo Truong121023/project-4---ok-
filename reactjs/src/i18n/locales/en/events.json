@@ -1,0 +1,114 @@
+{
+  "page": {
+    "eyebrow": "Events",
+    "kanji": "催事",
+    "headline": "Store events",
+    "subcopy": "See the schedule, remaining slots, and the host store.",
+    "loading": "Loading events...",
+    "loadError": "Unable to load events.",
+    "reviewLoadError": "Unable to load event reviews."
+  },
+  "filters": {
+    "sort": "Sort",
+    "sortNewestFirst": "Newest first",
+    "sortSoonestFirst": "Soonest first",
+    "sortHighestRated": "Highest rated",
+    "sortNearestFirst": "Nearest first",
+    "storeFilter": "Store filter",
+    "allStores": "All stores",
+    "byTime": "By time",
+    "timeAll": "All",
+    "timeNow": "Happening now",
+    "timeCustom": "Happening at selected time",
+    "dateAndTime": "Date and time"
+  },
+  "status": {
+    "locked": "Locked",
+    "slotsLeft": "{{count}} slots left",
+    "updating": "Updating"
+  },
+  "badge": {
+    "noReviewsYet": "No reviews yet",
+    "stars": "{{value}} stars",
+    "saves": "{{count}} saves",
+    "noneYet": "None yet",
+    "reviews": "{{count}} reviews"
+  },
+  "info": {
+    "filteringByStore": "Filtering by store: {{name}}",
+    "viewAllEvents": "View all events",
+    "filteringNow": "Filtering events by stores that are open and events happening right now.",
+    "filteringAt": "Filtering events at {{dateTime}}.",
+    "starts": "Starts: {{value}}",
+    "ends": "Ends: {{value}}",
+    "store": "Store: {{value}}",
+    "storeNotAvailable": "Not available",
+    "status": "Status: {{value}}"
+  },
+  "stats": {
+    "reviews": "Reviews",
+    "slotsLeft": "Slots left",
+    "store": "Store",
+    "featuredItems": "Featured items"
+  },
+  "actions": {
+    "saved": "Saved",
+    "saveEvent": "Save event",
+    "reviews": "Reviews",
+    "viewEvent": "View event",
+    "viewStore": "View store"
+  },
+  "empty": {
+    "noEventsStore": "No events match this store.",
+    "noEventsDefault": "No matching events found."
+  },
+  "reviewModal": {
+    "title": "Event reviews",
+    "loading": "Loading event reviews...",
+    "noReviews": "This event does not have any reviews yet.",
+    "writeReview": "Write a review for this event"
+  },
+  "cart": {
+    "blockedMessage": "This item cannot be added to the cart from the event store right now."
+  },
+  "detail": {
+    "eyebrow": "Event",
+    "notFound": "Event not found",
+    "noData": "This event does not have data yet.",
+    "backToEvents": "Back to events",
+    "loadError": "Unable to load event details.",
+    "unavailable": "This event is unavailable right now.",
+    "location": "Location",
+    "hostStore": "Host store",
+    "starts": "Starts",
+    "ends": "Ends",
+    "saved": "Saved",
+    "saveEvent": "Save event",
+    "viewStore": "View store",
+    "allEvents": "All events",
+    "featuredItems": "Featured menu items",
+    "itemsCount": "{{count}} items",
+    "blockedMessage": "This item cannot be added from the host store right now.",
+    "reviewsEyebrow": "Reviews",
+    "reviewsTitle": "Event reviews",
+    "reviewsCount": "{{count}} reviews",
+    "noReviewsYet": "None yet",
+    "noReviewsEmpty": "This event does not have any reviews yet.",
+    "writeReview": "Write a review for this event",
+    "statReviews": "Reviews",
+    "statSlotsLeft": "Slots left",
+    "statCapacity": "Capacity",
+    "statBooked": "Booked",
+    "cardStarts": "Starts",
+    "cardEnds": "Ends",
+    "cardLocation": "Location",
+    "cardSchedule": "Schedule",
+    "cardHostStore": "Host store",
+    "cardHighlight": "Highlight",
+    "eventStory": "Event story",
+    "whatToExpect": "What to expect",
+    "eventStoryBody": "Event detail sections rendered from backend content blocks.",
+    "saves": "{{count}} saves",
+    "eventsLink": "Events"
+  }
+}

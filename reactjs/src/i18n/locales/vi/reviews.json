@@ -1,0 +1,53 @@
+{
+  "page": {
+    "eyebrow": "Đánh giá",
+    "title": "Đánh giá khách hàng",
+    "subtitle": "Chọn cửa hàng để lọc theo chi nhánh, sau đó thu hẹp theo món hoặc sự kiện.",
+    "storeLabel": "Cửa hàng: {{name}}",
+    "showing": "Hiển thị {{count}} đánh giá",
+    "loadError": "Không thể tải đánh giá."
+  },
+  "filters": {
+    "storeScope": "Phạm vi cửa hàng",
+    "allStores": "Tất cả cửa hàng",
+    "filterByType": "Lọc theo loại",
+    "allInStore": "Tất cả trong cửa hàng",
+    "all": "Tất cả",
+    "store": "Cửa hàng",
+    "menuItem": "Món",
+    "event": "Sự kiện",
+    "specificTarget": "Đối tượng cụ thể",
+    "chooseStore": "Chọn cửa hàng trước",
+    "loading": "Đang tải...",
+    "allTarget": "Tất cả {{label}}",
+    "noTarget": "Chưa có {{label}}",
+    "sortBy": "Sắp xếp theo",
+    "newestFirst": "Mới nhất trước",
+    "oldestFirst": "Cũ nhất trước",
+    "highestRated": "Đánh giá cao nhất",
+    "lowestRated": "Đánh giá thấp nhất",
+    "label": "Bộ lọc đánh giá"
+  },
+  "card": {
+    "defaultTitle": "Đánh giá khách hàng",
+    "noComment": "Khách hàng không để lại bình luận chi tiết.",
+    "defaultUser": "Khách hàng Kamatcha",
+    "saved": "Đã lưu",
+    "saveStore": "Lưu cửa hàng",
+    "saveItem": "Lưu món",
+    "viewStore": "Xem cửa hàng",
+    "viewEvent": "Xem sự kiện",
+    "viewItem": "Xem món",
+    "viewDetails": "Xem chi tiết",
+    "typeStore": "Cửa hàng",
+    "typeEvent": "Sự kiện",
+    "typeDish": "Món",
+    "typeContent": "Nội dung",
+    "noStore": "Hiện không có cửa hàng nào phục vụ món này.",
+    "notReady": "Chưa sẵn sàng."
+  },
+  "empty": {
+    "title": "Không tìm thấy đánh giá",
+    "description": "Thử thay đổi bộ lọc để xem thêm đánh giá."
+  }
+}

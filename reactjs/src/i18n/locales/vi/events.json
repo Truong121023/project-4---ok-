@@ -1,0 +1,114 @@
+{
+  "page": {
+    "eyebrow": "Sự kiện",
+    "kanji": "催事",
+    "headline": "Sự kiện cửa hàng",
+    "subcopy": "Xem lịch trình, số chỗ còn lại và cửa hàng tổ chức.",
+    "loading": "Đang tải sự kiện...",
+    "loadError": "Không thể tải sự kiện.",
+    "reviewLoadError": "Không thể tải đánh giá sự kiện."
+  },
+  "filters": {
+    "sort": "Sắp xếp",
+    "sortNewestFirst": "Mới nhất trước",
+    "sortSoonestFirst": "Sắp diễn ra trước",
+    "sortHighestRated": "Đánh giá cao nhất",
+    "sortNearestFirst": "Gần nhất trước",
+    "storeFilter": "Lọc theo cửa hàng",
+    "allStores": "Tất cả cửa hàng",
+    "byTime": "Theo thời gian",
+    "timeAll": "Tất cả",
+    "timeNow": "Đang diễn ra",
+    "timeCustom": "Tại thời điểm chọn",
+    "dateAndTime": "Ngày và giờ"
+  },
+  "status": {
+    "locked": "Đã khóa",
+    "slotsLeft": "Còn {{count}} chỗ",
+    "updating": "Đang cập nhật"
+  },
+  "badge": {
+    "noReviewsYet": "Chưa có đánh giá",
+    "stars": "{{value}} sao",
+    "saves": "{{count}} lượt lưu",
+    "noneYet": "Chưa có",
+    "reviews": "{{count}} đánh giá"
+  },
+  "info": {
+    "filteringByStore": "Đang lọc theo cửa hàng: {{name}}",
+    "viewAllEvents": "Xem tất cả sự kiện",
+    "filteringNow": "Đang lọc sự kiện của cửa hàng đang mở và diễn ra ngay bây giờ.",
+    "filteringAt": "Đang lọc sự kiện lúc {{dateTime}}.",
+    "starts": "Bắt đầu: {{value}}",
+    "ends": "Kết thúc: {{value}}",
+    "store": "Cửa hàng: {{value}}",
+    "storeNotAvailable": "Không có sẵn",
+    "status": "Trạng thái: {{value}}"
+  },
+  "stats": {
+    "reviews": "Đánh giá",
+    "slotsLeft": "Chỗ còn lại",
+    "store": "Cửa hàng",
+    "featuredItems": "Món nổi bật"
+  },
+  "actions": {
+    "saved": "Đã lưu",
+    "saveEvent": "Lưu sự kiện",
+    "reviews": "Đánh giá",
+    "viewEvent": "Xem sự kiện",
+    "viewStore": "Xem cửa hàng"
+  },
+  "empty": {
+    "noEventsStore": "Không có sự kiện nào khớp với cửa hàng này.",
+    "noEventsDefault": "Không tìm thấy sự kiện phù hợp."
+  },
+  "reviewModal": {
+    "title": "Đánh giá sự kiện",
+    "loading": "Đang tải đánh giá sự kiện...",
+    "noReviews": "Sự kiện này chưa có đánh giá nào.",
+    "writeReview": "Viết đánh giá cho sự kiện này"
+  },
+  "cart": {
+    "blockedMessage": "Không thể thêm món này vào giỏ hàng từ cửa hàng tổ chức sự kiện lúc này."
+  },
+  "detail": {
+    "eyebrow": "Sự kiện",
+    "notFound": "Không tìm thấy sự kiện",
+    "noData": "Sự kiện này chưa có dữ liệu.",
+    "backToEvents": "Quay lại sự kiện",
+    "loadError": "Không thể tải thông tin sự kiện.",
+    "unavailable": "Sự kiện này hiện không khả dụng.",
+    "location": "Địa điểm",
+    "hostStore": "Cửa hàng tổ chức",
+    "starts": "Bắt đầu",
+    "ends": "Kết thúc",
+    "saved": "Đã lưu",
+    "saveEvent": "Lưu sự kiện",
+    "viewStore": "Xem cửa hàng",
+    "allEvents": "Tất cả sự kiện",
+    "featuredItems": "Món nổi bật",
+    "itemsCount": "{{count}} món",
+    "blockedMessage": "Không thể thêm món từ cửa hàng tổ chức lúc này.",
+    "reviewsEyebrow": "Đánh giá",
+    "reviewsTitle": "Đánh giá sự kiện",
+    "reviewsCount": "{{count}} đánh giá",
+    "noReviewsYet": "Chưa có",
+    "noReviewsEmpty": "Sự kiện này chưa có đánh giá nào.",
+    "writeReview": "Viết đánh giá cho sự kiện này",
+    "statReviews": "Đánh giá",
+    "statSlotsLeft": "Chỗ còn lại",
+    "statCapacity": "Sức chứa",
+    "statBooked": "Đã đặt",
+    "cardStarts": "Bắt đầu",
+    "cardEnds": "Kết thúc",
+    "cardLocation": "Địa điểm",
+    "cardSchedule": "Lịch",
+    "cardHostStore": "Cửa hàng tổ chức",
+    "cardHighlight": "Nổi bật",
+    "eventStory": "Câu chuyện sự kiện",
+    "whatToExpect": "Điều bạn sẽ trải nghiệm",
+    "eventStoryBody": "Các phần chi tiết sự kiện từ backend.",
+    "saves": "{{count}} lượt lưu",
+    "eventsLink": "Sự kiện"
+  }
+}

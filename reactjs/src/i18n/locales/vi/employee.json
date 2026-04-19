@@ -1,0 +1,101 @@
+{
+  "header": {
+    "eyebrow": "Khu vực nhân viên",
+    "shipperTitle": "Bảng nhiệm vụ shipper",
+    "staffTitle": "Bảng hỗ trợ cửa hàng",
+    "shipperDescription": "Theo dõi công việc giao hàng, xác nhận lấy hàng và tải ảnh bằng chứng giao hàng từ một màn hình duy nhất.",
+    "staffDescription": "Xử lý phía cửa hàng do quản lý đảm nhận. Tài khoản nhân viên theo dõi chi tiết đơn hàng và thông báo liên quan tại đây.",
+    "noStore": "Chưa được phân công cửa hàng"
+  },
+  "stats": {
+    "availableTasks": "Nhiệm vụ có sẵn",
+    "assignedTasks": "Nhiệm vụ được giao",
+    "unreadNotifications": "Thông báo chưa đọc",
+    "totalValue": "Tổng giá trị nhiệm vụ"
+  },
+  "notifications": {
+    "eyebrow": "Hộp thư nhiệm vụ",
+    "title": "Thông báo nhân viên",
+    "subtitle": "Thông báo ORDER_TASK đưa bạn trực tiếp đến đơn hàng cần xử lý.",
+    "markAllRead": "Đánh dấu tất cả đã đọc",
+    "loading": "Đang tải thông báo…",
+    "empty": "Chưa có thông báo nhiệm vụ nào.",
+    "taskType": "NHIỆM VỤ ĐƠN HÀNG",
+    "newBadge": "Mới",
+    "defaultTitle": "Thông báo nhiệm vụ",
+    "defaultMessage": "Bạn có một nhiệm vụ mới.",
+    "openTask": "Mở nhiệm vụ",
+    "markAsRead": "Đánh dấu đã đọc",
+    "markAsUnread": "Đánh dấu chưa đọc"
+  },
+  "orders": {
+    "eyebrow": "Bảng nhiệm vụ",
+    "title": "Đơn hàng nhân viên",
+    "shipperSubtitle": "Xác nhận lấy hàng cho đơn READY_FOR_SHIPPER, sau đó tải ảnh bằng chứng để hoàn thành giao hàng.",
+    "staffSubtitle": "Chuẩn bị tại cửa hàng do quản lý xử lý. Nhân viên theo dõi chi tiết đơn hàng liên quan tại đây.",
+    "viewLabel": "Xem",
+    "searchLabel": "Tìm kiếm",
+    "searchPlaceholder": "Tìm kiếm theo mã đơn hàng",
+    "filterButton": "Lọc",
+    "modeAvailable": "Có sẵn + hiện tại",
+    "modeMine": "Nhiệm vụ đang thực hiện",
+    "qrHintTitle": "Quét QR lấy hàng trên điện thoại",
+    "qrHintBody": "Dùng ứng dụng di động Kamatcha để quét QR hóa đơn và xác nhận lấy hàng. Trên website, mở nhiệm vụ từ thông báo hoặc chọn đơn hàng bên dưới.",
+    "loading": "Đang tải đơn nhiệm vụ…",
+    "empty": "Không có nhiệm vụ nào khớp với bộ lọc hiện tại.",
+    "processing": "Đang xử lý…"
+  },
+  "orderCard": {
+    "orderLabel": "Đơn hàng #{{id}}",
+    "storeLabel": "Cửa hàng:",
+    "customerLabel": "Khách hàng:",
+    "deliverToLabel": "Giao đến:",
+    "invoiceLabel": "Hóa đơn:",
+    "shipperLabel": "Shipper:",
+    "proofLabel": "Bằng chứng:",
+    "viewDetails": "Xem chi tiết",
+    "openInvoice": "Xem hóa đơn"
+  },
+  "orderDetail": {
+    "eyebrow": "Chi tiết đơn hàng",
+    "title": "Chi tiết nhiệm vụ",
+    "subtitle": "Mở một nhiệm vụ từ danh sách hoặc từ thông báo để xem chi tiết và hành động nhanh chóng.",
+    "backToBoard": "Quay lại bảng",
+    "loading": "Đang tải chi tiết nhiệm vụ…",
+    "emptyHint": "Chọn một nhiệm vụ từ danh sách hoặc mở từ thông báo để xem chi tiết tại đây.",
+    "orderTitle": "Đơn hàng #{{id}}",
+    "createdLabel": "Tạo lúc",
+    "deliveryLabel": "Giao hàng",
+    "customerLabel": "Khách hàng",
+    "phoneLabel": "Điện thoại",
+    "addressLabel": "Địa chỉ",
+    "confirmedByLabel": "Xác nhận bởi",
+    "scheduledLabel": "Lịch hẹn",
+    "invoiceLabel": "Hóa đơn",
+    "storeHandlerLabel": "Nhân viên cửa hàng",
+    "shipperLabel": "Shipper",
+    "proofUploadedLabel": "Đã tải bằng chứng",
+    "openInvoice": "Xem hóa đơn",
+    "itemsTitle": "Các món trong đơn hàng này",
+    "itemsEmpty": "Chưa có món nào để hiển thị.",
+    "itemQty": "Số lượng: {{count}}",
+    "itemNote": "Ghi chú: {{note}}"
+  },
+  "deliveryProof": {
+    "eyebrow": "Bằng chứng giao hàng",
+    "description": "Tải ảnh bằng chứng giao hàng. Backend lưu trữ trên đơn hàng và tự động chuyển đơn sang Hoàn thành.",
+    "uploadedBadge": "Đã tải lúc {{date}}",
+    "noImage": "Chưa có ảnh bằng chứng giao hàng.",
+    "noteLabel": "Ghi chú: {{note}}",
+    "capturedLabel": "Chụp lúc: {{date}}",
+    "proofImageLabel": "Ảnh bằng chứng",
+    "capturedAtLabel": "Thời gian chụp",
+    "noteFieldLabel": "Ghi chú",
+    "notePlaceholder": "VD: đã giao tại sảnh tòa B, khách hàng xác nhận đã nhận.",
+    "uploadButton": "Tải ảnh bằng chứng",
+    "uploadingButton": "Đang tải…"
+  },
+  "status": {
+    "processing": "Đang xử lý…"
+  }
+}

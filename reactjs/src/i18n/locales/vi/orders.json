@@ -1,0 +1,110 @@
+{
+  "page": {
+    "eyebrow": "Đơn hàng",
+    "title": "Lịch sử đơn hàng",
+    "subtitle": "Theo dõi đơn hàng từ thanh toán, trạng thái xử lý và chi tiết từng món.",
+    "loading": "Đang tải lịch sử đơn hàng...",
+    "noOrders": "Bạn chưa có đơn hàng nào.",
+    "loadError": "Không thể tải lịch sử đơn hàng.",
+    "loadDetailError": "Không thể tải chi tiết đơn hàng."
+  },
+  "nav": {
+    "overview": "Tổng quan",
+    "orders": "Đơn hàng",
+    "membership": "Thành viên",
+    "addresses": "Địa chỉ",
+    "favorites": "Yêu thích"
+  },
+  "stats": {
+    "totalOrders": "Tổng đơn hàng",
+    "active": "Đang hoạt động",
+    "completed": "Hoàn thành",
+    "totalSpend": "Tổng chi tiêu"
+  },
+  "detail": {
+    "title": "Chi tiết đơn hàng",
+    "chooseOrder": "Chọn một đơn hàng",
+    "loading": "Đang tải chi tiết...",
+    "clickToView": "Nhấn vào đơn hàng bên trái để xem chi tiết.",
+    "orderNumber": "Đơn hàng #{{id}}",
+    "viewDetails": "Xem chi tiết"
+  },
+  "orderCard": {
+    "lineItems_one": "{{count}} dòng",
+    "lineItems_other": "{{count}} dòng",
+    "products_one": "{{count}} sản phẩm",
+    "products_other": "{{count}} sản phẩm",
+    "store": "Cửa hàng: {{value}}",
+    "deliveryType": "Hình thức giao hàng: {{value}}",
+    "shippingFee": "Phí vận chuyển: {{value}}",
+    "creditEarned": "Tín dụng tích lũy: {{count}} điểm",
+    "scheduledFor": "Đặt lịch lúc: {{value}}",
+    "promotionScope": "Phạm vi khuyến mãi: {{value}}",
+    "recipient": "Người nhận: {{value}}",
+    "invoice": "Hóa đơn: {{value}}"
+  },
+  "detailFields": {
+    "status": "Trạng thái: {{value}}",
+    "payment": "Thanh toán: {{value}}",
+    "paymentProvider": "Cổng thanh toán: {{value}}",
+    "paymentReference": "Mã tham chiếu: {{value}}",
+    "invoiceReady": "Hóa đơn sẵn sàng: Có",
+    "invoiceNumber": "Số hóa đơn: {{value}}",
+    "invoiceIssuedAt": "Hóa đơn phát hành lúc: {{value}}",
+    "subtotal": "Tạm tính: {{value}}",
+    "discount": "Giảm giá: {{value}}",
+    "shippingFee": "Phí vận chuyển: {{value}}",
+    "creditEarned": "Tín dụng tích lũy: {{count}} điểm",
+    "shippingDistance": "Khoảng cách giao hàng: {{value}}",
+    "shippingBreakdown": "Chi tiết vận chuyển: {{value}}",
+    "total": "Tổng cộng: {{value}}",
+    "promotionCode": "Mã khuyến mãi: {{value}}",
+    "promotionScope": "Phạm vi khuyến mãi: {{value}}",
+    "eligibleAmount": "Số tiền đủ điều kiện: {{value}}",
+    "promotionDishIds": "ID món khuyến mãi: {{value}}",
+    "deliveryType": "Hình thức giao hàng: {{value}}",
+    "scheduledFor": "Đặt lịch lúc: {{value}}",
+    "preparingStaff": "Nhân viên chuẩn bị: {{value}}",
+    "deliveryRider": "Shipper giao hàng: {{value}}",
+    "deliverTo": "Giao cho: {{name}} - {{phone}}",
+    "deliveryAddress": "Địa chỉ giao hàng: {{value}}",
+    "paymentExpiresAt": "Thanh toán hết hạn lúc: {{value}}",
+    "paidAt": "Đã thanh toán lúc: {{value}}",
+    "createdAt": "Tạo lúc: {{value}}",
+    "updatedAt": "Cập nhật lúc: {{value}}"
+  },
+  "payment": {
+    "eyebrow": "Thanh toán",
+    "refreshPayment": "Làm mới thanh toán",
+    "refreshing": "Đang làm mới...",
+    "createNewPayos": "Tạo thanh toán PayOS mới",
+    "creatingNewPayos": "Đang tạo PayOS mới...",
+    "payNow": "Thanh toán ngay",
+    "openInvoice": "Mở hóa đơn",
+    "expiredSession": "Phiên PayOS hiện tại không còn sử dụng được. Dùng <strong>Tạo thanh toán PayOS mới</strong> để tạo phiên mới.",
+    "refreshError": "Không thể làm mới trạng thái thanh toán.",
+    "createError": "Không thể tạo thanh toán PayOS mới.",
+    "orderNotFound": "Không tìm thấy đơn hàng cần làm mới thanh toán.",
+    "createNotFound": "Không tìm thấy đơn hàng cần tạo thanh toán PayOS mới.",
+    "paid": "Đơn hàng đã được thanh toán thành công.",
+    "cancelled": "Thanh toán đã bị hủy.",
+    "refreshed": "Trạng thái thanh toán mới nhất đã được cập nhật.",
+    "newLinkReady": "Đường dẫn thanh toán PayOS mới đã được tạo. Đang chuyển hướng...",
+    "newQrReady": "Phiên thanh toán PayOS mới đã sẵn sàng. Quét mã QR bên dưới để tiếp tục.",
+    "notEligible": "Đơn hàng này không còn đủ điều kiện để tạo phiên thanh toán mới.",
+    "couldNotCreate": "Hệ thống chưa thể tạo phiên thanh toán PayOS mới cho đơn này. Vui lòng thử lại sau."
+  },
+  "item": {
+    "quantity": "Số lượng: {{count}}",
+    "unitPrice": "Đơn giá: {{value}}",
+    "addToCart": "Thêm vào giỏ",
+    "saved": "Đã lưu",
+    "saveItem": "Lưu món",
+    "viewItem": "Xem món",
+    "itemNotReady": "Món này chưa sẵn sàng để thêm lại vào giỏ hàng."
+  },
+  "qr": {
+    "title": "Mã QR PayOS",
+    "subtitle": "Quét mã QR PayOS mới nhất từ paymentQrCode hoặc tiếp tục thanh toán bằng nút bên dưới."
+  }
+}

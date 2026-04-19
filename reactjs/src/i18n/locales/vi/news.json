@@ -1,0 +1,45 @@
+{
+  "page": {
+    "eyebrow": "Tin tức",
+    "kanji": "新聞",
+    "headline": "Cập nhật mới nhất từ Kamatcha",
+    "subcopy": "Theo dõi thông báo ra mắt, tin tức cửa hàng và các cập nhật hệ thống mới nhất.",
+    "loading": "Đang tải tin tức...",
+    "loadError": "Không thể tải tin tức.",
+    "notPublished": "Chưa xuất bản"
+  },
+  "filters": {
+    "search": "Tìm kiếm",
+    "searchPlaceholder": "Tiêu đề, tóm tắt...",
+    "filter": "Lọc",
+    "allNews": "Tất cả tin tức",
+    "featuredOnly": "Chỉ nổi bật"
+  },
+  "card": {
+    "featured": "Nổi bật",
+    "readArticle": "Đọc bài viết",
+    "slugUnavailable": "Không có đường dẫn chi tiết",
+    "viewRelatedStore": "Xem cửa hàng liên quan"
+  },
+  "empty": {
+    "title": "Không tìm thấy tin tức phù hợp."
+  },
+  "detail": {
+    "eyebrow": "Tin tức",
+    "notFound": "Không tìm thấy bài viết",
+    "noData": "Bài viết này không tồn tại hoặc đã bị xóa.",
+    "backToNews": "Quay lại tin tức",
+    "loadError": "Không thể tải thông tin bài viết.",
+    "notPublished": "Chưa xuất bản",
+    "featured": "Nổi bật",
+    "relatedStore": "Cửa hàng liên quan",
+    "backToNewsShort": "Quay lại tin tức",
+    "viewStore": "Xem cửa hàng",
+    "viewingArticle": "Đang xem bài viết này",
+    "openStore": "Mở trang cửa hàng",
+    "linkedToStore": "Bài viết này được liên kết với cửa hàng này trong hệ thống của chúng tôi.",
+    "articleSections": "Các phần bài viết",
+    "moreFromStory": "Thêm từ câu chuyện này",
+    "articleSectionsBody": "Các khối nội dung từ hệ thống backend."
+  }
+}

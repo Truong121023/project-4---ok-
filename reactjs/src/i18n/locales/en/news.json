@@ -1,0 +1,45 @@
+{
+  "page": {
+    "eyebrow": "News",
+    "kanji": "新聞",
+    "headline": "Latest updates from Kamatcha",
+    "subcopy": "Follow launch announcements, store news, and the latest system updates.",
+    "loading": "Loading news...",
+    "loadError": "Unable to load news.",
+    "notPublished": "Not published yet"
+  },
+  "filters": {
+    "search": "Search",
+    "searchPlaceholder": "Title, summary...",
+    "filter": "Filter",
+    "allNews": "All news",
+    "featuredOnly": "Featured only"
+  },
+  "card": {
+    "featured": "Featured",
+    "readArticle": "Read article",
+    "slugUnavailable": "Detail slug unavailable",
+    "viewRelatedStore": "View related store"
+  },
+  "empty": {
+    "title": "No matching news found."
+  },
+  "detail": {
+    "eyebrow": "News",
+    "notFound": "Article not found",
+    "noData": "This article does not exist or has been removed.",
+    "backToNews": "Back to news",
+    "loadError": "Unable to load news details.",
+    "notPublished": "Not published yet",
+    "featured": "Featured",
+    "relatedStore": "Related store",
+    "backToNewsShort": "Back to news",
+    "viewStore": "View store",
+    "viewingArticle": "Viewing this article",
+    "openStore": "Open store page",
+    "linkedToStore": "This article is linked to this store in our system.",
+    "articleSections": "Article sections",
+    "moreFromStory": "More from this story",
+    "articleSectionsBody": "Editorial blocks from the shared backend content sections contract."
+  }
+}

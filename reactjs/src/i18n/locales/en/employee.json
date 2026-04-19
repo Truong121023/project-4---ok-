@@ -1,0 +1,101 @@
+{
+  "header": {
+    "eyebrow": "Employee workspace",
+    "shipperTitle": "Shipper task board",
+    "staffTitle": "Store support board",
+    "shipperDescription": "Track delivery jobs, pickup confirmations, and delivery-proof uploads from a single screen.",
+    "staffDescription": "Store-side processing is handled by the manager. Staff accounts track related order details and notifications here.",
+    "noStore": "No store assigned"
+  },
+  "stats": {
+    "availableTasks": "Available tasks",
+    "assignedTasks": "Assigned tasks",
+    "unreadNotifications": "Unread notifications",
+    "totalValue": "Tasks total value"
+  },
+  "notifications": {
+    "eyebrow": "Task inbox",
+    "title": "Employee notifications",
+    "subtitle": "ORDER_TASK notifications take you directly to the order that needs action.",
+    "markAllRead": "Mark all read",
+    "loading": "Loading notifications…",
+    "empty": "No task notifications yet.",
+    "taskType": "ORDER_TASK",
+    "newBadge": "New",
+    "defaultTitle": "Task notification",
+    "defaultMessage": "You have a new task.",
+    "openTask": "Open task",
+    "markAsRead": "Mark as read",
+    "markAsUnread": "Mark as unread"
+  },
+  "orders": {
+    "eyebrow": "Task board",
+    "title": "Employee orders",
+    "shipperSubtitle": "Confirm pickup for READY_FOR_SHIPPER orders, then upload proof to complete delivery.",
+    "staffSubtitle": "In-store preparation is handled by the manager. Staff track related order details here.",
+    "viewLabel": "View",
+    "searchLabel": "Search",
+    "searchPlaceholder": "Search by order code",
+    "filterButton": "Filter",
+    "modeAvailable": "Available + current",
+    "modeMine": "My active tasks",
+    "qrHintTitle": "QR pickup stays on mobile",
+    "qrHintBody": "Use the Kamatcha mobile app to scan the invoice QR and confirm pickup. On the website, open tasks from notifications or choose an order below.",
+    "loading": "Loading task orders…",
+    "empty": "No tasks match the current filter.",
+    "processing": "Processing…"
+  },
+  "orderCard": {
+    "orderLabel": "Order #{{id}}",
+    "storeLabel": "Store:",
+    "customerLabel": "Customer:",
+    "deliverToLabel": "Deliver to:",
+    "invoiceLabel": "Invoice:",
+    "shipperLabel": "Shipper:",
+    "proofLabel": "Proof:",
+    "viewDetails": "View details",
+    "openInvoice": "Open invoice"
+  },
+  "orderDetail": {
+    "eyebrow": "Order detail",
+    "title": "Task details",
+    "subtitle": "Open a task from the list or from a notification to review details and act quickly.",
+    "backToBoard": "Back to board",
+    "loading": "Loading task details…",
+    "emptyHint": "Select a task from the list or open one from a notification to view details here.",
+    "orderTitle": "Order #{{id}}",
+    "createdLabel": "Created",
+    "deliveryLabel": "Delivery",
+    "customerLabel": "Customer",
+    "phoneLabel": "Phone",
+    "addressLabel": "Address",
+    "confirmedByLabel": "Confirmed by",
+    "scheduledLabel": "Scheduled",
+    "invoiceLabel": "Invoice",
+    "storeHandlerLabel": "Store handler",
+    "shipperLabel": "Shipper",
+    "proofUploadedLabel": "Proof uploaded",
+    "openInvoice": "Open invoice",
+    "itemsTitle": "Items in this order",
+    "itemsEmpty": "No items to display yet.",
+    "itemQty": "Qty: {{count}}",
+    "itemNote": "Note: {{note}}"
+  },
+  "deliveryProof": {
+    "eyebrow": "Delivery proof",
+    "description": "Upload delivery proof. The backend stores it on the order and automatically moves the order to Completed.",
+    "uploadedBadge": "Uploaded {{date}}",
+    "noImage": "No delivery proof image uploaded yet.",
+    "noteLabel": "Note: {{note}}",
+    "capturedLabel": "Captured: {{date}}",
+    "proofImageLabel": "Proof image",
+    "capturedAtLabel": "Captured at",
+    "noteFieldLabel": "Note",
+    "notePlaceholder": "e.g. delivered in tower B lobby, customer confirmed receipt.",
+    "uploadButton": "Upload proof image",
+    "uploadingButton": "Uploading…"
+  },
+  "status": {
+    "processing": "Processing…"
+  }
+}
