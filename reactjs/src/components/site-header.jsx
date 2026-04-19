@@ -3,6 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import BrandLogo from "./BrandLogo";
 import LanguageSwitcher from "./LanguageSwitcher";
+import SiteHeaderNotifications from "./site-header-notifications";
 import SiteMobileNav from "./site-mobile-nav";
 import { useAuth } from "../context/AuthContext";
 import { useSiteData } from "../context/SiteDataContext";
@@ -134,6 +135,9 @@ export default function SiteHeader() {
           <div className="flex shrink-0 items-center gap-2">
             {/* Language */}
             <LanguageSwitcher variant="site" />
+
+            {/* Notifications */}
+            <SiteHeaderNotifications />
 
             {/* Cart */}
             <NavLink

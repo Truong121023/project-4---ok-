@@ -123,7 +123,19 @@
     "mainNav": "Điều hướng chính",
     "mobileNav": "Điều hướng di động",
     "closeUserMenu": "Đóng menu người dùng",
-    "openUserMenu": "Mở menu người dùng"
+    "openUserMenu": "Mở menu người dùng",
+    "notifications": "Thông báo"
+  },
+  "notifications": {
+    "panelTitle": "Thông báo",
+    "empty": "Bạn chưa có thông báo nào.",
+    "loading": "Đang tải thông báo…",
+    "markAllRead": "Đánh dấu tất cả đã đọc",
+    "viewAll": "Xem tất cả thông báo",
+    "allCaughtUp": "Bạn đã xem hết thông báo",
+    "defaultTitle": "Thông báo",
+    "unreadCount_one": "{{count}} chưa đọc",
+    "unreadCount_other": "{{count}} chưa đọc"
   },
   "stores": {
     "eyebrow": "Cửa hàng",

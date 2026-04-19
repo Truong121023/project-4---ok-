@@ -123,7 +123,19 @@
     "mainNav": "Main navigation",
     "mobileNav": "Mobile navigation",
     "closeUserMenu": "Close user menu",
-    "openUserMenu": "Open user menu"
+    "openUserMenu": "Open user menu",
+    "notifications": "Notifications"
+  },
+  "notifications": {
+    "panelTitle": "Notifications",
+    "empty": "You have no notifications yet.",
+    "loading": "Loading notifications…",
+    "markAllRead": "Mark all as read",
+    "viewAll": "View all notifications",
+    "allCaughtUp": "You're all caught up",
+    "defaultTitle": "Notification",
+    "unreadCount_one": "{{count}} unread",
+    "unreadCount_other": "{{count}} unread"
   },
   "stores": {
     "eyebrow": "Stores",
