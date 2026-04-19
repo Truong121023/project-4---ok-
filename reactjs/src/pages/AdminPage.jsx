@@ -5036,7 +5036,7 @@ export default function AdminPage({ forcedSection = "" }) {
               onClick={() => closePasswordModal()}
               disabled={passwordModal.loading}
             >
-              Huy
+              {t("passwordModal.cancel")}
             </button>
           </div>
         </form>
@@ -5101,14 +5101,14 @@ export default function AdminPage({ forcedSection = "" }) {
               <div className="rounded-[1.75rem] border border-matcha-900/10 bg-white/72 p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className={ui.eyebrow}>Top selling dishes</p>
+                    <p className={ui.eyebrow}>{t("storeAnalytics.topSellingDishes")}</p>
                     <h3 className="mt-2 text-xl font-semibold text-tea-900">
                       {revenueSummary?.scopeStoreName
-                        ? `Best sellers in ${revenueSummary.scopeStoreName}`
-                        : "Best sellers from the current analytics scope"}
+                        ? t("storeAnalytics.bestSellersInStore", { name: revenueSummary.scopeStoreName })
+                        : t("storeAnalytics.bestSellersCurrentScope")}
                     </h3>
                     <p className="mt-2 text-sm leading-7 text-stone-600">
-                      Backend returns this ranking from `topSellingDishes`, sorted by quantity sold first and revenue second.
+                      {t("storeAnalytics.topSellingBackendNote")}
                     </p>
                   </div>
                 </div>
