@@ -4733,7 +4733,7 @@ export default function AdminPage({ forcedSection = "" }) {
                             value={managerAssignedShipperId}
                             onChange={(event) => setManagerAssignedShipperId(event.target.value)}
                           >
-                            <option value="">Chon shipper</option>
+                            <option value="">{t("orderDetail.selectShipper")}</option>
                             {managerShipperOptions.map((option) => (
                               <option key={option.value} value={option.value}>
                                 {option.label}
@@ -4752,16 +4752,16 @@ export default function AdminPage({ forcedSection = "" }) {
                             onClick={() => void handleManagerAssignShipper()}
                           >
                             {orderActionLoading === "MANAGER_ASSIGN_SHIPPER"
-                              ? "Processing..."
+                              ? t("workspace.processing")
                               : normalizedSelectedOrderStatus === "READY_FOR_SHIPPER"
-                                ? "Update shipper"
-                                : "Next"}
+                                ? t("orderDetail.updateShipper")
+                                : t("orderDetail.nextStep")}
                           </button>
                         </div>
 
                         {!managerShipperOptions.length ? (
                           <p className="mt-3 text-sm leading-7 text-amber-800">
-                            Chua co shipper nao duoc gan vao store nay.
+                            {t("orderDetail.noShipperAvailable")}
                           </p>
                         ) : null}
                       </div>
