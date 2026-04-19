@@ -847,7 +847,7 @@ export default function AIChatWidget() {
           onClick={() => setHistoryPanelOpen(true)}
         >
           <HistoryIcon className="h-4 w-4 text-matcha-700" />
-          <span className="hidden sm:inline">History</span>
+          <span className="hidden sm:inline">{t("chat.widgetHistory")}</span>
           {threads.length ? (
             <span className="rounded-full bg-matcha-500/15 px-1.5 py-0.5 text-[10px] font-bold text-matcha-700">
               {threads.length}
@@ -983,7 +983,7 @@ export default function AIChatWidget() {
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-matcha-500 [animation-delay:-0.15s]" />
               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-matcha-500" />
             </span>
-            <span className="text-xs">AI is thinking...</span>
+            <span className="text-xs">{t("chat.widgetAiThinking")}</span>
           </div>
         ) : null}
       </div>
@@ -1023,8 +1023,10 @@ export default function AIChatWidget() {
           </button>
         </div>
         <p className="mt-1.5 px-2 text-[11px] text-stone-400">
-          Press <kbd className="rounded border border-matcha-900/10 bg-cream-50 px-1 font-mono text-[10px]">Enter</kbd> to send,{" "}
-          <kbd className="rounded border border-matcha-900/10 bg-cream-50 px-1 font-mono text-[10px]">Shift+Enter</kbd> for new line
+          {t("chat.widgetKeyboardHint", {
+            enter: "Enter",
+            shiftEnter: "Shift+Enter",
+          })}
         </p>
       </form>
 
@@ -1039,16 +1041,16 @@ export default function AIChatWidget() {
           )}
           role="dialog"
           aria-modal="true"
-          aria-label="Chat history"
+          aria-label={t("chat.widgetHistoryHeading")}
         >
           <div className="shrink-0 border-b border-matcha-900/10 px-5 pb-4 pt-5">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <span className="text-xs font-extrabold uppercase tracking-[0.22em] text-stone-500">
-                  Chat history
+                  {t("chat.widgetHistoryHeading")}
                 </span>
                 <p className="mt-2 text-sm leading-7 text-stone-600">
-                  Reopen a saved thread or start a fresh AI conversation.
+                  {t("chat.widgetHistorySubcopy")}
                 </p>
               </div>
               <button
@@ -1056,7 +1058,7 @@ export default function AIChatWidget() {
                 type="button"
                 onClick={() => setHistoryPanelOpen(false)}
               >
-                Close
+                {t("chat.widgetHistoryClose")}
               </button>
             </div>
           </div>
@@ -1064,7 +1066,7 @@ export default function AIChatWidget() {
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5">
             <div className="grid gap-4">
               <button className={ui.primaryButton} type="button" onClick={handleStartNewThread}>
-                New chat
+                {t("chat.widgetNewChat")}
               </button>
 
               <input
@@ -1083,7 +1085,7 @@ export default function AIChatWidget() {
               <div className="grid gap-2">
                 {threadsLoading ? (
                   <div className="rounded-[1.1rem] border border-dashed border-matcha-900/15 bg-white/60 px-4 py-4 text-sm text-stone-600">
-                    Loading AI chat history...
+                    {t("chat.widgetHistoryLoading")}
                   </div>
                 ) : filteredThreads.length ? (
                   filteredThreads.map((thread) => {

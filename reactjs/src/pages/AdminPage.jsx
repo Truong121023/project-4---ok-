@@ -5896,13 +5896,13 @@ export default function AdminPage({ forcedSection = "" }) {
                           <span>Created at: {formatDateTime(reviewDetail.createdAt)}</span>
                           <span>Updated at: {formatDateTime(reviewDetail.updatedAt)}</span>
                           <span>
-                            Reply status: {hasFeedbackReply(reviewDetail) ? "Replied" : "Awaiting reply"}
+                            {t("feedbackDetail.replyStatus", { status: hasFeedbackReply(reviewDetail) ? t("feedbackDetail.replyStatusReplied") : t("feedbackDetail.replyStatusAwaiting") })}
                           </span>
                           {reviewDetail.repliedAt ? (
-                            <span>Replied at: {formatDateTime(reviewDetail.repliedAt)}</span>
+                            <span>{t("feedbackDetail.repliedAt", { time: formatDateTime(reviewDetail.repliedAt) })}</span>
                           ) : null}
                           {formatFeedbackReplier(reviewDetail) ? (
-                            <span>Replied by: {formatFeedbackReplier(reviewDetail)}</span>
+                            <span>{t("feedbackDetail.repliedBy", { name: formatFeedbackReplier(reviewDetail) })}</span>
                           ) : null}
                         </div>
 
@@ -5932,12 +5932,12 @@ export default function AdminPage({ forcedSection = "" }) {
 
                           <label className="grid gap-2">
                             <span className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
-                              Reply message
+                              {t("feedbackDetail.replyMessageLabel")}
                             </span>
                             <textarea
                               className={ui.input}
                               rows={5}
-                              placeholder="Thank you for sharing this feedback. We have recorded it and will handle it in the next shift."
+                              placeholder={t("feedbackDetail.replyMessagePlaceholder")}
                               value={feedbackReplyDraft}
                               onChange={(event) => setFeedbackReplyDraft(event.target.value)}
                             />
