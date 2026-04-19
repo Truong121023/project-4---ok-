@@ -5181,8 +5181,8 @@ export default function AdminPage({ forcedSection = "" }) {
                 ) : (
                   <div className="rounded-[1.75rem] border border-dashed border-matcha-900/15 bg-white/68 p-5 text-sm leading-7 text-stone-600">
                     {selectedStore
-                      ? "This store does not have a cover image yet."
-                      : "You are viewing the full system. Choose a store if you want to narrow the scope."}
+                      ? t("storeAnalytics.noStoreImage")
+                      : t("storeAnalytics.fullSystemView")}
                   </div>
                 )}
 
@@ -5397,7 +5397,7 @@ export default function AdminPage({ forcedSection = "" }) {
                           {item.label}
                         </p>
                         <p className="text-xs text-stone-500">
-                          Revenue {formatCurrency(item.revenue)}
+                          {t("storeAnalytics.revenueLabel", { value: formatCurrency(item.revenue) })}
                         </p>
                       </div>
                       <strong className="shrink-0 text-base text-matcha-700">
