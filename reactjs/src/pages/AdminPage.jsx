@@ -5436,7 +5436,7 @@ export default function AdminPage({ forcedSection = "" }) {
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <div className="rounded-[1.2rem] border border-white/10 bg-white/8 p-4">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">
-                  Revenue week
+                  {t("storeAnalytics.revenueWeek")}
                 </p>
                 <strong className="mt-2 block text-2xl">
                   {formatCurrency(revenueSummary?.weekRevenue)}
@@ -5444,7 +5444,7 @@ export default function AdminPage({ forcedSection = "" }) {
               </div>
               <div className="rounded-[1.2rem] border border-white/10 bg-white/8 p-4">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">
-                  Revenue month
+                  {t("storeAnalytics.revenueMonth")}
                 </p>
                 <strong className="mt-2 block text-2xl">
                   {formatCurrency(revenueSummary?.monthRevenue)}
@@ -5453,15 +5453,9 @@ export default function AdminPage({ forcedSection = "" }) {
             </div>
 
             <div className="mt-5 grid gap-3 text-sm leading-7 text-white/72">
-              <span>
-                Focus on payment speed when average payment time rises unexpectedly.
-              </span>
-              <span>
-                Track best seller quantity against revenue to spot low-margin menu items.
-              </span>
-              <span>
-                Watch pipeline imbalance if delivery stays high while completed orders flatten.
-              </span>
+              <span>{t("storeAnalytics.watchPaymentSpeed")}</span>
+              <span>{t("storeAnalytics.watchBestSeller")}</span>
+              <span>{t("storeAnalytics.watchPipeline")}</span>
             </div>
           </article>
         </div>
