@@ -5470,21 +5470,21 @@ export default function AdminPage({ forcedSection = "" }) {
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
               <div>
-                <p className={ui.eyebrow}>Store analytics</p>
+                <p className={ui.eyebrow}>{t("storeAnalytics.eyebrow")}</p>
                 <h1 className="mt-2 text-3xl font-semibold tracking-tight text-tea-900">
-                  Revenue, best sellers, and payment flow
+                  {t("storeAnalytics.title")}
                 </h1>
                 <p className="mt-3 max-w-3xl text-sm leading-7 text-stone-600">
                   {isManagerMode
-                    ? "Manager workspace only shows analytics for the assigned store."
-                    : "Choose a store scope to read revenue, payment speed, fulfillment mix, and best seller momentum."}
+                    ? t("storeAnalytics.subtitleManager")
+                    : t("storeAnalytics.subtitleAdmin")}
                 </p>
               </div>
 
               {isAdmin ? (
                 <label className="grid gap-2 xl:min-w-[19rem]">
                   <span className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
-                    Store scope
+                    {t("storeAnalytics.storeScopeLabel")}
                   </span>
                   <select
                     className={ui.input}
@@ -5912,11 +5912,11 @@ export default function AdminPage({ forcedSection = "" }) {
 
                         <div className="grid gap-3 rounded-[1.5rem] border border-matcha-900/10 bg-white/70 p-4">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className={ui.pill}>Admin reply</span>
+                            <span className={ui.pill}>{t("feedbackDetail.adminReply")}</span>
                             {hasFeedbackReply(reviewDetail) ? (
-                              <span className={ui.pill}>Visible to user</span>
+                              <span className={ui.pill}>{t("feedbackDetail.visibleToUser")}</span>
                             ) : (
-                              <span className={ui.pill}>Not sent yet</span>
+                              <span className={ui.pill}>{t("feedbackDetail.notSentYet")}</span>
                             )}
                           </div>
 
