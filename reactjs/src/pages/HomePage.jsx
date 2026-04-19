@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import AutoCarousel from "../components/AutoCarousel";
 import BrandLogo from "../components/BrandLogo";
 import QuickAddToCartButton from "../components/QuickAddToCartButton";
@@ -37,146 +38,145 @@ function formatPromotionValue(promotion) {
   return formatCurrency(promotion?.discountValue ?? 0);
 }
 
-function formatPromotionTarget(promotion) {
+function formatPromotionTarget(promotion, t) {
   const normalized = String(promotion?.discountTarget ?? "ITEMS").toUpperCase();
-  if (normalized === "SHIPPING") return "Shipping fee";
-  if (normalized === "BOTH") return "Items + shipping";
-  return "Signature items";
+  if (normalized === "SHIPPING") return t("home.campaign.targetShipping");
+  if (normalized === "BOTH") return t("home.campaign.targetBoth");
+  return t("home.campaign.targetItems");
 }
 
-function statusLabel(store) {
-  if (store?.disabled) return store.disabledReason || "Temporarily unavailable";
-  if (store?.open) return "Serving now";
-  return "Updating";
+function statusLabel(store, t) {
+  if (store?.disabled) return store.disabledReason || t("stores.temporarilyUnavailable", t("stores.updating"));
+  if (store?.open) return t("stores.serving");
+  return t("stores.updating");
 }
 
-function getStoreHoursLabel(store) {
+function getStoreHoursLabel(store, t) {
   if (String(store?.hours || "").trim()) return store.hours;
   if (String(store?.openTime || "").trim() && String(store?.closeTime || "").trim()) {
     return `${store.openTime} - ${store.closeTime}`;
   }
-  return "Daily service";
+  return t("home.storesSection.fallbackBranch");
 }
 
-function buildRoleHomePanel(auth, operationHref) {
+function buildRoleHomePanel(auth, operationHref, t) {
   if (!auth?.isAuthenticated) {
     return {
-      eyebrow: "Guest home",
-      title: "Browse the core menu before you sign in.",
-      description:
-        "Explore stores, check current campaigns, and create an account when you are ready to save favorites and complete checkout faster.",
+      eyebrow: t("home.rolePanel.guest.eyebrow"),
+      title: t("home.rolePanel.guest.title"),
+      description: t("home.rolePanel.guest.description"),
       facts: [
-        { label: "Mode", value: "Guest browsing" },
-        { label: "Access", value: "Menu, stores, news, promotions" },
-        { label: "Best next step", value: "Sign in for faster checkout" },
+        { label: t("home.rolePanel.guest.labelMode"), value: t("home.rolePanel.guest.factMode") },
+        { label: t("home.rolePanel.guest.labelAccess"), value: t("home.rolePanel.guest.factAccess") },
+        { label: t("home.rolePanel.guest.labelNext"), value: t("home.rolePanel.guest.factNext") },
       ],
       actions: [
-        { label: "Browse menu", to: "/menu", primary: true },
-        { label: "Explore stores", to: "/stores" },
-        { label: "Sign in", to: "/login" },
+        { label: t("home.rolePanel.guest.ctaMenu"), to: "/menu", primary: true },
+        { label: t("home.rolePanel.guest.ctaStores"), to: "/stores" },
+        { label: t("home.rolePanel.guest.ctaSignIn"), to: "/login" },
       ],
     };
   }
 
-  const displayName = auth.user?.fullName || auth.user?.email || "Account";
-  const email = auth.user?.email || "No email available";
-  const workingStoreName = auth.user?.workingStoreName || "Not assigned";
+  const displayName = auth.user?.fullName || auth.user?.email || t("home.rolePanel.default.factRoleFallback");
+  const email = auth.user?.email || t("home.rolePanel.labels.noEmail");
+  const workingStoreName = auth.user?.workingStoreName || t("home.rolePanel.labels.notAssigned");
 
   if (auth.hasRole("ADMIN")) {
     return {
-      eyebrow: "Admin home",
-      title: `Welcome back, ${displayName}.`,
-      description: "Your admin homepage provides quick access to operations, store management, and system analytics.",
+      eyebrow: t("home.rolePanel.admin.eyebrow"),
+      title: t("home.rolePanel.admin.title", { name: displayName }),
+      description: t("home.rolePanel.admin.description"),
       facts: [
-        { label: "Role", value: "Administrator" },
-        { label: "Account", value: email },
-        { label: "Access", value: "Full system control" },
+        { label: t("home.rolePanel.admin.labelRole"), value: t("home.rolePanel.admin.factRole") },
+        { label: t("home.rolePanel.admin.labelAccount"), value: email },
+        { label: t("home.rolePanel.admin.labelAccess"), value: t("home.rolePanel.admin.factAccess") },
       ],
       actions: [
-        { to: "/admin", label: "Go to admin panel", primary: true },
-        { to: operationHref, label: "Operations" },
+        { to: "/admin", label: t("home.rolePanel.admin.ctaAdmin"), primary: true },
+        { to: operationHref, label: t("home.rolePanel.admin.ctaOps") },
       ],
     };
   }
 
   if (auth.hasRole("MANAGER")) {
     return {
-      eyebrow: "Manager home",
-      title: `Welcome back, ${displayName}.`,
-      description: "Your manager homepage focuses on store operations and team management for your assigned location.",
+      eyebrow: t("home.rolePanel.manager.eyebrow"),
+      title: t("home.rolePanel.manager.title", { name: displayName }),
+      description: t("home.rolePanel.manager.description"),
       facts: [
-        { label: "Role", value: "Manager" },
-        { label: "Account", value: email },
-        { label: "Store", value: workingStoreName },
+        { label: t("home.rolePanel.manager.labelRole"), value: t("home.rolePanel.manager.factRole") },
+        { label: t("home.rolePanel.manager.labelAccount"), value: email },
+        { label: t("home.rolePanel.manager.labelStore"), value: workingStoreName },
       ],
       actions: [
-        { to: "/admin", label: "Go to manager panel", primary: true },
-        { to: operationHref, label: "Operations" },
+        { to: "/admin", label: t("home.rolePanel.manager.ctaAdmin"), primary: true },
+        { to: operationHref, label: t("home.rolePanel.manager.ctaOps") },
       ],
     };
   }
 
   if (auth.hasRole("USER")) {
     return {
-      eyebrow: "User home",
-      title: `Welcome back, ${displayName}.`,
-      description: "Your homepage highlights the sections used most often after sign-in: account details, membership, and order history.",
+      eyebrow: t("home.rolePanel.user.eyebrow"),
+      title: t("home.rolePanel.user.title", { name: displayName }),
+      description: t("home.rolePanel.user.description"),
       facts: [
-        { label: "Role", value: "User" },
-        { label: "Account", value: email },
-        { label: "Focus", value: "Orders, favorites, membership" },
+        { label: t("home.rolePanel.user.labelRole"), value: t("home.rolePanel.user.factRole") },
+        { label: t("home.rolePanel.user.labelAccount"), value: email },
+        { label: t("home.rolePanel.user.labelFocus"), value: t("home.rolePanel.user.factFocus") },
       ],
       actions: [
-        { label: "Open account", to: "/account", primary: true },
-        { label: "Order history", to: "/orders" },
-        { label: "Membership", to: "/account/levels" },
+        { label: t("home.rolePanel.user.ctaAccount"), to: "/account", primary: true },
+        { label: t("home.rolePanel.user.ctaOrders"), to: "/orders" },
+        { label: t("home.rolePanel.user.ctaMembership"), to: "/account/levels" },
       ],
     };
   }
 
   if (auth.hasRole("STAFF")) {
     return {
-      eyebrow: "Staff home",
-      title: `Staff workspace for ${displayName}.`,
-      description: "This homepage now surfaces your operational context first, then keeps the public storefront below.",
+      eyebrow: t("home.rolePanel.staff.eyebrow"),
+      title: t("home.rolePanel.staff.title", { name: displayName }),
+      description: t("home.rolePanel.staff.description"),
       facts: [
-        { label: "Role", value: "Staff" },
-        { label: "Working store", value: workingStoreName },
-        { label: "Focus", value: "Preparing and handling live orders" },
+        { label: t("home.rolePanel.staff.labelRole"), value: t("home.rolePanel.staff.factRole") },
+        { label: t("home.rolePanel.staff.labelStore"), value: workingStoreName },
+        { label: t("home.rolePanel.staff.labelFocus"), value: t("home.rolePanel.staff.factFocus") },
       ],
       actions: [
-        { label: "Open workspace", to: "/employee", primary: true },
-        { label: "Account", to: "/account" },
+        { label: t("home.rolePanel.staff.ctaWorkspace"), to: "/employee", primary: true },
+        { label: t("home.rolePanel.staff.ctaAccount"), to: "/account" },
       ],
     };
   }
 
   if (auth.hasRole("SHIPPER")) {
     return {
-      eyebrow: "Shipper home",
-      title: `Delivery workspace for ${displayName}.`,
-      description: "This homepage points you directly to the delivery board and keeps your assigned store visible after login.",
+      eyebrow: t("home.rolePanel.shipper.eyebrow"),
+      title: t("home.rolePanel.shipper.title", { name: displayName }),
+      description: t("home.rolePanel.shipper.description"),
       facts: [
-        { label: "Role", value: "Shipper" },
-        { label: "Working store", value: workingStoreName },
-        { label: "Focus", value: "Delivery tasks and proof upload" },
+        { label: t("home.rolePanel.shipper.labelRole"), value: t("home.rolePanel.shipper.factRole") },
+        { label: t("home.rolePanel.shipper.labelStore"), value: workingStoreName },
+        { label: t("home.rolePanel.shipper.labelFocus"), value: t("home.rolePanel.shipper.factFocus") },
       ],
       actions: [
-        { label: "Open workspace", to: "/employee", primary: true },
-        { label: "Account", to: "/account" },
+        { label: t("home.rolePanel.shipper.ctaWorkspace"), to: "/employee", primary: true },
+        { label: t("home.rolePanel.shipper.ctaAccount"), to: "/account" },
       ],
     };
   }
 
   return {
-    eyebrow: "Account home",
-    title: `Signed in as ${displayName}.`,
-    description: "This homepage now shows a role-aware entry block before the public storefront content.",
+    eyebrow: t("home.rolePanel.default.eyebrow"),
+    title: t("home.rolePanel.default.title", { name: displayName }),
+    description: t("home.rolePanel.default.description"),
     facts: [
-      { label: "Role", value: auth.user?.role || "Account" },
-      { label: "Account", value: email },
+      { label: t("home.rolePanel.default.labelRole"), value: auth.user?.role || t("home.rolePanel.default.factRoleFallback") },
+      { label: t("home.rolePanel.default.labelAccount"), value: email },
     ],
-    actions: [{ label: "Open account", to: "/account", primary: true }],
+    actions: [{ label: t("home.rolePanel.default.ctaAccount"), to: "/account", primary: true }],
   };
 }
 
@@ -198,6 +198,7 @@ function SectionIntro({ eyebrow, title, description, action }) {
 }
 
 export default function HomePage() {
+  const { t } = useTranslation("common");
   const auth = useAuth();
   const operationHref = useAdminOperationHref();
   const navigate = useNavigate();
@@ -209,8 +210,9 @@ export default function HomePage() {
   const [topStores, setTopStores] = useState([]);
   const [topDishes, setTopDishes] = useState([]);
   const roleHomePanel = useMemo(
-    () => buildRoleHomePanel(auth, operationHref),
-    [auth, operationHref],
+    () => buildRoleHomePanel(auth, operationHref, t),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [auth, operationHref, t],
   );
 
   useEffect(() => {
@@ -244,7 +246,7 @@ export default function HomePage() {
         );
       } catch (requestError) {
         if (cancelled) return;
-        setError(requestError.message || "Unable to load the homepage.");
+        setError(requestError.message || t("home.loadError"));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -252,7 +254,7 @@ export default function HomePage() {
 
     loadHome();
     return () => { cancelled = true; };
-  }, []);
+  }, [t]);
 
   const featuredStore = topStores[0] ?? null;
   const featuredStoreImages = normalizeImagePathList(featuredStore?.imagePaths);
@@ -266,23 +268,23 @@ export default function HomePage() {
 
   const featuredStoreFacts = useMemo(
     () => [
-      { label: "Hours", value: featuredStore ? getStoreHoursLabel(featuredStore) : "Daily service" },
+      { label: t("home.storesSection.eyebrow"), value: featuredStore ? getStoreHoursLabel(featuredStore, t) : t("home.storesSection.fallbackBranch") },
       {
-        label: "Reviews",
+        label: t("stores.detail.statReviews"),
         value: featuredStore?.reviewCount
-          ? `${formatCompactNumber(featuredStore.reviewCount)} reviews`
-          : "Freshly updated",
+          ? t("home.storesSection.reviewsCount", { count: formatCompactNumber(featuredStore.reviewCount) })
+          : t("stores.detail.recentlyUpdated"),
       },
       {
-        label: "Rating",
+        label: t("stores.detail.statRating"),
         value:
           featuredStore && Number(featuredStore.averageRating) > 0
             ? `${Number(featuredStore.averageRating).toFixed(1)} / 5`
-            : "Consistent service",
+            : t("stores.detail.recentlyUpdated"),
       },
-      { label: "Specialty", value: featuredStore?.specialty || "Signature drinks" },
+      { label: "Specialty", value: featuredStore?.specialty || t("home.carousel.fallbackItemDesc") },
     ],
-    [featuredStore],
+    [featuredStore, t],
   );
 
   const spotlightPromotion = promotions[0] ?? null;
@@ -296,26 +298,25 @@ export default function HomePage() {
       <p aria-hidden="true" className="mb-2 font-display text-3xl font-medium tracking-wider text-matcha-600/60">
         抹茶
       </p>
-      <p className={ui.eyebrow}>Premium Ceremonial Matcha</p>
+      <p className={ui.eyebrow}>{t("home.hero.eyebrow")}</p>
       <div className="mt-4 grid gap-8 lg:grid-cols-2 lg:items-center">
         <div>
           <BrandLogo size="lg" subtitle="Kamatcha" />
           <h1 className="mt-6 max-w-[16ch] font-display text-4xl font-bold leading-[1.05] tracking-[-0.03em] text-ink-900 sm:text-5xl lg:text-6xl">
-            Sourced from Uji, Kyoto
+            {t("home.hero.headline")}
           </h1>
           <p className="reveal-on-scroll mt-5 max-w-xl text-base leading-8 text-ink-600">
-            Kamatcha brings you authentic ceremonial-grade matcha, crafted with centuries of tradition.
-            Experience the art of tea in our calm, minimalist spaces.
+            {t("home.hero.subcopy")}
           </p>
           <div className="mt-8 flex flex-wrap gap-4">
-            <Link className={ui.primaryButton} to="/menu">Explore Collection</Link>
-            <Link className={ui.secondaryButton} to="/stores">Visit Store</Link>
+            <Link className={ui.primaryButton} to="/menu">{t("home.hero.ctaMenu")}</Link>
+            <Link className={ui.secondaryButton} to="/stores">{t("home.hero.ctaStore")}</Link>
           </div>
           <div className="mt-10 grid grid-cols-3 gap-4 border-t border-ink-900/10 pt-8">
             {[
-              { value: topStores.length || "6", label: "Stores" },
-              { value: topDishes.length || "12", label: "Signature Items" },
-              { value: "Since 1832", label: "Heritage" },
+              { value: topStores.length || "6", label: t("home.hero.statStores") },
+              { value: topDishes.length || "12", label: t("home.hero.statItems") },
+              { value: t("home.hero.statHeritageValue"), label: t("home.hero.statHeritage") },
             ].map((stat) => (
               <div key={stat.label} className="text-center">
                 <p className="font-display text-2xl font-bold text-ink-900 sm:text-3xl">{stat.value}</p>
@@ -329,7 +330,7 @@ export default function HomePage() {
             <SmartImage
               className="h-full w-full object-cover transition-transform duration-700 hover:scale-105"
               src={featuredStoreImages[0]}
-              alt={featuredStore.name || "Premium Matcha"}
+              alt={featuredStore.name || t("home.hero.fallbackLabel")}
               loading="eager"
               fallbackClassName="grid h-full w-full place-items-center bg-matcha-50 text-sm text-matcha-700"
             />
@@ -337,7 +338,7 @@ export default function HomePage() {
             <div className="grid h-full min-h-[300px] w-full place-items-center bg-gradient-to-br from-matcha-50 to-matcha-100">
               <div className="text-center">
                 <p className="font-display text-5xl text-matcha-300">抹茶</p>
-                <p className="mt-2 text-sm text-matcha-500">Premium Matcha</p>
+                <p className="mt-2 text-sm text-matcha-500">{t("home.hero.fallbackLabel")}</p>
               </div>
             </div>
           )}
@@ -386,57 +387,57 @@ export default function HomePage() {
       ) : null}
       {loading ? (
         <section className={`${ui.panel} border-dashed`}>
-          <p className="text-sm leading-7 text-ink-600">Loading homepage...</p>
+          <p className="text-sm leading-7 text-ink-600">{t("home.loading")}</p>
         </section>
       ) : null}
 
       {!loading ? (
         <>
           {/* Section divider */}
-          <div className={ui.sectionDivider}><span>Latest Updates</span></div>
+          <div className={ui.sectionDivider}><span>{t("home.divider.updates")}</span></div>
 
           {/* Spotlight 3-col */}
           <section className="grid gap-6 lg:grid-cols-3">
             {/* Campaign */}
             <article className={`${ui.panel} relative overflow-hidden`}>
               <div className="relative z-10">
-                <p className={ui.eyebrow}>Campaign</p>
+                <p className={ui.eyebrow}>{t("home.campaign.eyebrow")}</p>
                 <h2 className="font-display text-2xl font-semibold text-ink-900">
-                  {spotlightPromotion?.name || "Current Promotions"}
+                  {spotlightPromotion?.name || t("home.campaign.fallbackTitle")}
                 </h2>
                 <p className="mt-3 text-sm leading-7 text-ink-600">
-                  {spotlightPromotion?.description || "Special offers available at checkout."}
+                  {spotlightPromotion?.description || t("home.campaign.fallbackDesc")}
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {spotlightPromotion?.scope ? <span className={ui.pill}>{spotlightPromotion.scope}</span> : null}
-                  {spotlightPromotion ? <span className={ui.pill}>{formatPromotionTarget(spotlightPromotion)}</span> : null}
+                  {spotlightPromotion ? <span className={ui.pill}>{formatPromotionTarget(spotlightPromotion, t)}</span> : null}
                 </div>
                 <div className="mt-5 grid gap-3 sm:grid-cols-2">
                   <article className="rounded-xl border border-ink-900/10 bg-cream-100 p-4">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-matcha-600">Code</p>
-                    <p className="mt-2 text-base font-semibold text-ink-900">{spotlightPromotion?.code || "At checkout"}</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-matcha-600">{t("home.campaign.labelCode")}</p>
+                    <p className="mt-2 text-base font-semibold text-ink-900">{spotlightPromotion?.code || t("home.campaign.fallbackCode")}</p>
                   </article>
                   <article className="rounded-xl border border-ink-900/10 bg-cream-100 p-4">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-matcha-600">Discount</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-matcha-600">{t("home.campaign.labelDiscount")}</p>
                     <p className="mt-2 text-base font-semibold text-matcha-700">
-                      {spotlightPromotion ? formatPromotionValue(spotlightPromotion) : "Dynamic"}
+                      {spotlightPromotion ? formatPromotionValue(spotlightPromotion) : t("home.campaign.fallbackDiscount")}
                     </p>
                   </article>
                 </div>
                 <div className="mt-5">
-                  <Link className={ui.primaryButton} to="/promotions">View All</Link>
+                  <Link className={ui.primaryButton} to="/promotions">{t("home.campaign.viewAll")}</Link>
                 </div>
               </div>
             </article>
 
             {/* News */}
             <article className={ui.panel}>
-              <p className={ui.eyebrow}>News</p>
+              <p className={ui.eyebrow}>{t("home.news.eyebrow")}</p>
               <h2 className="font-display text-2xl font-semibold text-ink-900">
-                {spotlightNews?.title || "Latest Updates"}
+                {spotlightNews?.title || t("home.news.fallbackTitle")}
               </h2>
               <p className="mt-3 text-sm leading-7 text-ink-600">
-                {spotlightNews?.summary || "Stay connected with Kamatcha."}
+                {spotlightNews?.summary || t("home.news.fallbackDesc")}
               </p>
               <div className="mt-5 grid gap-3">
                 {latestNews.slice(0, 2).map((newsItem) => {
@@ -445,12 +446,12 @@ export default function HomePage() {
                   return (
                     <article key={newsItem.id} className="rounded-xl border border-ink-900/10 bg-cream-100 p-4">
                       <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-matcha-600">
-                        {newsItem.relatedStoreName || "Update"}
+                        {newsItem.relatedStoreName || t("home.news.fallbackCategory")}
                       </p>
                       <h3 className="mt-2 font-semibold text-ink-900">{newsItem.title}</h3>
                       {canOpenNews ? (
                         <Link className="mt-2 inline-flex text-sm font-medium text-matcha-700 transition hover:text-matcha-500" to={newsPath}>
-                          Read more →
+                          {t("home.news.readMore")}
                         </Link>
                       ) : null}
                     </article>
@@ -461,41 +462,41 @@ export default function HomePage() {
 
             {/* Events */}
             <article className={ui.panel}>
-              <p className={ui.eyebrow}>Events</p>
+              <p className={ui.eyebrow}>{t("home.events.eyebrow")}</p>
               <h2 className="font-display text-2xl font-semibold text-ink-900">
-                {spotlightEvent?.title || "Upcoming Events"}
+                {spotlightEvent?.title || t("home.events.fallbackTitle")}
               </h2>
               <p className="mt-3 text-sm leading-7 text-ink-600">
-                {spotlightEvent?.summary || "Join us for special experiences."}
+                {spotlightEvent?.summary || t("home.events.fallbackDesc")}
               </p>
               <div className="mt-5 grid gap-3">
                 <article className="rounded-xl border border-ink-900/10 bg-cream-100 p-4">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-matcha-600">Schedule</p>
-                  <p className="mt-2 text-sm font-semibold text-ink-900">{spotlightEvent?.schedule || "Coming soon"}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-matcha-600">{t("home.events.labelSchedule")}</p>
+                  <p className="mt-2 text-sm font-semibold text-ink-900">{spotlightEvent?.schedule || t("home.events.fallbackSchedule")}</p>
                 </article>
                 <article className="rounded-xl border border-ink-900/10 bg-cream-100 p-4">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-matcha-600">Location</p>
-                  <p className="mt-2 text-sm font-semibold text-ink-900">{spotlightEvent?.location || "Select stores"}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-matcha-600">{t("home.events.labelLocation")}</p>
+                  <p className="mt-2 text-sm font-semibold text-ink-900">{spotlightEvent?.location || t("home.events.fallbackLocation")}</p>
                 </article>
               </div>
               <div className="mt-5">
-                <Link className={ui.primaryButton} to="/events">View Events</Link>
+                <Link className={ui.primaryButton} to="/events">{t("home.events.viewEvents")}</Link>
               </div>
             </article>
           </section>
 
           {/* Section divider */}
-          <div className={ui.sectionDivider}><span>Our Stores</span></div>
+          <div className={ui.sectionDivider}><span>{t("home.divider.stores")}</span></div>
 
           {/* Stores section */}
           <section className="grid gap-6 xl:grid-cols-[0.75fr_1.25fr]">
             <article className={`${ui.panel} flex h-full flex-col justify-between`}>
               <div>
                 <SectionIntro
-                  eyebrow="Locations"
-                  title="Carefully curated spaces."
-                  description="Each store is designed to bring tranquility to your day."
-                  action={{ to: "/stores", label: "All Stores" }}
+                  eyebrow={t("home.storesSection.eyebrow")}
+                  title={t("home.storesSection.title")}
+                  description={t("home.storesSection.description")}
+                  action={{ to: "/stores", label: t("home.storesSection.allStores") }}
                 />
                 <div className="mt-6 grid gap-3">
                   {supportingStores.length ? (
@@ -504,15 +505,15 @@ export default function HomePage() {
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div>
                             <p className="font-semibold text-ink-900">{store.name}</p>
-                            <p className="mt-1 text-sm text-ink-600">{store.area || store.address || "Kamatcha branch"}</p>
+                            <p className="mt-1 text-sm text-ink-600">{store.area || store.address || t("home.storesSection.fallbackBranch")}</p>
                           </div>
-                          <span className={ui.pill}>{statusLabel(store)}</span>
+                          <span className={ui.pill}>{statusLabel(store, t)}</span>
                         </div>
                       </article>
                     ))
                   ) : (
                     <article className="rounded-xl border border-dashed border-beige-300 bg-cream-100/50 p-4 text-sm text-ink-600">
-                      Store listings loading...
+                      {t("home.storesSection.loadingStores")}
                     </article>
                   )}
                 </div>
@@ -542,27 +543,27 @@ export default function HomePage() {
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
                             {store.positionLabel ? <span className={ui.pill}>{store.positionLabel}</span> : null}
-                            <span className={ui.pill}>{statusLabel(store)}</span>
+                            <span className={ui.pill}>{statusLabel(store, t)}</span>
                           </div>
                           <h3 className="mt-4 font-display text-2xl font-semibold text-ink-900">{store.name}</h3>
-                          <p className="mt-2 text-sm font-medium text-matcha-700">{store.area || "Kamatcha branch"}</p>
+                          <p className="mt-2 text-sm font-medium text-matcha-700">{store.area || t("home.carousel.fallbackBranch")}</p>
                           <p className="mt-3 text-sm leading-7 text-ink-600">
-                            {store.description || "A peaceful space for your daily matcha ritual."}
+                            {store.description || t("home.carousel.fallbackDesc")}
                           </p>
                         </div>
                         <div className="flex flex-wrap gap-4 text-sm text-ink-500">
-                          <span>{store.reviewCount || 0} reviews</span>
-                          <span>{getStoreHoursLabel(store)}</span>
+                          <span>{t("home.storesSection.reviewsCount", { count: store.reviewCount || 0 })}</span>
+                          <span>{getStoreHoursLabel(store, t)}</span>
                         </div>
                         <div className="flex flex-wrap gap-3">
                           <QuickFavoriteButton
                             targetType="store"
                             targetId={store.id}
-                            activeLabel="Saved"
-                            inactiveLabel="Save"
+                            activeLabel={t("home.carousel.savedStore")}
+                            inactiveLabel={t("home.carousel.saveStore")}
                             onResult={(message) => setFavoriteMessage(message)}
                           />
-                          <Link className={ui.secondaryButton} to={buildStorePath(store)}>Visit Store</Link>
+                          <Link className={ui.secondaryButton} to={buildStorePath(store)}>{t("home.carousel.visitStore")}</Link>
                         </div>
                       </div>
                     </article>
@@ -573,15 +574,15 @@ export default function HomePage() {
           </section>
 
           {/* Section divider */}
-          <div className={ui.sectionDivider}><span>Featured Selection</span></div>
+          <div className={ui.sectionDivider}><span>{t("home.divider.featured")}</span></div>
 
           <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
             <section className={ui.panel}>
               <SectionIntro
-                eyebrow="Signature Collection"
-                title="Premium ceremonial matcha and artisan blends."
-                description="Each item is crafted with care, sourced from the finest tea gardens in Kyoto."
-                action={{ to: "/menu", label: "View Menu" }}
+                eyebrow={t("home.menu.eyebrow")}
+                title={t("home.menu.title")}
+                description={t("home.menu.description")}
+                action={{ to: "/menu", label: t("home.menu.viewMenu") }}
               />
               {cartMessage ? <p className="mt-4 text-sm leading-7 text-ink-600">{cartMessage}</p> : null}
               <div className="mt-6">
@@ -612,18 +613,18 @@ export default function HomePage() {
                         <div className="flex flex-col justify-between gap-4">
                           <div>
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className={ui.pill}>Ceremonial</span>
+                              <span className={ui.pill}>{t("home.carousel.ceremonialPill")}</span>
                               {item.categoryName ? <span className={ui.pill}>{item.categoryName}</span> : null}
                             </div>
                             <h3 className="mt-4 font-display text-2xl font-semibold text-ink-900">{item.name}</h3>
                             <p className={`mt-2 ${ui.price}`}>{formatCurrency(item.price)}</p>
                             <p className="mt-3 text-sm leading-7 text-ink-600">
-                              {item.description || "Premium grade matcha from Kyoto."}
+                              {item.description || t("home.carousel.fallbackItemDesc")}
                             </p>
                           </div>
                           <div className="flex flex-wrap gap-4 text-sm text-ink-500">
-                            <span>{item.reviewCount || 0} reviews</span>
-                            <span>{item.favoriteCount || 0} saves</span>
+                            <span>{t("home.carousel.reviewsCount", { count: item.reviewCount || 0 })}</span>
+                            <span>{t("home.carousel.savesCount", { count: item.favoriteCount || 0 })}</span>
                           </div>
                           <div className="flex flex-wrap gap-3">
                             <QuickAddToCartButton
@@ -635,19 +636,19 @@ export default function HomePage() {
                               preorderMessage={getCartSuccessMessage(availability.preorderOnly)}
                               blockedMessage={
                                 item.bestStore
-                                  ? availability.reason || "Currently unavailable at this store."
-                                  : "No store available."
+                                  ? availability.reason || t("home.carousel.unavailableAtStore")
+                                  : t("home.carousel.noStoreAvailable")
                               }
                               onResult={(message) => setCartMessage(message)}
                             />
                             <QuickFavoriteButton
                               targetType="dish"
                               targetId={item.id}
-                              activeLabel="Saved"
-                              inactiveLabel="Save"
+                              activeLabel={t("home.carousel.savedDish")}
+                              inactiveLabel={t("home.carousel.saveDish")}
                               onResult={(message) => setFavoriteMessage(message)}
                             />
-                            <Link className={ui.ghostButton} to={`/menu/${item.id}`}>Details →</Link>
+                            <Link className={ui.ghostButton} to={`/menu/${item.id}`}>{t("home.carousel.details")}</Link>
                           </div>
                         </div>
                       </article>
@@ -661,10 +662,10 @@ export default function HomePage() {
             <section className={`${ui.panel} flex flex-col justify-between`}>
               <div>
                 <SectionIntro
-                  eyebrow="Store Locations"
-                  title="Find your nearest Kamatcha."
-                  description="Visit us at any of our carefully designed spaces."
-                  action={{ to: "/stores", label: "All Locations" }}
+                  eyebrow={t("home.locations.eyebrow")}
+                  title={t("home.locations.title")}
+                  description={t("home.locations.description")}
+                  action={{ to: "/stores", label: t("home.locations.allLocations") }}
                 />
                 <div className="mt-6 grid gap-3">
                   {locationCards.length ? (
@@ -673,15 +674,15 @@ export default function HomePage() {
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <p className="font-semibold text-ink-900">{store.area || store.name}</p>
-                            <p className="mt-1 text-sm text-ink-600">{store.positionLabel || store.address || "Kamatcha branch"}</p>
+                            <p className="mt-1 text-sm text-ink-600">{store.positionLabel || store.address || t("home.locations.fallbackBranch")}</p>
                           </div>
-                          <span className={ui.pill}>{statusLabel(store)}</span>
+                          <span className={ui.pill}>{statusLabel(store, t)}</span>
                         </div>
                       </article>
                     ))
                   ) : (
                     <article className="rounded-xl border border-dashed border-beige-300 bg-cream-100/50 p-4 text-sm text-ink-600">
-                      Store locations loading...
+                      {t("home.locations.loadingLocations")}
                     </article>
                   )}
                 </div>

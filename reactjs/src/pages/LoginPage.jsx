@@ -7,6 +7,7 @@ import { getApiErrorMessage } from "../lib/api";
 import { getDefaultAuthenticatedPath, isProfileCompleted, resolvePostAuthPath } from "../lib/authRedirects";
 import { loadGoogleIdentityScript } from "../lib/googleIdentity";
 import { ui } from "../ui";
+import { useTranslation } from "react-i18next";
 
 const initialForm = { email: "", password: "" };
 
@@ -23,6 +24,7 @@ function resolveLoginErrorMessage(requestError, fallbackMessage) {
 }
 
 export default function LoginPage() {
+  const { t } = useTranslation("auth");
   const auth = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -43,9 +45,9 @@ export default function LoginPage() {
   const infoMessage = location.state?.message ?? "";
   const redirectTo = location.state?.from?.pathname;
 
-  useToastMessage(infoMessage, { type: "success", title: "Notice" });
-  useToastMessage(error, { type: "error", title: "Sign-in failed" });
-  useToastMessage(googleError, { type: "error", title: "Google Sign-In" });
+  useToastMessage(infoMessage, { type: "success", title: t("login.notice") });
+  useToastMessage(error, { type: "error", title: t("login.failedTitle") });
+  useToastMessage(googleError, { type: "error", title: t("login.googleTitle") });
 
   const finishLogin = useCallback(
     (response) => {
@@ -70,7 +72,7 @@ export default function LoginPage() {
       const response = await auth.login(form);
       finishLogin(response);
     } catch (submitError) {
-      setError(resolveLoginErrorMessage(submitError, "Sign-in failed."));
+      setError(resolveLoginErrorMessage(submitError, t("login.failed")));
     } finally {
       setLoading(false);
     }
@@ -101,10 +103,10 @@ export default function LoginPage() {
         finishLogin(response);
       } catch (googleLoginError) {
         if (!cancelled) {
-          const nextMessage = resolveLoginErrorMessage(googleLoginError, "Google sign-in failed.");
+          const nextMessage = resolveLoginErrorMessage(googleLoginError, t("login.googleFailed"));
           setError(
             nextMessage === "Google account is not linked to any user"
-              ? "This Google account is not linked to any user in the Kamatcha database."
+              ? t("login.noAccountLinked")
               : nextMessage,
           );
         }
@@ -140,7 +142,7 @@ export default function LoginPage() {
       } catch (scriptError) {
         if (!cancelled) {
           setGoogleReady(false);
-          setGoogleError(getApiErrorMessage(scriptError, "Unable to load Google Sign-In."));
+          setGoogleError(getApiErrorMessage(scriptError, t("login.googleUnavailable")));
         }
       } finally {
         if (!cancelled) setGoogleLoading(false);
@@ -166,10 +168,10 @@ export default function LoginPage() {
       </p>
       <p className={ui.eyebrow}>Kamatcha</p>
       <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-ink-900">
-        Sign in
+        {t("login.title")}
       </h1>
       <p className="mt-2 text-sm leading-7 text-ink-600">
-        Sign in with your email and password.
+        {t("login.subtitle")}
       </p>
 
       {infoMessage ? (
@@ -180,7 +182,7 @@ export default function LoginPage() {
 
       <form className="mt-6 grid gap-4" onSubmit={handleSubmit} aria-describedby={error ? "login-error" : undefined}>
         <label className="grid gap-2">
-          <span className="text-sm font-semibold text-ink-900">Email</span>
+          <span className="text-sm font-semibold text-ink-900">{t("login.email")}</span>
           <input
             className={ui.input}
             type="email"
@@ -194,13 +196,13 @@ export default function LoginPage() {
         </label>
 
         <label className="grid gap-2">
-          <span className="text-sm font-semibold text-ink-900">Password</span>
+          <span className="text-sm font-semibold text-ink-900">{t("login.password")}</span>
           <div className="relative">
             <input
               className={`${ui.input} pr-24`}
               type={showPassword ? "text" : "password"}
               name="password"
-              placeholder="Enter your password"
+              placeholder={t("login.passwordPlaceholder")}
               value={form.password}
               onChange={handleChange}
               autoComplete="current-password"
@@ -210,9 +212,9 @@ export default function LoginPage() {
               className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-matcha-500 px-3 py-1.5 text-xs font-semibold text-cream-50 transition hover:bg-matcha-700"
               type="button"
               onClick={() => setShowPassword((c) => !c)}
-              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-label={showPassword ? t("login.hidePassword") : t("login.showPassword")}
             >
-              {showPassword ? "Hide" : "Show"}
+              {showPassword ? t("login.hide") : t("login.show")}
             </button>
           </div>
         </label>
@@ -229,27 +231,27 @@ export default function LoginPage() {
           disabled={loading}
           aria-busy={loading}
         >
-          {loading ? "Processing..." : "Sign in"}
+          {loading ? t("login.submitting") : t("login.submit")}
         </button>
       </form>
 
       {/* Divider */}
       <div className="my-5 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.18em] text-ink-400">
         <span className="h-px flex-1 bg-ink-900/10" />
-        <span>Or continue with</span>
+        <span>{t("login.orContinueWith")}</span>
         <span className="h-px flex-1 bg-ink-900/10" />
       </div>
 
       {/* Google Sign-In */}
       <div className="rounded-xl border border-ink-900/10 bg-cream-100 p-4">
-        <p className="mb-3 text-sm font-semibold text-ink-900">Sign in with Google</p>
+        <p className="mb-3 text-sm font-semibold text-ink-900">{t("login.googleSection")}</p>
 
         {googleEnabled ? (
           <div className="grid gap-3">
             <div ref={googleButtonRef} className="min-h-11" />
             {!googleReady ? (
               <div className="rounded-full border border-ink-900/10 bg-cream-50 px-4 py-2 text-sm text-ink-600">
-                {googleLoading ? "Loading Google button..." : "Unable to load Google Sign-In."}
+                {googleLoading ? t("login.googleLoading") : t("login.googleUnavailable")}
               </div>
             ) : null}
           </div>
@@ -260,7 +262,7 @@ export default function LoginPage() {
             disabled
           >
             <span className="grid h-6 w-6 place-items-center rounded-full bg-cream-50 text-xs font-bold text-ink-900">G</span>
-            <span>Continue with Google</span>
+            <span>{t("login.googleContinue")}</span>
           </button>
         )}
 
@@ -272,7 +274,7 @@ export default function LoginPage() {
 
         {googleEnabled && openedFromLoopbackIp ? (
           <div className="mt-3 rounded-xl border border-warn-soft bg-warn-soft px-4 py-3 text-sm leading-7 text-warn">
-            If Google sign-in fails, open the app on <code>localhost:3000</code> instead of <code>127.0.0.1</code>.
+            {t("login.loopbackWarning", { interpolation: { escapeValue: false } })}
           </div>
         ) : null}
       </div>
@@ -280,10 +282,10 @@ export default function LoginPage() {
       {/* Footer links */}
       <div className="mt-5 flex flex-wrap gap-4 text-sm text-ink-600">
         <Link className="font-semibold text-matcha-700 hover:text-matcha-500" to="/register">
-          Create a new account
+          {t("login.createAccount")}
         </Link>
         <Link className="font-semibold text-matcha-700 hover:text-matcha-500" to="/forgot-password">
-          Forgot password
+          {t("login.forgotPassword")}
         </Link>
       </div>
     </AuthLayout>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import AdminHomepageSidebar from "../components/AdminHomepageSidebar";
 import AdminPageHeader from "../components/admin/admin-page-header";
 import AdminStatCard from "../components/admin/admin-stat-card";
@@ -26,103 +27,87 @@ const managerSectionKeys = [
   "feedbacks",
 ];
 
-const sectionMeta = {
-  orders: {
-    title: "Orders",
-    description: "Track payment state, QR scans, invoice flow, and branch fulfillment handoff.",
-    badge: "Operations",
-  },
-  reviews: {
-    title: "Reviews",
-    description: "Moderate store, event, and dish reviews from one moderation queue.",
-    badge: "Support",
-  },
-  feedbacks: {
-    title: "Feedback",
-    description: "Handle support replies, complaints, and follow-up messages from customers.",
-    badge: "Support",
-  },
-  stores: {
-    title: "Stores",
-    description: "Maintain branch identity, opening hours, address data, and operational scope.",
-    badge: "Network",
-  },
-  users: {
-    title: "Users",
-    description: "Manage admin, manager, staff, shipper, and customer accounts with working store scope.",
-    badge: "People",
-  },
-  events: {
-    title: "Events",
-    description: "Plan store events, featured dishes, capacity, and calendar visibility.",
-    badge: "People",
-  },
-  categories: {
-    title: "Categories",
-    description: "Organize menu structure by branch so the storefront stays easy to scan.",
-    badge: "Catalog",
-  },
-  dishes: {
-    title: "Core dishes",
-    description: "Maintain the franchise-level catalog, signatures, highlights, and pricing baseline.",
-    badge: "Catalog",
-  },
-  storeDishes: {
-    title: "Store dishes",
-    description: "Control branch stock, availability, and local price overrides for each dish.",
-    badge: "Catalog",
-  },
-  news: {
-    title: "News",
-    description: "Publish brand stories, branch updates, and editorial content for the storefront.",
-    badge: "Growth",
-  },
-  promotions: {
-    title: "Promotions",
-    description: "Create offers and time-bound campaigns for conversion and retention.",
-    badge: "Growth",
-  },
-  userLevels: {
-    title: "User levels",
-    description: "Set membership tiers and loyalty thresholds used across the customer journey.",
-    badge: "Growth",
-  },
-};
-
-const workspaceGroups = [
-  {
-    key: "operations",
-    eyebrow: "Daily flow",
-    title: "Operations and customer care",
-    description:
-      "This block groups the modules used most often during live store operations: orders, moderation, and customer support.",
-    sections: ["orders", "reviews", "feedbacks"],
-  },
-  {
-    key: "network",
-    eyebrow: "Stores",
-    title: "Stores, people, and experiences",
-    description:
-      "Use this area for branch setup, team assignment, and event management across the network or your assigned store.",
-    sections: ["stores", "users", "events"],
-  },
-  {
-    key: "catalog",
-    eyebrow: "Menu",
-    title: "Catalog and inventory structure",
-    description:
-      "These tools shape how the menu is structured, stocked, and exposed in each store scope.",
-    sections: ["categories", "dishes", "storeDishes"],
-  },
-  {
-    key: "growth",
-    eyebrow: "Growth",
-    title: "Content, campaigns, and retention",
-    description:
-      "This area follows the sample dashboard structure for editorial content and growth modules, while staying inside the existing admin workspace.",
-    sections: ["news", "promotions", "userLevels"],
-  },
+const WORKSPACE_GROUPS_KEYS = [
+  { key: "operations", sections: ["orders", "reviews", "feedbacks"] },
+  { key: "network", sections: ["stores", "users", "events"] },
+  { key: "catalog", sections: ["categories", "dishes", "storeDishes"] },
+  { key: "growth", sections: ["news", "promotions", "userLevels"] },
 ];
+
+function getSectionMeta(t) {
+  return {
+    orders: {
+      title: t("workspace.sections.orders.title"),
+      description: t("workspace.sections.orders.description"),
+      badge: t("workspace.sections.orders.badge"),
+    },
+    reviews: {
+      title: t("workspace.sections.reviews.title"),
+      description: t("workspace.sections.reviews.description"),
+      badge: t("workspace.sections.reviews.badge"),
+    },
+    feedbacks: {
+      title: t("workspace.sections.feedbacks.title"),
+      description: t("workspace.sections.feedbacks.description"),
+      badge: t("workspace.sections.feedbacks.badge"),
+    },
+    stores: {
+      title: t("workspace.sections.stores.title"),
+      description: t("workspace.sections.stores.description"),
+      badge: t("workspace.sections.stores.badge"),
+    },
+    users: {
+      title: t("workspace.sections.users.title"),
+      description: t("workspace.sections.users.description"),
+      badge: t("workspace.sections.users.badge"),
+    },
+    events: {
+      title: t("workspace.sections.events.title"),
+      description: t("workspace.sections.events.description"),
+      badge: t("workspace.sections.events.badge"),
+    },
+    categories: {
+      title: t("workspace.sections.categories.title"),
+      description: t("workspace.sections.categories.description"),
+      badge: t("workspace.sections.categories.badge"),
+    },
+    dishes: {
+      title: t("workspace.sections.dishes.title"),
+      description: t("workspace.sections.dishes.description"),
+      badge: t("workspace.sections.dishes.badge"),
+    },
+    storeDishes: {
+      title: t("workspace.sections.storeDishes.title"),
+      description: t("workspace.sections.storeDishes.description"),
+      badge: t("workspace.sections.storeDishes.badge"),
+    },
+    news: {
+      title: t("workspace.sections.news.title"),
+      description: t("workspace.sections.news.description"),
+      badge: t("workspace.sections.news.badge"),
+    },
+    promotions: {
+      title: t("workspace.sections.promotions.title"),
+      description: t("workspace.sections.promotions.description"),
+      badge: t("workspace.sections.promotions.badge"),
+    },
+    userLevels: {
+      title: t("workspace.sections.userLevels.title"),
+      description: t("workspace.sections.userLevels.description"),
+      badge: t("workspace.sections.userLevels.badge"),
+    },
+  };
+}
+
+function getWorkspaceGroups(t) {
+  return WORKSPACE_GROUPS_KEYS.map((group) => ({
+    key: group.key,
+    eyebrow: t(`workspace.groups.${group.key}.eyebrow`),
+    title: t(`workspace.groups.${group.key}.title`),
+    description: t(`workspace.groups.${group.key}.description`),
+    sections: group.sections,
+  }));
+}
 
 function formatCurrency(value) {
   if (value === undefined || value === null || value === "") {
@@ -388,27 +373,27 @@ function calculateRevenueFromOrders(ordersData = []) {
   return { todayRevenue, monthRevenue };
 }
 
-function buildMetricCards({ summary, dashboard, revenueSummary, isAdmin, workingStoreName }) {
+function buildMetricCards({ summary, dashboard, revenueSummary, isAdmin, workingStoreName, t }) {
   const sharedCards = [
     {
-      label: "Revenue today",
+      label: t("overview.revenueToday"),
       value: formatCurrency(revenueSummary?.todayRevenue),
       featured: true,
     },
     {
-      label: "Revenue month",
+      label: t("overview.revenueMonth"),
       value: formatCurrency(revenueSummary?.monthRevenue),
     },
     {
-      label: "Orders",
+      label: t("overview.orders"),
       value: formatCount(summary?.orderCount),
     },
     {
-      label: "Reviews",
+      label: t("overview.reviewsLabel"),
       value: formatCount(summary?.reviewCount),
     },
     {
-      label: "Feedback",
+      label: t("overview.feedbackLabel"),
       value: formatCount(Array.isArray(dashboard?.feedbacks) ? dashboard.feedbacks.length : 0),
     },
   ];
@@ -417,7 +402,7 @@ function buildMetricCards({ summary, dashboard, revenueSummary, isAdmin, working
     return [
       ...sharedCards,
       {
-        label: "Users",
+        label: t("overview.usersLabel"),
         value: formatCount(summary?.userCount),
       },
     ];
@@ -425,19 +410,20 @@ function buildMetricCards({ summary, dashboard, revenueSummary, isAdmin, working
 
   return [
     {
-      label: "Working store",
-      value: workingStoreName || "Not assigned",
+      label: t("overview.workingStore"),
+      value: workingStoreName || t("overview.notAssigned"),
       featured: true,
     },
     ...sharedCards,
     {
-      label: "Store dishes",
+      label: t("overview.storeDishes"),
       value: formatCount(summary?.storeDishCount),
     },
   ];
 }
 
 export default function AdminHomePage() {
+  const { t } = useTranslation("admin");
   const auth = useAuth();
   const location = useLocation();
   const isAdmin = auth.hasRole("ADMIN");
@@ -505,7 +491,7 @@ export default function AdminHomePage() {
       } catch (requestError) {
         console.error("Error loading overview:", requestError);
         if (!isCancelled) {
-          setError(getApiErrorMessage(requestError, "Unable to load the admin overview."));
+          setError(getApiErrorMessage(requestError, t("orders.overviewLoadError")));
         }
       } finally {
         if (!isCancelled) {
@@ -601,6 +587,8 @@ export default function AdminHomePage() {
     }),
     [dashboard?.feedbacks, summary],
   );
+  const workspaceGroups = useMemo(() => getWorkspaceGroups(t), [t]);
+  const sectionMeta = useMemo(() => getSectionMeta(t), [t]);
   const visibleGroups = useMemo(
     () =>
       workspaceGroups
@@ -609,7 +597,7 @@ export default function AdminHomePage() {
           sections: group.sections.filter((sectionKey) => accessibleSectionKeys.includes(sectionKey)),
         }))
         .filter((group) => group.sections.length),
-    [accessibleSectionKeys],
+    [accessibleSectionKeys, workspaceGroups],
   );
   const metricCards = useMemo(
     () =>
@@ -619,16 +607,17 @@ export default function AdminHomePage() {
         revenueSummary,
         isAdmin,
         workingStoreName: auth.user?.workingStoreName,
+        t,
       }),
-    [auth.user?.workingStoreName, dashboard, isAdmin, revenueSummary, summary],
+    [auth.user?.workingStoreName, dashboard, isAdmin, revenueSummary, summary, t],
   );
-  const landingTitle = isManagerMode ? "Manager home" : "Admin home";
+  const landingTitle = isManagerMode ? t("home.managerTitle") : t("home.title");
   const landingHeadline = isManagerMode
-    ? "Store-scoped control room for daily operations"
-    : "Separate admin landing page with a clearer workspace map";
+    ? t("home.managerHeadline")
+    : t("home.headline");
   const landingCopy = isManagerMode
-    ? "Your manager area stays focused on one working store. The admin workspace below is grouped by daily flow so the live tasks are easier to reach."
-    : "The sample dashboard from the older folder separated overview and management more clearly. This page keeps that structure while reusing the existing CRUD workspace in the current project.";
+    ? t("home.managerCopy")
+    : t("home.copy");
 
   const handleStoreRangeChange = (field, value) => {
     setStoreRange((current) => clampRangeToSevenDays(
@@ -655,11 +644,11 @@ export default function AdminHomePage() {
         <div className="grid gap-5">
           <section className={ui.panel}>
             <AdminPageHeader
-              eyebrow="Overview"
-              title="Performance Review"
+              eyebrow={t("overview.eyebrow")}
+              title={t("overview.title")}
               actions={
                 <Link className={ui.secondaryButton} to={buildAdminWorkspacePath({ sectionKey: "orders" })}>
-                  Orders
+                  {t("overview.orders")}
                 </Link>
               }
             />
@@ -684,10 +673,10 @@ export default function AdminHomePage() {
 
           <section className={ui.panel}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <AdminPageHeader eyebrow="Weekly Activity" title="Orders over time" />
+              <AdminPageHeader eyebrow={t("charts.weeklyActivity")} title={t("charts.ordersOverTime")} />
               <div className="flex flex-wrap items-end gap-3">
                 <label className="grid gap-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">From</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">{t("charts.from")}</span>
                   <input
                     type="date"
                     value={startDate}
@@ -696,7 +685,7 @@ export default function AdminHomePage() {
                   />
                 </label>
                 <label className="grid gap-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">To</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">{t("charts.to")}</span>
                   <input
                     type="date"
                     value={endDate}
@@ -705,7 +694,7 @@ export default function AdminHomePage() {
                   />
                 </label>
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-ink-500">Total</p>
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-ink-500">{t("charts.total")}</p>
                   <strong className="block font-mono text-xl font-semibold text-ink-900">
                     {loading ? "—" : formatCount(totalWeeklyOrders)}
                   </strong>
@@ -714,7 +703,7 @@ export default function AdminHomePage() {
             </div>
 
             <p className="mt-2 text-xs text-ink-400">
-              Chart shows max 7 days. Longer ranges show the last 7 days.
+              {t("charts.chartNote")}
             </p>
 
             <div className="mt-4">
@@ -742,10 +731,10 @@ export default function AdminHomePage() {
 
           <section className={ui.panel}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <AdminPageHeader eyebrow="Store Performance" title="Orders by store" />
+              <AdminPageHeader eyebrow={t("charts.storePerformance")} title={t("charts.ordersByStore")} />
               <div className="flex flex-wrap items-end gap-3 rounded-lg border border-ink-900/8 bg-cream-100 px-3 py-2.5 sm:min-w-[22rem]">
                 <label className="grid gap-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">From</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">{t("charts.from")}</span>
                   <input
                     type="date"
                     value={normalizedStoreRange.startDate}
@@ -754,7 +743,7 @@ export default function AdminHomePage() {
                   />
                 </label>
                 <label className="grid gap-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">To</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">{t("charts.to")}</span>
                   <input
                     type="date"
                     value={normalizedStoreRange.endDate}
@@ -763,7 +752,7 @@ export default function AdminHomePage() {
                   />
                 </label>
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-ink-500">Total</p>
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-ink-500">{t("charts.total")}</p>
                   <strong className="block font-mono text-xl font-semibold text-ink-900">
                     {loading ? "—" : formatCount(totalStoreOrders)}
                   </strong>
@@ -772,7 +761,7 @@ export default function AdminHomePage() {
             </div>
 
             <p className="mt-2 text-xs text-ink-400">
-              Max 7 days. Longer ranges show the last 7 days ending at the chosen end date.
+              {t("charts.storeNote")}
             </p>
 
             <div className="mt-4">
@@ -802,7 +791,7 @@ export default function AdminHomePage() {
                 </div>
               ) : (
                 <div className="rounded-lg border border-dashed border-ink-900/10 bg-cream-100 p-4 text-sm text-ink-400">
-                  No orders data for the selected date range.
+                  {t("charts.noOrdersData")}
                 </div>
               )}
             </div>
@@ -811,17 +800,17 @@ export default function AdminHomePage() {
           <section className={ui.panel}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <AdminPageHeader
-                eyebrow="Best sellers"
+                eyebrow={t("charts.bestSellers")}
                 title={
                   revenueSummary?.scopeStoreName
-                    ? `Top dishes — ${revenueSummary.scopeStoreName}`
-                    : "Top dishes in current scope"
+                    ? t("charts.topDishesScopeLabel", { scope: revenueSummary.scopeStoreName })
+                    : t("charts.topDishes")
                 }
-                subtitle="Dishes driving volume in the last 7-day window."
+                subtitle={t("charts.dishesNote")}
               />
               <div className="flex flex-wrap items-end gap-3 rounded-lg border border-ink-900/8 bg-cream-100 px-3 py-2.5">
                 <label className="grid gap-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">From</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">{t("charts.from")}</span>
                   <input
                     type="date"
                     value={normalizedBestSellerRange.startDate}
@@ -830,7 +819,7 @@ export default function AdminHomePage() {
                   />
                 </label>
                 <label className="grid gap-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">To</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">{t("charts.to")}</span>
                   <input
                     type="date"
                     value={normalizedBestSellerRange.endDate}
@@ -839,13 +828,13 @@ export default function AdminHomePage() {
                   />
                 </label>
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-ink-500">Total sold</p>
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-ink-500">{t("charts.totalSold")}</p>
                   <strong className="block font-mono text-xl font-semibold text-ink-900">
                     {loading ? "—" : formatCount(totalBestSellerQuantity)}
                   </strong>
                 </div>
                 <Link className={ui.secondaryButton} to={buildAdminWorkspacePath({ sectionKey: "feedbacks" })}>
-                  Customer feedback
+                  {t("charts.customerFeedback")}
                 </Link>
               </div>
             </div>
@@ -853,7 +842,7 @@ export default function AdminHomePage() {
             <div className="mt-4">
               {loading ? (
                 <div className="rounded-lg border border-dashed border-ink-900/10 bg-cream-100 p-4 text-sm text-ink-400">
-                  Loading analytics…
+                  {t("charts.loading")}
                 </div>
               ) : topSellingDishes.length ? (
                 <div className="grid gap-3 lg:grid-cols-2">
@@ -878,9 +867,9 @@ export default function AdminHomePage() {
 
                       <div className="mt-3 grid gap-2 sm:grid-cols-3">
                         {[
-                          { label: "Qty sold", value: formatCount(dish.quantitySold) },
-                          { label: "Orders", value: formatCount(dish.orderCount) },
-                          { label: "Revenue", value: formatCurrency(dish.revenue) },
+                          { label: t("analytics.qtyLabel"), value: formatCount(dish.quantitySold) },
+                          { label: t("analytics.ordersLabel"), value: formatCount(dish.orderCount) },
+                          { label: t("analytics.revenueLabel"), value: formatCurrency(dish.revenue) },
                         ].map((stat) => (
                           <div key={stat.label} className="rounded-md border border-ink-900/8 bg-beige-100 px-2.5 py-2">
                             <span className="block text-[11px] uppercase tracking-[0.14em] text-ink-500">
@@ -897,7 +886,7 @@ export default function AdminHomePage() {
                 </div>
               ) : (
                 <div className="rounded-lg border border-dashed border-ink-900/10 bg-cream-100 p-4 text-sm text-ink-400">
-                  No top-selling dish data yet for the current analytics scope.
+                  {t("charts.noTopSelling")}
                 </div>
               )}
             </div>

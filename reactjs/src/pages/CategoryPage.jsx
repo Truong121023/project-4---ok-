@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import SmartImage from "../components/SmartImage";
 import CatalogLayout from "../components/templates/catalog-layout";
 import { EmptyState } from "../components/ui/empty-state";
@@ -34,6 +35,7 @@ function CategoryCardSkeleton() {
 }
 
 export default function CategoryPage() {
+  const { t } = useTranslation("menu");
   const location = useLocation();
   const [dishes, setDishes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -53,7 +55,7 @@ export default function CategoryPage() {
           setDishes(Array.isArray(result.items) ? result.items : (Array.isArray(result.data) ? result.data : []));
         }
       } catch (err) {
-        if (!cancelled) setError(err.message || "Failed to load categories");
+        if (!cancelled) setError(err.message || t("category.loadError"));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -61,19 +63,18 @@ export default function CategoryPage() {
 
     void loadData();
     return () => { cancelled = true; };
-  }, [location]);
+  }, [location, t]);
 
   return (
     <main className="bg-bg min-h-screen">
       <div className="mx-auto w-full max-w-7xl px-4 pb-2 pt-8 sm:px-6 lg:px-8">
-        <p className={ui.eyebrow}>Categories</p>
-        <h1 className={ui.bannerTitle}>Explore our menu</h1>
-        <p className={ui.copy}>
-          Browse all menu categories and discover your next favourite drink.
-        </p>
+        <p className={ui.eyebrow}>{t("category.eyebrow")}</p>
+        <h1 className={ui.bannerTitle}>{t("category.pageTitle")}</h1>
+        <p className={ui.copy}>{t("category.pageSubtitle")}</p>
         {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
         <p className="mt-3 text-sm text-ink-500">
-          <strong className="text-ink-800">{categories.length}</strong> categories
+          <strong className="text-ink-800">{categories.length}</strong>{" "}
+          {t("category.count")}
         </p>
       </div>
 
@@ -87,8 +88,8 @@ export default function CategoryPage() {
         empty={
           <EmptyState
             icon="🍵"
-            title="No categories yet"
-            description="Check back soon for our full menu."
+            title={t("category.noCategories")}
+            description={t("category.noCategoriesBody")}
           />
         }
       >
@@ -118,7 +119,7 @@ export default function CategoryPage() {
                 </p>
               ) : null}
               <p className="mt-auto pt-2 text-xs font-semibold text-matcha-600 uppercase tracking-widest">
-                Browse →
+                {t("category.browse")} →
               </p>
             </div>
           </Link>

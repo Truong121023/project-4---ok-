@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import ContentSectionsBlock from "../components/ContentSectionsBlock";
 import DistanceOriginControls from "../components/DistanceOriginControls";
 import MediaLibrary from "../components/MediaLibrary";
@@ -24,10 +25,10 @@ function formatPrice(v) { return formatCurrencyVnd(v); }
 function formatCompact(v) { return formatNumberVi(v); }
 function formatDate(v) { return formatDateTimeVn(v, "Recently updated").replace(/\sGMT\+7$/, ""); }
 
-function storeStatus(store) {
-  if (store.storeDisabled) return "Store unavailable";
-  if (store.storeOpen) return "Serving now";
-  return "Updating";
+function storeStatus(store, t) {
+  if (store.storeDisabled) return t("storeStatus.unavailable");
+  if (store.storeOpen) return t("storeStatus.serving");
+  return t("storeStatus.updating");
 }
 
 function rankStoreForCart(store) {
@@ -61,6 +62,7 @@ function DishDetailSkeleton() {
 }
 
 export default function DishDetailPage() {
+  const { t } = useTranslation("menu");
   const auth = useAuth();
   const { itemId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -85,7 +87,7 @@ export default function DishDetailPage() {
       const response = await fetchPublicDishDetail(itemId, { lat: userLocation?.latitude, lng: userLocation?.longitude });
       setDishDetail(response);
     } catch (err) {
-      setError(err.message || "Unable to load item details.");
+      setError(err.message || t("dishDetail.loadError"));
     } finally {
       setLoading(false);
     }
@@ -127,35 +129,35 @@ export default function DishDetailPage() {
 
   const locateStores = async () => {
     setLocating(true);
-    setLocationMessage("Getting your current location...");
+    setLocationMessage(t("dishDetail.gettingLocation"));
     try {
       const loc = await requestCurrentLocation();
       setUserLocation(loc);
-      setLocationMessage("Distance calculated from your current location.");
+      setLocationMessage(t("dishDetail.distanceFromCurrent"));
     } catch (err) { setLocationMessage(err.message); }
     finally { setLocating(false); }
   };
 
   const handleUseAddress = async () => {
     setGeocoding(true);
-    setLocationMessage("Looking up address...");
+    setLocationMessage(t("dishDetail.lookingUpAddress"));
     try {
       const loc = await geocodeAddress(addressQuery);
       setUserLocation(loc);
-      setLocationMessage(`Calculating distance from: ${loc.label}`);
+      setLocationMessage(t("dishDetail.calculatingFrom", { label: loc.label }));
     } catch (err) { setLocationMessage(err.message); }
     finally { setGeocoding(false); }
   };
 
-  const clearLocation = () => { setUserLocation(null); setAddressQuery(""); setLocationMessage("Distance origin cleared."); };
+  const clearLocation = () => { setUserLocation(null); setAddressQuery(""); setLocationMessage(t("dishDetail.locationCleared")); };
 
   const resolveDishQuickAddPayload = async (dishIdValue) => {
     const response = await fetchPublicDishDetail(dishIdValue, { lat: userLocation?.latitude, lng: userLocation?.longitude });
     const rankedStores = response.stores.map(rankStoreForCart).sort((a, b) => b.score - a.score);
     const selectedCandidate = rankedStores.find(({ store, availability }) => String(store.id) === String(selectedStore?.id) && availability.allowed);
     const fallback = selectedCandidate ?? rankedStores[0] ?? null;
-    if (!fallback?.store) return { blocked: true, blockedMessage: "No store is currently serving this item." };
-    if (!fallback.availability.allowed) return { dishId: dishIdValue, storeId: fallback.store.id, blocked: true, blockedMessage: fallback.availability.reason || "Item not ready." };
+    if (!fallback?.store) return { blocked: true, blockedMessage: t("dishDetail.noStoreAvailable") };
+    if (!fallback.availability.allowed) return { dishId: dishIdValue, storeId: fallback.store.id, blocked: true, blockedMessage: fallback.availability.reason || t("dishDetail.cannotAdd") };
     return { dishId: dishIdValue, storeId: fallback.store.id, quantity: 1, preorderOnly: fallback.availability.preorderOnly, preorderMessage: getCartSuccessMessage(fallback.availability.preorderOnly) };
   };
 
@@ -165,9 +167,9 @@ export default function DishDetailPage() {
   };
 
   const handleAddToCart = async () => {
-    if (!dish || !selectedStore) { setCartMessage("Please choose a store before adding to the cart."); return; }
-    if (auth.isAuthenticated && !auth.hasRole("USER")) { setCartMessage("Only USER accounts can add items to the cart."); return; }
-    if (!selectedStoreAvailability?.allowed) { setCartMessage(selectedStoreAvailability?.reason || "This item cannot be added to the cart yet."); return; }
+    if (!dish || !selectedStore) { setCartMessage(t("dishDetail.chooseStore")); return; }
+    if (auth.isAuthenticated && !auth.hasRole("USER")) { setCartMessage(t("dishDetail.userOnly")); return; }
+    if (!selectedStoreAvailability?.allowed) { setCartMessage(selectedStoreAvailability?.reason || t("dishDetail.cannotAdd")); return; }
     const result = await addToCart({ itemId: dish.id, storeId: selectedStore.id, quantity });
     setCartMessage(result.ok ? getCartSuccessMessage(selectedStoreAvailability.preorderOnly) : result.message);
   };
@@ -196,10 +198,10 @@ export default function DishDetailPage() {
     return (
       <main className="bg-bg min-h-screen">
         <div className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8 text-center">
-          <p className={ui.eyebrow}>Menu</p>
-          <h1 className={ui.bannerTitle}>Item not found</h1>
-          <p className={ui.copy + " mx-auto"}>{error || "This item does not have data yet."}</p>
-          <Link className={ui.secondaryButton + " mt-6 inline-flex"} to="/menu">Back to menu</Link>
+          <p className={ui.eyebrow}>{t("page.eyebrow")}</p>
+          <h1 className={ui.bannerTitle}>{t("dishDetail.notFound")}</h1>
+          <p className={ui.copy + " mx-auto"}>{error || t("dishDetail.noData")}</p>
+          <Link className={ui.secondaryButton + " mt-6 inline-flex"} to="/menu">{t("dishDetail.back")}</Link>
         </div>
       </main>
     );
@@ -222,13 +224,13 @@ export default function DishDetailPage() {
       <div className="flex items-baseline justify-between gap-3">
         <span className="font-display text-2xl font-bold text-ink-900">{formatPrice(dish.price)}</span>
         <Badge variant={stats.totalStock ? "matcha" : "ink"}>
-          {stats.totalStock ? `${stats.totalStock} in stock` : "Sold out"}
+          {stats.totalStock ? t("dishDetail.inStock", { count: stats.totalStock }) : t("dishDetail.soldOut")}
         </Badge>
       </div>
 
       {availableStores.length ? (
         <label className="flex flex-col gap-1">
-          <span className={ui.eyebrow}>Store</span>
+          <span className={ui.eyebrow}>{t("dishDetail.store")}</span>
           <select
             className={ui.input}
             value={selectedStoreId}
@@ -243,9 +245,9 @@ export default function DishDetailPage() {
 
       {selectedStore ? (
         <div className="rounded-lg border border-beige-200 bg-beige-100/60 px-3 py-2 text-xs text-ink-700 flex flex-wrap gap-2">
-          <Badge variant={selectedStore.storeDisabled ? "ink" : "matcha"}>{storeStatus(selectedStore)}</Badge>
+          <Badge variant={selectedStore.storeDisabled ? "ink" : "matcha"}>{storeStatus(selectedStore, t)}</Badge>
           <Badge variant={selectedStoreAvailability?.allowed ? "matcha" : "ink"}>
-            {Number(selectedStore.stock ?? 0) > 0 ? `${selectedStore.stock} left` : "Sold out"}
+            {Number(selectedStore.stock ?? 0) > 0 ? t("dishDetail.inStock", { count: selectedStore.stock }) : t("dishDetail.soldOut")}
           </Badge>
           {selectedStoreAvailability?.preorderOnly ? <Badge variant="warn">Preorder</Badge> : null}
           <span className="ml-auto font-semibold text-matcha-700">{formatPrice(selectedStore.price || dish.price)}</span>
@@ -253,7 +255,7 @@ export default function DishDetailPage() {
       ) : null}
 
       <label className="flex flex-col gap-1">
-        <span className={ui.eyebrow}>Quantity</span>
+        <span className={ui.eyebrow}>{t("dishDetail.quantity")}</span>
         <input
           className={ui.input}
           type="number"
@@ -270,7 +272,7 @@ export default function DishDetailPage() {
         onClick={handleAddToCart}
         disabled={!selectedStore || !selectedStoreAvailability?.allowed}
       >
-        Add to cart
+        {t("dishDetail.addToCart")}
       </Button>
 
       <div className="flex gap-2">
@@ -280,7 +282,7 @@ export default function DishDetailPage() {
           className="flex-1"
           onClick={handleToggleFavorite}
         >
-          {isFavorite("dish", dish.id) ? "Saved" : "Save item"}
+          {isFavorite("dish", dish.id) ? t("dishDetail.saved") : t("dishDetail.save")}
         </Button>
       </div>
 
@@ -292,9 +294,9 @@ export default function DishDetailPage() {
   const relatedRegion = relatedItems.length ? (
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className={ui.sectionTitle}>More from this category</h2>
+        <h2 className={ui.sectionTitle}>{t("dishDetail.moreFromCategory")}</h2>
         {category ? (
-          <Link className={ui.ghostButton} to={`/menu?category=${category.id}`}>View all</Link>
+          <Link className={ui.ghostButton} to={`/menu?category=${category.id}`}>{t("dishDetail.viewAll")}</Link>
         ) : null}
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -318,18 +320,18 @@ export default function DishDetailPage() {
                 className={ui.primaryButton + " !text-xs !px-3 !py-1.5"}
                 resolvePayload={() => resolveDishQuickAddPayload(relatedItem.id)}
                 blocked={!selectedStore && !availableStores.length}
-                blockedMessage="No store currently available."
+                blockedMessage={t("dishDetail.noStoreAvailable")}
                 onResult={(msg) => setCartMessage(msg)}
               />
               <QuickFavoriteButton
                 targetType="dish"
                 targetId={relatedItem.id}
-                activeLabel="Saved"
-                inactiveLabel="Save"
+                activeLabel={t("dishDetail.saved")}
+                inactiveLabel={t("card.save")}
                 onResult={(msg) => setCartMessage(msg)}
               />
               <Link className={ui.ghostButton + " !text-xs !px-3 !py-1.5"} to={`/menu/${relatedItem.id}`}>
-                Details
+                {t("card.details")}
               </Link>
             </div>
           </article>
@@ -341,7 +343,7 @@ export default function DishDetailPage() {
   // ── breadcrumb ──────────────────────────────────────────────────────────────
   const breadcrumb = (
     <nav className="flex items-center gap-2 text-sm text-ink-500">
-      <Link className="hover:text-matcha-700 transition-colors" to="/menu">Menu</Link>
+      <Link className="hover:text-matcha-700 transition-colors" to="/menu">{t("page.eyebrow")}</Link>
       {category ? (
         <>
           <span>/</span>
@@ -365,7 +367,7 @@ export default function DishDetailPage() {
         <div className="flex flex-col gap-6">
           {/* Title block */}
           <div>
-            <p className={ui.eyebrow}>{dish.franchiseRequired ? "Ceremonial Grade" : "Premium Selection"}</p>
+            <p className={ui.eyebrow}>{dish.franchiseRequired ? t("dishDetail.ceremonialGrade") : t("dishDetail.premiumSelection")}</p>
             <h1 className={ui.bannerTitle}>{dish.name}</h1>
             {dish.note ? <p className="mt-2 text-sm font-semibold uppercase tracking-widest text-matcha-700">{dish.note}</p> : null}
             <p className="mt-4 text-sm leading-7 text-ink-600">{dish.description}</p>
@@ -373,21 +375,21 @@ export default function DishDetailPage() {
 
           {/* Stat pills */}
           <div className="flex flex-wrap gap-2">
-            {dish.franchiseRequired ? <Badge variant="beige">Signature Item</Badge> : null}
+            {dish.franchiseRequired ? <Badge variant="beige">{t("dishDetail.signatureItem")}</Badge> : null}
             <Badge variant={stats.totalStock ? "matcha" : "ink"}>
-              {stats.totalStock ? `${stats.totalStock} available` : "Sold out"}
+              {stats.totalStock ? t("dishDetail.available", { count: stats.totalStock }) : t("dishDetail.soldOut")}
             </Badge>
-            <Badge variant="beige">{formatCompact(stats.favoriteCount)} saves</Badge>
+            <Badge variant="beige">{t("dishDetail.saves", { count: formatCompact(stats.favoriteCount) })}</Badge>
             {stats.reviewCount ? <Badge variant="matcha">{stats.averageRating.toFixed(1)}★ ({formatCompact(stats.reviewCount)})</Badge> : null}
           </div>
 
           {/* Stats grid */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
-              { label: "Price", value: formatPrice(dish.price) },
-              { label: "Rating", value: stats.reviewCount ? `${stats.averageRating.toFixed(1)}★` : "New" },
-              { label: "Sold", value: formatCompact(stats.orderCount) },
-              { label: "Saves", value: formatCompact(stats.favoriteCount) },
+              { label: t("dishDetail.statPrice"), value: formatPrice(dish.price) },
+              { label: t("dishDetail.statRating"), value: stats.reviewCount ? `${stats.averageRating.toFixed(1)}★` : t("dishDetail.statNew") },
+              { label: t("dishDetail.statSold"), value: formatCompact(stats.orderCount) },
+              { label: t("dishDetail.statSaves"), value: formatCompact(stats.favoriteCount) },
             ].map((stat) => (
               <div key={stat.label} className="rounded-xl border border-ink-900/10 bg-cream-100 p-4 text-center">
                 <strong className="block text-xl font-bold text-ink-900">{stat.value}</strong>
@@ -399,10 +401,10 @@ export default function DishDetailPage() {
           {/* Notes */}
           {(dish.franchiseNote || dish.note || locationMessage) ? (
             <div className="rounded-xl border border-beige-200 bg-beige-100/60 p-4 text-sm leading-7 text-ink-700">
-              <strong className="text-base text-ink-900">About this item</strong>
+              <strong className="text-base text-ink-900">{t("dishDetail.aboutTitle")}</strong>
               <div className="mt-2 flex flex-col gap-1">
                 {dish.franchiseNote ? <p>{dish.franchiseNote}</p> : null}
-                {dish.note ? <p><span className="font-medium text-matcha-700">Taste note:</span> {dish.note}</p> : null}
+                {dish.note ? <p><span className="font-medium text-matcha-700">{t("dishDetail.tasteNote")}</span> {dish.note}</p> : null}
                 {locationMessage ? <p className="text-matcha-700">{locationMessage}</p> : null}
               </div>
             </div>
@@ -424,8 +426,8 @@ export default function DishDetailPage() {
           {availableStores.length ? (
             <section>
               <div className="mb-3 flex items-center justify-between gap-2">
-                <h2 className="font-display text-base font-semibold text-ink-900">Available at</h2>
-                <Badge variant="beige">{formatCompact(availableStores.length)} stores</Badge>
+                <h2 className="font-display text-base font-semibold text-ink-900">{t("dishDetail.availableAt")}</h2>
+                <Badge variant="beige">{t("dishDetail.storesCount", { count: availableStores.length })}</Badge>
               </div>
               <div className="flex flex-col gap-2">
                 {availableStores.map((store) => {
@@ -443,9 +445,9 @@ export default function DishDetailPage() {
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {typeof store.distanceKm === "number" ? <span className="text-xs text-ink-400">{formatDistanceKm(store.distanceKm)}</span> : null}
-                        <Badge variant={store.storeDisabled ? "ink" : "matcha"}>{storeStatus(store)}</Badge>
-                        <button className={ui.ghostButton + " !text-xs !px-3 !py-1"} type="button" onClick={() => handleSelectStore(store.id)}>Select</button>
-                        <Link className={ui.ghostButton + " !text-xs !px-3 !py-1"} to={buildStorePath(store)}>Store</Link>
+                        <Badge variant={store.storeDisabled ? "ink" : "matcha"}>{storeStatus(store, t)}</Badge>
+                        <button className={ui.ghostButton + " !text-xs !px-3 !py-1"} type="button" onClick={() => handleSelectStore(store.id)}>{t("dishDetail.selectStore")}</button>
+                        <Link className={ui.ghostButton + " !text-xs !px-3 !py-1"} to={buildStorePath(store)}>{t("dishDetail.storeLink")}</Link>
                       </div>
                     </div>
                   );
@@ -457,9 +459,9 @@ export default function DishDetailPage() {
           {/* Content sections */}
           <ContentSectionsBlock
             sections={dish.sections}
-            eyebrow="Dish story"
-            title="More about this item"
-            description="Extended content blocks from our backend."
+            eyebrow={t("dishDetail.dishStory")}
+            title={t("dishDetail.moreAbout")}
+            description={t("dishDetail.dishStoryBody")}
           />
 
           {/* Divider before reviews */}
@@ -469,14 +471,14 @@ export default function DishDetailPage() {
           <section>
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
-                <p className={ui.eyebrow}>Customer reviews</p>
-                <h2 className={ui.sectionTitle}>What our guests say</h2>
+                <p className={ui.eyebrow}>{t("dishDetail.customerReviews")}</p>
+                <h2 className={ui.sectionTitle}>{t("dishDetail.whatGuestsSay")}</h2>
               </div>
-              <Badge variant="beige">{formatCompact(itemReviews.length)} reviews</Badge>
+              <Badge variant="beige">{t("dishDetail.reviewsCount", { count: itemReviews.length })}</Badge>
             </div>
 
             <UserReviewForm
-              title="Share your experience"
+              title={t("dishDetail.shareExperience")}
               existingReview={getCurrentUserReview("dish", itemId)}
               canSubmit={auth.hasRole("USER")}
               onSubmit={handleSubmitReview}
@@ -502,7 +504,7 @@ export default function DishDetailPage() {
               </div>
             ) : (
               <div className="mt-4 rounded-xl border border-dashed border-beige-300 bg-cream-50 p-6 text-center text-sm text-ink-400">
-                Be the first to share your experience.
+                {t("dishDetail.beFirst")}
               </div>
             )}
           </section>

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Sheet } from "./ui/index.js";
 import BrandLogo from "./BrandLogo";
 import { useAuth } from "../context/AuthContext";
@@ -20,9 +21,10 @@ function getMobileNavClass({ isActive }) {
  * @param {boolean} props.open
  * @param {() => void} props.onClose
  * @param {React.RefObject} props.triggerRef — focus returns here on close
- * @param {Array<{to: string, label: string}>} props.navLinks
+ * @param {Array<{to: string, labelKey: string}>} props.navLinks
  */
 export default function SiteMobileNav({ open, onClose, triggerRef, navLinks = [] }) {
+  const { t } = useTranslation("common");
   const auth = useAuth();
   const navigate = useNavigate();
 
@@ -55,12 +57,12 @@ export default function SiteMobileNav({ open, onClose, triggerRef, navLinks = []
       </div>
 
       {/* Nav links */}
-      <nav aria-label="Mobile navigation">
+      <nav aria-label={t("aria.mobileNav")}>
         <ul className="grid gap-2">
           {navLinks.map(link => (
             <li key={link.to}>
               <NavLink className={getMobileNavClass} to={link.to} onClick={onClose}>
-                {link.label}
+                {t(link.labelKey)}
               </NavLink>
             </li>
           ))}
@@ -72,7 +74,9 @@ export default function SiteMobileNav({ open, onClose, triggerRef, navLinks = []
         {auth.initializing ? null : auth.isAuthenticated ? (
           <>
             <div className="rounded-xl border border-matcha-900/10 bg-white/72 px-4 py-3">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">Signed in as</p>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                {t("buttons.signedInAs")}
+              </p>
               <p className="mt-1 text-sm font-semibold text-tea-900">{auth.user?.fullName || "User"}</p>
               <p className="text-xs text-stone-500">{auth.user?.email}</p>
             </div>
@@ -81,14 +85,14 @@ export default function SiteMobileNav({ open, onClose, triggerRef, navLinks = []
               onClick={onClose}
               className="flex items-center justify-center rounded-full border border-matcha-900/10 bg-white/72 px-4 py-2.5 text-sm font-semibold text-tea-900 transition hover:bg-white"
             >
-              Account
+              {t("buttons.account")}
             </NavLink>
             <button
               className="inline-flex items-center justify-center rounded-full bg-gradient-to-br from-matcha-500 to-matcha-700 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(89,108,61,0.2)] transition hover:-translate-y-0.5"
               type="button"
               onClick={() => { void handleLogout(); }}
             >
-              Sign out
+              {t("buttons.signOut")}
             </button>
           </>
         ) : (
@@ -98,14 +102,14 @@ export default function SiteMobileNav({ open, onClose, triggerRef, navLinks = []
               onClick={onClose}
               className="flex items-center justify-center rounded-full border border-matcha-900/10 bg-white/72 px-4 py-2.5 text-sm font-semibold text-tea-900 transition hover:bg-white"
             >
-              Sign up
+              {t("buttons.signUp")}
             </NavLink>
             <NavLink
               to="/login"
               onClick={onClose}
               className="flex items-center justify-center rounded-full bg-gradient-to-br from-matcha-500 to-matcha-700 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(89,108,61,0.2)] transition hover:-translate-y-0.5"
             >
-              Sign in
+              {t("buttons.signIn")}
             </NavLink>
           </>
         )}

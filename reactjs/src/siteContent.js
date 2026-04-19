@@ -1,11 +1,12 @@
+// labelKey references common.json nav.* keys — consumers call t(link.labelKey)
 export const navigationLinks = [
-  { to: "/stores", label: "Store" },
-  { to: "/events", label: "Store events" },
-  { to: "/promotions", label: "Promotion" },
-  { to: "/menu", label: "Menu" },
-  { to: "/news", label: "News" },
-  { to: "/orders", label: "Orders" },
-  { to: "/account/levels", label: "Membership" },
+  { to: "/stores", labelKey: "nav.store" },
+  { to: "/events", labelKey: "nav.storeEvents" },
+  { to: "/promotions", labelKey: "nav.promotion" },
+  { to: "/menu", labelKey: "nav.menu" },
+  { to: "/news", labelKey: "nav.news" },
+  { to: "/orders", labelKey: "nav.orders" },
+  { to: "/account/levels", labelKey: "nav.membership" },
 ];
 
 export const loginBenefits = [

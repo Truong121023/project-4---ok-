@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import DetailModal from "../components/DetailModal";
 import { Link, useSearchParams, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import DistanceOriginControls from "../components/DistanceOriginControls";
 import MediaLibrary from "../components/MediaLibrary";
 import QuickAddToCartButton from "../components/QuickAddToCartButton";
@@ -32,10 +33,10 @@ function mapSortKey(sortKey, hasLocation) {
   }
 }
 
-function statusLabel(event) {
-  if (event.disabled) return event.disabledReason || "Locked";
-  if (event.remainingSlots > 0) return `${event.remainingSlots} slots left`;
-  return "Updating";
+function statusLabel(event, t) {
+  if (event.disabled) return event.disabledReason || t("status.locked");
+  if (event.remainingSlots > 0) return t("status.slotsLeft", { count: event.remainingSlots });
+  return t("status.updating");
 }
 
 function normalizeStoreKey(value) {
@@ -60,6 +61,7 @@ function matchesStore(event, storeKey) {
 }
 
 export default function EventsPage() {
+  const { t } = useTranslation("events");
   const location = useLocation();
   const auth = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -94,7 +96,7 @@ export default function EventsPage() {
       });
       setEvents(response.items);
     } catch (requestError) {
-      setError(requestError.message || "Unable to load events.");
+      setError(requestError.message || t("page.loadError"));
     } finally {
       setLoading(false);
     }
@@ -141,11 +143,11 @@ export default function EventsPage() {
 
   const locateEventStores = async () => {
     setLocating(true);
-    setLocationMessage("Getting your current location...");
+    setLocationMessage(t("page.loading"));
     try {
       const nextLocation = await requestCurrentLocation();
       setUserLocation(nextLocation);
-      setLocationMessage("Distance calculated from your current location.");
+      setLocationMessage(t("info.filteringNow"));
     } catch (locationError) {
       setLocationMessage(locationError.message);
     } finally {
@@ -155,11 +157,11 @@ export default function EventsPage() {
 
   const handleUseAddress = async () => {
     setGeocoding(true);
-    setLocationMessage("Looking up address...");
+    setLocationMessage(t("page.loading"));
     try {
       const nextLocation = await geocodeAddress(addressQuery);
       setUserLocation(nextLocation);
-      setLocationMessage(`Calculating distance from: ${nextLocation.label}`);
+      setLocationMessage(t("info.filteringAt", { dateTime: nextLocation.label }));
     } catch (addressError) {
       setLocationMessage(addressError.message);
     } finally {
@@ -170,7 +172,7 @@ export default function EventsPage() {
   const clearLocation = () => {
     setUserLocation(null);
     setAddressQuery("");
-    setLocationMessage("Distance origin cleared.");
+    setLocationMessage("");
   };
 
   const loadEventReviews = async (eventId, forceRefresh = false) => {
@@ -192,7 +194,7 @@ export default function EventsPage() {
       setEventReviewsMap((current) => ({ ...current, [normalizedEventId]: nextItems }));
       return nextItems;
     } catch (reviewError) {
-      setActionMessage(reviewError.message || "Unable to load event reviews.");
+      setActionMessage(reviewError.message || t("page.reviewLoadError"));
       return [];
     } finally {
       setReviewsLoadingId((current) => (current === normalizedEventId ? "" : current));
@@ -239,19 +241,19 @@ export default function EventsPage() {
   const filters = (
     <div className="flex flex-wrap items-end gap-4">
       <label className="grid gap-1.5">
-        <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">Sort</span>
+        <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">{t("filters.sort")}</span>
         <select className={ui.input} value={sortKey} onChange={(e) => setSortKey(e.target.value)}>
-          <option value="date-desc">Newest first</option>
-          <option value="date-asc">Soonest first</option>
-          <option value="rating-desc">Highest rated</option>
-          <option value="distance-asc">Nearest first</option>
+          <option value="date-desc">{t("filters.sortNewestFirst")}</option>
+          <option value="date-asc">{t("filters.sortSoonestFirst")}</option>
+          <option value="rating-desc">{t("filters.sortHighestRated")}</option>
+          <option value="distance-asc">{t("filters.sortNearestFirst")}</option>
         </select>
       </label>
 
       <label className="grid gap-1.5">
-        <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">Store filter</span>
+        <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">{t("filters.storeFilter")}</span>
         <select className={ui.input} value={selectedStoreKey} onChange={(e) => handleStoreFilterChange(e.target.value)}>
-          <option value="">All stores</option>
+          <option value="">{t("filters.allStores")}</option>
           {storeOptions.map((option) => (
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}
@@ -259,17 +261,17 @@ export default function EventsPage() {
       </label>
 
       <label className="grid gap-1.5">
-        <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">By time</span>
+        <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">{t("filters.byTime")}</span>
         <select className={ui.input} value={timeFilterMode} onChange={(e) => setTimeFilterMode(e.target.value)}>
-          <option value="all">All</option>
-          <option value="now">Happening now</option>
-          <option value="custom">Happening at selected time</option>
+          <option value="all">{t("filters.timeAll")}</option>
+          <option value="now">{t("filters.timeNow")}</option>
+          <option value="custom">{t("filters.timeCustom")}</option>
         </select>
       </label>
 
       {timeFilterMode === "custom" ? (
         <label className="grid gap-1.5">
-          <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">Date and time</span>
+          <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">{t("filters.dateAndTime")}</span>
           <input
             className={ui.input}
             type="datetime-local"
@@ -284,17 +286,17 @@ export default function EventsPage() {
   return (
     <>
       <EditorialLayout
-        eyebrow="Events"
-        kanji="催事"
-        headline="Store events"
-        subcopy="See the schedule, remaining slots, and the host store."
+        eyebrow={t("page.eyebrow")}
+        kanji={t("page.kanji")}
+        headline={t("page.headline")}
+        subcopy={t("page.subcopy")}
         filters={filters}
       >
         {/* Store filter active badge */}
         {selectedStoreKey ? (
           <div className="flex flex-wrap items-center gap-3">
-            <span className={ui.pill}>Filtering by store: {selectedStoreName}</span>
-            <Link className={ui.secondaryButton} to="/events">View all events</Link>
+            <span className={ui.pill}>{t("info.filteringByStore", { name: selectedStoreName })}</span>
+            <Link className={ui.secondaryButton} to="/events">{t("info.viewAllEvents")}</Link>
           </div>
         ) : null}
 
@@ -311,17 +313,17 @@ export default function EventsPage() {
 
         {locationMessage ? <p className="text-sm leading-7 text-ink-600">{locationMessage}</p> : null}
         {timeFilterMode === "now" ? (
-          <p className="text-sm leading-7 text-ink-600">Filtering events by stores that are open and events happening right now.</p>
+          <p className="text-sm leading-7 text-ink-600">{t("info.filteringNow")}</p>
         ) : null}
         {timeFilterMode === "custom" ? (
-          <p className="text-sm leading-7 text-ink-600">Filtering events at {customDateTime}.</p>
+          <p className="text-sm leading-7 text-ink-600">{t("info.filteringAt", { dateTime: customDateTime })}</p>
         ) : null}
         {actionMessage ? <p className="text-sm leading-7 text-ink-600">{actionMessage}</p> : null}
         {error ? <p className="text-sm leading-7 text-ink-600">{error}</p> : null}
 
         {loading ? (
           <div className="rounded-xl border border-dashed border-beige-300 bg-cream-50 p-6 text-sm text-ink-600">
-            Loading events...
+            {t("page.loading")}
           </div>
         ) : null}
 
@@ -346,11 +348,13 @@ export default function EventsPage() {
 
                   <div className="flex flex-col gap-5">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className={ui.pill}>{statusLabel(event)}</span>
+                      <span className={ui.pill}>{statusLabel(event, t)}</span>
                       <span className={ui.pill}>
-                        {event.reviewCount ? `${event.averageRating.toFixed(1)} stars` : "No reviews yet"}
+                        {event.reviewCount
+                          ? t("badge.stars", { value: event.averageRating.toFixed(1) })
+                          : t("badge.noReviewsYet")}
                       </span>
-                      <span className={ui.pill}>{event.favoriteCount} saves</span>
+                      <span className={ui.pill}>{t("badge.saves", { count: event.favoriteCount })}</span>
                       {event.distanceKm !== null && event.distanceKm !== undefined ? (
                         <span className={ui.pill}>{formatDistanceKm(event.distanceKm)}</span>
                       ) : null}
@@ -370,10 +374,10 @@ export default function EventsPage() {
 
                     <div className="grid gap-4 sm:grid-cols-4">
                       {[
-                        { label: "Reviews", value: event.reviewCount || 0 },
-                        { label: "Slots left", value: event.remainingSlots || 0 },
-                        { label: "Store", value: event.store?.name || event.storeName || "N/A" },
-                        { label: "Featured items", value: event.featuredDishes.length },
+                        { label: t("stats.reviews"), value: event.reviewCount || 0 },
+                        { label: t("stats.slotsLeft"), value: event.remainingSlots || 0 },
+                        { label: t("stats.store"), value: event.store?.name || event.storeName || "N/A" },
+                        { label: t("stats.featuredItems"), value: event.featuredDishes.length },
                       ].map((stat) => (
                         <div key={stat.label} className="rounded-xl border border-ink-900/10 bg-cream-100 p-4">
                           <strong className="block text-2xl font-bold text-ink-900">{stat.value}</strong>
@@ -383,10 +387,10 @@ export default function EventsPage() {
                     </div>
 
                     <div className="grid gap-2 text-sm leading-7 text-ink-600">
-                      <span>Starts: {formatDateTime(event.startsAt)}</span>
-                      <span>Ends: {formatDateTime(event.endsAt)}</span>
-                      <span>Store: {event.store?.name || event.storeName || "Not available"}</span>
-                      {event.disabledReason ? <span>Status: {event.disabledReason}</span> : null}
+                      <span>{t("info.starts", { value: formatDateTime(event.startsAt) })}</span>
+                      <span>{t("info.ends", { value: formatDateTime(event.endsAt) })}</span>
+                      <span>{t("info.store", { value: event.store?.name || event.storeName || t("info.storeNotAvailable") })}</span>
+                      {event.disabledReason ? <span>{t("info.status", { value: event.disabledReason })}</span> : null}
                     </div>
 
                     {event.featuredDishes.length ? (
@@ -403,7 +407,7 @@ export default function EventsPage() {
                               blocked={!(event.store?.id || event.storeId) || event.store?.disabled === true}
                               preorderOnly={event.store?.open === false}
                               preorderMessage={getCartSuccessMessage(event.store?.open === false)}
-                              blockedMessage="This item cannot be added to the cart from the event store right now."
+                              blockedMessage={t("cart.blockedMessage")}
                               onResult={(message) => setActionMessage(message)}
                             />
                           </article>
@@ -417,18 +421,18 @@ export default function EventsPage() {
                         type="button"
                         onClick={() => handleToggleFavorite(event.id)}
                       >
-                        {isFavorite("event", event.id) ? "Saved" : "Save event"}
+                        {isFavorite("event", event.id) ? t("actions.saved") : t("actions.saveEvent")}
                       </button>
                       <button className={ui.secondaryButton} type="button" onClick={() => handleOpenReviewModal(event)}>
-                        Reviews
+                        {t("actions.reviews")}
                       </button>
-                      {canOpenEvent ? <Link className={ui.secondaryButton} to={eventPath}>View event</Link> : null}
+                      {canOpenEvent ? <Link className={ui.secondaryButton} to={eventPath}>{t("actions.viewEvent")}</Link> : null}
                       {event.store?.id || event.storeId ? (
                         <Link
                           className={ui.primaryButton}
                           to={buildStorePath(event.store?.slug || event.store?.storeSlug ? event.store : event)}
                         >
-                          View store
+                          {t("actions.viewStore")}
                         </Link>
                       ) : null}
                     </div>
@@ -439,7 +443,7 @@ export default function EventsPage() {
 
             {!timeFilteredEvents.length ? (
               <article className="rounded-xl border border-dashed border-beige-300 bg-cream-50 p-8 text-sm text-ink-600">
-                {selectedStoreKey ? "No events match this store." : "No matching events found."}
+                {selectedStoreKey ? t("empty.noEventsStore") : t("empty.noEventsDefault")}
               </article>
             ) : null}
           </section>
@@ -449,9 +453,9 @@ export default function EventsPage() {
       <DetailModal
         open={Boolean(activeReviewEvent)}
         onClose={handleCloseReviewModal}
-        title={activeReviewEvent?.title || "Event reviews"}
+        title={activeReviewEvent?.title || t("reviewModal.title")}
         subtitle={activeReviewEvent?.summary || activeReviewEvent?.description || ""}
-        badge={activeReviewEvent?.store?.name || activeReviewEvent?.storeName || "Event"}
+        badge={activeReviewEvent?.store?.name || activeReviewEvent?.storeName || t("page.eyebrow")}
         images={activeReviewEvent?.imagePaths}
         dialogClassName="max-w-6xl"
         bodyClassName="content-start"
@@ -459,15 +463,17 @@ export default function EventsPage() {
           activeReviewEvent ? (
             <section className="grid gap-4 rounded-xl border border-ink-900/10 bg-cream-100 p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <strong className="text-base text-ink-900">Event reviews</strong>
+                <strong className="text-base text-ink-900">{t("reviewModal.title")}</strong>
                 <span className={ui.pill}>
-                  {activeReviewEvent.reviewCount ? `${activeReviewEvent.reviewCount} reviews` : "None yet"}
+                  {activeReviewEvent.reviewCount
+                    ? t("badge.reviews", { count: activeReviewEvent.reviewCount })
+                    : t("badge.noneYet")}
                 </span>
               </div>
 
               {activeReviewLoading ? (
                 <div className="rounded-xl border border-dashed border-beige-300 bg-cream-50 p-4 text-sm text-ink-600">
-                  Loading event reviews...
+                  {t("reviewModal.loading")}
                 </div>
               ) : activeEventReviews.length ? (
                 <div className="grid gap-3">
@@ -490,7 +496,7 @@ export default function EventsPage() {
                 </div>
               ) : (
                 <div className="rounded-xl border border-dashed border-beige-300 bg-cream-50 p-4 text-sm text-ink-600">
-                  This event does not have any reviews yet.
+                  {t("reviewModal.noReviews")}
                 </div>
               )}
             </section>
@@ -500,13 +506,13 @@ export default function EventsPage() {
         {activeReviewEvent ? (
           <>
             <div className="grid gap-3 rounded-xl border border-ink-900/10 bg-cream-100 p-4 text-sm leading-7 text-ink-600">
-              <span>Starts: {formatDateTime(activeReviewEvent.startsAt)}</span>
-              <span>Ends: {formatDateTime(activeReviewEvent.endsAt)}</span>
-              <span>Store: {activeReviewEvent.store?.name || activeReviewEvent.storeName || "Not available"}</span>
-              <span>{statusLabel(activeReviewEvent)}</span>
+              <span>{t("info.starts", { value: formatDateTime(activeReviewEvent.startsAt) })}</span>
+              <span>{t("info.ends", { value: formatDateTime(activeReviewEvent.endsAt) })}</span>
+              <span>{t("info.store", { value: activeReviewEvent.store?.name || activeReviewEvent.storeName || t("info.storeNotAvailable") })}</span>
+              <span>{statusLabel(activeReviewEvent, t)}</span>
             </div>
             <UserReviewForm
-              title="Write a review for this event"
+              title={t("reviewModal.writeReview")}
               existingReview={getCurrentUserReview("event", activeReviewEvent.id)}
               canSubmit={auth.hasRole("USER")}
               onSubmit={(payload) => handleSubmitReview(activeReviewEvent.id, payload)}

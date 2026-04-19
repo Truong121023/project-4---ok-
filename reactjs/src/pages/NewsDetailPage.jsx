@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import ContentSectionsBlock from "../components/ContentSectionsBlock";
 import MediaLibrary from "../components/MediaLibrary";
 import DetailLayout from "../components/templates/detail-layout";
@@ -11,8 +12,8 @@ import { fetchPublicNewsDetail } from "../lib/siteApi";
 import { buildStorePath } from "../lib/storeRouting";
 import { ui } from "../ui";
 
-function formatDateTime(v) {
-  if (!v) return "Not published yet";
+function formatDateTime(v, notPublished) {
+  if (!v) return notPublished;
   return formatShortDateTimeVn(v, v);
 }
 
@@ -39,6 +40,7 @@ function NewsDetailSkeleton() {
 }
 
 export default function NewsDetailPage() {
+  const { t } = useTranslation("news");
   const { newsKey } = useParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -56,7 +58,7 @@ export default function NewsDetailPage() {
         const response = await fetchPublicNewsDetail(newsKey);
         if (!cancelled) setNewsItem(response);
       } catch (err) {
-        if (!cancelled) setError(err.message || "Unable to load news details.");
+        if (!cancelled) setError(err.message || t("detail.loadError"));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -72,10 +74,10 @@ export default function NewsDetailPage() {
     return (
       <main className="bg-bg min-h-screen">
         <div className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8 text-center">
-          <p className={ui.eyebrow}>News</p>
-          <h1 className={ui.bannerTitle}>Article not found</h1>
-          <p className={ui.copy + " mx-auto"}>{error || "This article does not exist or has been removed."}</p>
-          <Link className={ui.secondaryButton + " mt-6 inline-flex"} to="/news">Back to news</Link>
+          <p className={ui.eyebrow}>{t("detail.eyebrow")}</p>
+          <h1 className={ui.bannerTitle}>{t("detail.notFound")}</h1>
+          <p className={ui.copy + " mx-auto"}>{error || t("detail.noData")}</p>
+          <Link className={ui.secondaryButton + " mt-6 inline-flex"} to="/news">{t("detail.backToNews")}</Link>
         </div>
       </main>
     );
@@ -97,28 +99,28 @@ export default function NewsDetailPage() {
     <div className="flex flex-col gap-4">
       {/* Publication meta */}
       <div className="flex flex-wrap gap-2">
-        {newsItem.featured ? <Badge variant="matcha">Featured</Badge> : null}
-        <Badge variant="beige">{formatDateTime(newsItem.publishedAt)}</Badge>
+        {newsItem.featured ? <Badge variant="matcha">{t("detail.featured")}</Badge> : null}
+        <Badge variant="beige">{formatDateTime(newsItem.publishedAt, t("detail.notPublished"))}</Badge>
         {newsItem.tags?.map((tag) => <Badge key={tag} variant="beige">{tag}</Badge>)}
       </div>
 
       {/* Related store teaser */}
       {newsItem.relatedStoreName ? (
         <div className="rounded-lg border border-beige-200 bg-beige-100/60 px-3 py-2 text-sm text-ink-700">
-          <span className="text-xs font-bold uppercase tracking-widest text-ink-400">Related store</span>
+          <span className="text-xs font-bold uppercase tracking-widest text-ink-400">{t("detail.relatedStore")}</span>
           <p className="mt-1 font-semibold text-ink-900">{newsItem.relatedStoreName}</p>
         </div>
       ) : null}
 
       {/* Navigation actions */}
       <div className="flex flex-wrap gap-2">
-        <Link className={ui.secondaryButton + " !text-sm"} to="/news">Back to news</Link>
+        <Link className={ui.secondaryButton + " !text-sm"} to="/news">{t("detail.backToNewsShort")}</Link>
         {newsItem.relatedStoreId || newsItem.relatedStoreSlug ? (
           <Link
             className={ui.primaryButton + " !text-sm"}
             to={buildStorePath({ storeId: newsItem.relatedStoreId, storeSlug: newsItem.relatedStoreSlug })}
           >
-            View store
+            {t("detail.viewStore")}
           </Link>
         ) : null}
       </div>
@@ -129,20 +131,20 @@ export default function NewsDetailPage() {
   const relatedRegion = newsItem.relatedStoreName ? (
     <div>
       <div className="mb-4">
-        <p className={ui.eyebrow}>Related store</p>
+        <p className={ui.eyebrow}>{t("detail.relatedStore")}</p>
         <h2 className={ui.sectionTitle}>{newsItem.relatedStoreName}</h2>
       </div>
       <div className="flex flex-col gap-4 rounded-xl border border-ink-900/10 bg-cream-50 p-6 shadow-soft sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm leading-7 text-ink-600">
-          This article is linked to this store in our system.
+          {t("detail.linkedToStore")}
         </p>
         <div className="flex flex-wrap gap-2 shrink-0">
-          <Link className={ui.secondaryButton} to={currentNewsPath}>Viewing this article</Link>
+          <Link className={ui.secondaryButton} to={currentNewsPath}>{t("detail.viewingArticle")}</Link>
           <Link
             className={ui.primaryButton}
             to={buildStorePath({ storeId: newsItem.relatedStoreId, storeSlug: newsItem.relatedStoreSlug })}
           >
-            Open store page
+            {t("detail.openStore")}
           </Link>
         </div>
       </div>
@@ -152,7 +154,7 @@ export default function NewsDetailPage() {
   // ── breadcrumb ───────────────────────────────────────────────────────────────
   const breadcrumb = (
     <nav className="flex items-center gap-2 text-sm text-ink-500">
-      <Link className="hover:text-matcha-700 transition-colors" to="/news">News</Link>
+      <Link className="hover:text-matcha-700 transition-colors" to="/news">{t("detail.eyebrow")}</Link>
       <span>/</span>
       <span className="text-ink-900 font-medium truncate max-w-[24ch]">{newsItem.title}</span>
     </nav>
@@ -164,7 +166,7 @@ export default function NewsDetailPage() {
         <div className="flex flex-col gap-6">
           {/* Article header */}
           <div>
-            <p className={ui.eyebrow}>News</p>
+            <p className={ui.eyebrow}>{t("detail.eyebrow")}</p>
             {/* Serif display headline — per spec */}
             <h1 className="font-display max-w-[22ch] text-3xl font-bold leading-tight tracking-tight text-ink-900 sm:text-4xl lg:text-5xl">
               {newsItem.title}
@@ -174,8 +176,8 @@ export default function NewsDetailPage() {
 
           {/* Meta pills */}
           <div className="flex flex-wrap gap-2">
-            {newsItem.featured ? <Badge variant="matcha">Featured</Badge> : null}
-            <Badge variant="beige">{formatDateTime(newsItem.publishedAt)}</Badge>
+            {newsItem.featured ? <Badge variant="matcha">{t("detail.featured")}</Badge> : null}
+            <Badge variant="beige">{formatDateTime(newsItem.publishedAt, t("detail.notPublished"))}</Badge>
             {newsItem.tags?.map((tag) => <Badge key={tag} variant="beige">{tag}</Badge>)}
           </div>
 
@@ -206,9 +208,9 @@ export default function NewsDetailPage() {
               <div aria-hidden="true" className="h-px bg-gradient-to-r from-transparent via-beige-300 to-transparent" />
               <ContentSectionsBlock
                 sections={newsItem.sections}
-                eyebrow="Article sections"
-                title="More from this story"
-                description="Editorial blocks from the shared backend content sections contract."
+                eyebrow={t("detail.articleSections")}
+                title={t("detail.moreFromStory")}
+                description={t("detail.articleSectionsBody")}
               />
             </>
           ) : null}

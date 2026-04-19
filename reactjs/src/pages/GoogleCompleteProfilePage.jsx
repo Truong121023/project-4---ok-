@@ -6,10 +6,12 @@ import { useToastMessage } from "../hooks/useToastMessage";
 import { getApiErrorMessage } from "../lib/api";
 import { isProfileCompleted, resolvePostAuthPath } from "../lib/authRedirects";
 import { ui } from "../ui";
+import { useTranslation } from "react-i18next";
 
 const initialForm = { fullName: "", password: "", confirmPassword: "" };
 
 export default function GoogleCompleteProfilePage() {
+  const { t } = useTranslation("auth");
   const auth = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -22,15 +24,15 @@ export default function GoogleCompleteProfilePage() {
   const [notice, setNotice] = useState("");
 
   const redirectTo = location.state?.from?.pathname ?? "";
-  useToastMessage(error, { type: "error", title: "Profile completion failed" });
-  useToastMessage(notice, { type: "success", title: "Notice" });
+  useToastMessage(error, { type: "error", title: t("googleProfile.failedTitle") });
+  useToastMessage(notice, { type: "success", title: t("login.notice") });
 
   if (auth.initializing) {
     return (
       <AuthLayout>
-        <p className={ui.eyebrow}>Google profile</p>
-        <h1 className="mt-2 font-display text-2xl font-bold text-ink-900">Restoring your session</h1>
-        <p className="mt-3 text-sm leading-7 text-ink-600">Please wait a moment...</p>
+        <p className={ui.eyebrow}>{t("googleProfile.eyebrow")}</p>
+        <h1 className="mt-2 font-display text-2xl font-bold text-ink-900">{t("googleProfile.restoringTitle")}</h1>
+        <p className="mt-3 text-sm leading-7 text-ink-600">{t("googleProfile.restoringSubtitle")}</p>
       </AuthLayout>
     );
   }
@@ -55,19 +57,19 @@ export default function GoogleCompleteProfilePage() {
     setNotice("");
 
     if (!form.fullName.trim()) {
-      setError("Please enter your full name to complete the account.");
+      setError(t("googleProfile.validationFullName"));
       setLoading(false);
       return;
     }
 
     if (!form.password.trim()) {
-      setError("Please create a password for your Kamatcha account.");
+      setError(t("googleProfile.validationPassword"));
       setLoading(false);
       return;
     }
 
     if (form.password !== form.confirmPassword) {
-      setError("The confirmation password does not match.");
+      setError(t("googleProfile.validationConfirmPassword"));
       setLoading(false);
       return;
     }
@@ -77,10 +79,10 @@ export default function GoogleCompleteProfilePage() {
         fullName: form.fullName.trim(),
         password: form.password,
       });
-      setNotice(response?.message ?? "Profile updated.");
+      setNotice(response?.message ?? t("googleProfile.profileUpdated"));
       navigate(resolvePostAuthPath(response.user, redirectTo), { replace: true });
     } catch (submitError) {
-      setError(getApiErrorMessage(submitError, "Unable to complete the Google profile setup."));
+      setError(getApiErrorMessage(submitError, t("googleProfile.failed")));
     } finally {
       setLoading(false);
     }
@@ -94,18 +96,18 @@ export default function GoogleCompleteProfilePage() {
       </p>
       <p className={ui.eyebrow}>Kamatcha</p>
       <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-ink-900">
-        Complete your account
+        {t("googleProfile.title")}
       </h1>
       <p className="mt-2 text-sm leading-7 text-ink-600">
-        You signed in with Google successfully. Add your full name and password to finish setup.
+        {t("googleProfile.subtitle")}
       </p>
 
       {/* Google account info */}
       <div className="mt-5 rounded-xl border border-matcha-200 bg-matcha-50 p-4">
-        <p className={ui.eyebrow}>Google account</p>
+        <p className={ui.eyebrow}>{t("googleProfile.googleAccountSection")}</p>
         <p className="mt-1 font-semibold text-ink-900">{auth.user?.email}</p>
         <p className="mt-2 text-xs leading-6 text-ink-600">
-          Your session is already active. No need to sign in again after profile completion.
+          {t("googleProfile.sessionNote")}
         </p>
       </div>
 
@@ -115,16 +117,16 @@ export default function GoogleCompleteProfilePage() {
         aria-describedby={error ? "google-profile-error" : undefined}
       >
         <label className="grid gap-2">
-          <span className="text-sm font-semibold text-ink-900">Google email</span>
+          <span className="text-sm font-semibold text-ink-900">{t("googleProfile.googleEmail")}</span>
           <input className={ui.input} type="email" value={auth.user?.email ?? ""} disabled />
         </label>
 
         <label className="grid gap-2">
-          <span className="text-sm font-semibold text-ink-900">Full name</span>
+          <span className="text-sm font-semibold text-ink-900">{t("googleProfile.fullName")}</span>
           <input
             className={ui.input}
             name="fullName"
-            placeholder="Alex Nguyen"
+            placeholder={t("googleProfile.fullNamePlaceholder")}
             value={form.fullName}
             onChange={handleChange}
             required
@@ -132,12 +134,12 @@ export default function GoogleCompleteProfilePage() {
         </label>
 
         <label className="grid gap-2">
-          <span className="text-sm font-semibold text-ink-900">Password</span>
+          <span className="text-sm font-semibold text-ink-900">{t("googleProfile.password")}</span>
           <input
             className={ui.input}
             type="password"
             name="password"
-            placeholder="Create a password for Kamatcha"
+            placeholder={t("googleProfile.passwordPlaceholder")}
             value={form.password}
             onChange={handleChange}
             autoComplete="new-password"
@@ -146,12 +148,12 @@ export default function GoogleCompleteProfilePage() {
         </label>
 
         <label className="grid gap-2">
-          <span className="text-sm font-semibold text-ink-900">Confirm password</span>
+          <span className="text-sm font-semibold text-ink-900">{t("googleProfile.confirmPassword")}</span>
           <input
             className={ui.input}
             type="password"
             name="confirmPassword"
-            placeholder="Re-enter password"
+            placeholder={t("googleProfile.confirmPasswordPlaceholder")}
             value={form.confirmPassword}
             onChange={handleChange}
             autoComplete="new-password"
@@ -177,21 +179,21 @@ export default function GoogleCompleteProfilePage() {
           disabled={loading}
           aria-busy={loading}
         >
-          {loading ? "Updating..." : "Complete account"}
+          {loading ? t("googleProfile.submitting") : t("googleProfile.submit")}
         </button>
       </form>
 
       {/* Footer links */}
       <div className="mt-5 flex flex-wrap gap-4 text-sm text-ink-600">
         <Link className="font-semibold text-matcha-700 hover:text-matcha-500" to="/">
-          Back to home
+          {t("googleProfile.backToHome")}
         </Link>
         <button
           className="font-semibold text-matcha-700 hover:text-matcha-500"
           type="button"
           onClick={() => auth.logout()}
         >
-          Sign out
+          {t("googleProfile.signOut")}
         </button>
       </div>
     </AuthLayout>

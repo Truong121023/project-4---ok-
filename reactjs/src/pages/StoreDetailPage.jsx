@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import ContentSectionsBlock from "../components/ContentSectionsBlock";
 import DistanceOriginControls from "../components/DistanceOriginControls";
 import MediaLibrary from "../components/MediaLibrary";
@@ -22,21 +23,21 @@ import { ui } from "../ui";
 
 function formatCompact(v) { return formatNumberVi(v); }
 function formatPrice(v, display = "") { return display || formatCurrencyVnd(v); }
-function formatDate(v) { return formatDateTimeVn(v, "Recently updated").replace(/\sGMT\+7$/, ""); }
+function formatDate(v, fallback) { return formatDateTimeVn(v, fallback).replace(/\sGMT\+7$/, ""); }
 function formatServiceTag(tag) { return String(tag ?? "").replace(/[-_]+/g, " ").trim(); }
 
-function formatStoreHours(store) {
+function formatStoreHours(store, t) {
   if (store?.hoursText) return store.hoursText;
   const open = String(store?.openTime ?? "").trim().slice(0, 5);
   const close = String(store?.closeTime ?? "").trim().slice(0, 5);
-  if (open && close) return `Open ${open} – ${close}`;
+  if (open && close) return t("stores.detail.openHours", { open, close });
   return "";
 }
 
-function storeStatus(store) {
-  if (store?.disabled) return store.disabledReason || "Temporarily unavailable";
-  if (store?.open) return "Serving now";
-  return "Updating";
+function storeStatus(store, t) {
+  if (store?.disabled) return store.disabledReason || t("stores.detail.temporarilyUnavailable");
+  if (store?.open) return t("stores.serving");
+  return t("stores.updating");
 }
 
 function StoreDetailSkeleton() {
@@ -61,6 +62,7 @@ function StoreDetailSkeleton() {
 }
 
 export default function StoreDetailPage() {
+  const { t } = useTranslation("common");
   const auth = useAuth();
   const navigate = useNavigate();
   const { storeKey } = useParams();
@@ -86,7 +88,7 @@ export default function StoreDetailPage() {
       const response = await fetchPublicStoreDetail(storeKey, { lat: userLocation?.latitude, lng: userLocation?.longitude });
       setStoreDetail(response);
     } catch (err) {
-      setError(err.message || "Unable to load store details.");
+      setError(err.message || t("stores.detail.loadError"));
     } finally {
       setLoading(false);
     }
@@ -95,7 +97,7 @@ export default function StoreDetailPage() {
   useEffect(() => { loadStoreDetail(); }, [storeKey, userLocation]);
 
   const store = storeDetail?.store ?? null;
-  const storeHours = formatStoreHours(store);
+  const storeHours = store ? formatStoreHours(store, t) : "";
   const stats = storeDetail?.stats ?? { averageRating: 0, reviewCount: 0, favoriteCount: 0, availableItemCount: 0 };
   const categories = storeDetail?.categories ?? [];
   const storeEvents = storeDetail?.events ?? [];
@@ -113,34 +115,38 @@ export default function StoreDetailPage() {
 
   const locateStore = async () => {
     setLocating(true);
-    setLocationMessage("Getting your current location...");
+    setLocationMessage(t("stores.location.getting"));
     try {
       const loc = await requestCurrentLocation();
       setUserLocation(loc);
-      setLocationMessage("Distance calculated from your current location.");
+      setLocationMessage(t("stores.location.captured"));
     } catch (err) { setLocationMessage(err.message); }
     finally { setLocating(false); }
   };
 
   const handleUseAddress = async () => {
     setGeocoding(true);
-    setLocationMessage("Looking up address...");
+    setLocationMessage(t("stores.location.lookingUp"));
     try {
       const loc = await geocodeAddress(addressQuery);
       setUserLocation(loc);
-      setLocationMessage(`Calculating distance from: ${loc.label}`);
+      setLocationMessage(t("stores.location.calculatingFrom", { label: loc.label }));
     } catch (err) { setLocationMessage(err.message); }
     finally { setGeocoding(false); }
   };
 
-  const clearLocation = () => { setUserLocation(null); setAddressQuery(""); setLocationMessage("Distance origin cleared."); };
+  const clearLocation = () => {
+    setUserLocation(null);
+    setAddressQuery("");
+    setLocationMessage(t("stores.location.cleared"));
+  };
 
   const handleQuickAddToCart = async (item) => {
     if (!store) return;
-    if (auth.isAuthenticated && !auth.hasRole("USER")) { setCartMessage("Only USER accounts can add items to the cart."); return; }
-    if (store.disabled) { setCartMessage(store.disabledReason || "This store is currently closed."); return; }
+    if (auth.isAuthenticated && !auth.hasRole("USER")) { setCartMessage(t("stores.detail.userOnly")); return; }
+    if (store.disabled) { setCartMessage(store.disabledReason || t("stores.detail.storeClosed")); return; }
     const availability = getCartAvailabilityDecision({ ...item, open: store.open, storeDisabled: store.disabled, disabledReason: store.disabledReason });
-    if (!availability.allowed) { setCartMessage(availability.reason || "This item cannot be added to the cart yet."); return; }
+    if (!availability.allowed) { setCartMessage(availability.reason || t("stores.detail.itemUnavailable")); return; }
     const result = await addToCart({ itemId: item.id, storeId: store.id, quantity: 1 });
     setCartMessage(result.ok ? getCartSuccessMessage(availability.preorderOnly) : result.message);
   };
@@ -171,10 +177,10 @@ export default function StoreDetailPage() {
     return (
       <main className="bg-bg min-h-screen">
         <div className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8 text-center">
-          <p className={ui.eyebrow}>Store</p>
-          <h1 className={ui.bannerTitle}>Store not found</h1>
-          <p className={ui.copy + " mx-auto"}>{error || "This store does not have data yet."}</p>
-          <Link className={ui.secondaryButton + " mt-6 inline-flex"} to="/stores">Back to stores</Link>
+          <p className={ui.eyebrow}>{t("stores.detail.eyebrow")}</p>
+          <h1 className={ui.bannerTitle}>{t("stores.detail.notFound")}</h1>
+          <p className={ui.copy + " mx-auto"}>{error || t("stores.detail.noData")}</p>
+          <Link className={ui.secondaryButton + " mt-6 inline-flex"} to="/stores">{t("stores.detail.backToStores")}</Link>
         </div>
       </main>
     );
@@ -195,16 +201,16 @@ export default function StoreDetailPage() {
   const infoRail = (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap gap-2">
-        <Badge variant={store.disabled ? "ink" : "matcha"}>{storeStatus(store)}</Badge>
+        <Badge variant={store.disabled ? "ink" : "matcha"}>{storeStatus(store, t)}</Badge>
         {storeHours ? <Badge variant="beige">{storeHours}</Badge> : null}
         {typeof store.distanceKm === "number" ? <Badge variant="beige">{formatDistanceKm(store.distanceKm)}</Badge> : null}
       </div>
 
       <div className="flex flex-col gap-1 text-sm text-ink-700">
-        {store.address ? <p><span className="font-semibold text-ink-900">Address: </span>{store.address}</p> : null}
-        {store.area ? <p><span className="font-semibold text-ink-900">Area: </span>{store.area}</p> : null}
-        {store.contactEmail ? <p><span className="font-semibold text-ink-900">Email: </span>{store.contactEmail}</p> : null}
-        {store.phoneNumber ? <p><span className="font-semibold text-ink-900">Phone: </span>{store.phoneNumber}</p> : null}
+        {store.address ? <p><span className="font-semibold text-ink-900">{t("stores.detail.address")}: </span>{store.address}</p> : null}
+        {store.area ? <p><span className="font-semibold text-ink-900">{t("stores.detail.area")}: </span>{store.area}</p> : null}
+        {store.contactEmail ? <p><span className="font-semibold text-ink-900">{t("stores.detail.email")}: </span>{store.contactEmail}</p> : null}
+        {store.phoneNumber ? <p><span className="font-semibold text-ink-900">{t("stores.detail.phone")}: </span>{store.phoneNumber}</p> : null}
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -213,13 +219,13 @@ export default function StoreDetailPage() {
           size="sm"
           onClick={handleToggleFavorite}
         >
-          {isFavorite("store", store.id) ? "Saved" : "Save store"}
+          {isFavorite("store", store.id) ? t("stores.detail.saved") : t("stores.detail.saveStore")}
         </Button>
         {storeEvents.length ? (
-          <Button variant="secondary" size="sm" onClick={jumpToEvents}>Events</Button>
+          <Button variant="secondary" size="sm" onClick={jumpToEvents}>{t("stores.detail.events")}</Button>
         ) : null}
         {storeEvents.length ? (
-          <Link className={ui.ghostButton + " !text-sm"} to={buildStoreEventsPath(store)}>View schedule</Link>
+          <Link className={ui.ghostButton + " !text-sm"} to={buildStoreEventsPath(store)}>{t("stores.detail.viewSchedule")}</Link>
         ) : null}
       </div>
 
@@ -231,8 +237,8 @@ export default function StoreDetailPage() {
   const relatedRegion = storeEvents.length ? (
     <div ref={eventsSectionRef}>
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className={ui.sectionTitle}>Store events</h2>
-        <Link className={ui.ghostButton} to={buildStoreEventsPath(store)}>View schedule</Link>
+        <h2 className={ui.sectionTitle}>{t("stores.detail.storeEvents")}</h2>
+        <Link className={ui.ghostButton} to={buildStoreEventsPath(store)}>{t("stores.detail.viewSchedule")}</Link>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {storeEvents.map((event) => (
@@ -255,7 +261,7 @@ export default function StoreDetailPage() {
   // ── breadcrumb ──────────────────────────────────────────────────────────────
   const breadcrumb = (
     <nav className="flex items-center gap-2 text-sm text-ink-500">
-      <Link className="hover:text-matcha-700 transition-colors" to="/stores">Stores</Link>
+      <Link className="hover:text-matcha-700 transition-colors" to="/stores">{t("breadcrumb.store")}</Link>
       <span>/</span>
       <span className="text-ink-900 font-medium truncate max-w-[20ch]">{store.name}</span>
     </nav>
@@ -267,11 +273,11 @@ export default function StoreDetailPage() {
         <div className="flex flex-col gap-6">
           {/* Title */}
           <div>
-            <p className={ui.eyebrow}>Store</p>
+            <p className={ui.eyebrow}>{t("stores.detail.eyebrow")}</p>
             <h1 className={ui.bannerTitle}>{store.name}</h1>
             {store.positionLabel ? <p className="mt-2 text-base font-semibold text-matcha-700">{store.positionLabel}</p> : null}
             {store.personality ? <p className="mt-1 text-sm font-semibold text-ink-700">{store.personality}</p> : null}
-            {store.specialty ? <p className="mt-1 text-sm text-matcha-700">Featured: {store.specialty}</p> : null}
+            {store.specialty ? <p className="mt-1 text-sm text-matcha-700">{t("stores.detail.featured", { value: store.specialty })}</p> : null}
             <p className="mt-4 text-sm leading-7 text-ink-600">{store.description}</p>
           </div>
 
@@ -279,18 +285,18 @@ export default function StoreDetailPage() {
           <div className="flex flex-wrap gap-2">
             {store.area ? <Badge variant="beige">{store.area}</Badge> : null}
             {storeHours ? <Badge variant="beige">{storeHours}</Badge> : null}
-            {store.specialty ? <Badge variant="matcha">Featured: {store.specialty}</Badge> : null}
-            <Badge variant="beige">{formatCompact(stats.favoriteCount)} saves</Badge>
+            {store.specialty ? <Badge variant="matcha">{t("stores.detail.featured", { value: store.specialty })}</Badge> : null}
+            <Badge variant="beige">{t("stores.detail.saves", { count: formatCompact(stats.favoriteCount) })}</Badge>
             {store.serviceTags?.map((tag) => <Badge key={`${store.id}-${tag}`} variant="beige">{formatServiceTag(tag)}</Badge>)}
           </div>
 
           {/* Stats grid */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
-              { label: "Rating", value: stats.reviewCount ? `${stats.averageRating.toFixed(1)}★` : "New" },
-              { label: "Reviews", value: formatCompact(stats.reviewCount) },
-              { label: "Favorites", value: formatCompact(stats.favoriteCount) },
-              { label: "Items", value: formatCompact(stats.availableItemCount) },
+              { label: t("stores.detail.statRating"), value: stats.reviewCount ? `${stats.averageRating.toFixed(1)}★` : t("stores.detail.statNew") },
+              { label: t("stores.detail.statReviews"), value: formatCompact(stats.reviewCount) },
+              { label: t("stores.detail.statFavorites"), value: formatCompact(stats.favoriteCount) },
+              { label: t("stores.detail.statItems"), value: formatCompact(stats.availableItemCount) },
             ].map((stat) => (
               <div key={stat.label} className="rounded-xl border border-ink-900/10 bg-cream-100 p-4 text-center">
                 <strong className="block text-xl font-bold text-ink-900">{stat.value}</strong>
@@ -302,17 +308,17 @@ export default function StoreDetailPage() {
           {/* Address detail cards */}
           <div className="grid gap-3 sm:grid-cols-2">
             {[
-              { label: "Address", value: store.address },
-              { label: "Area", value: store.area },
-              { label: "Location", value: store.positionLabel },
-              { label: "Hours", value: storeHours },
-              { label: "Style", value: store.personality },
-              { label: "Design", value: store.designSignature },
-              { label: "Atmosphere", value: store.franchiseMood },
-              { label: "Featured item", value: store.specialty },
-              { label: "Email", value: store.contactEmail },
-              { label: "Phone", value: store.phoneNumber },
-            ].filter((e) => e.value).map((entry) => (
+              { label: t("stores.detail.address"), value: store.address },
+              { label: t("stores.detail.area"), value: store.area },
+              { label: t("stores.detail.statRating"), value: store.positionLabel },
+              { label: t("nav.store"), value: storeHours },
+              { label: store.personality && "Style", value: store.personality },
+              { label: store.designSignature && "Design", value: store.designSignature },
+              { label: store.franchiseMood && "Atmosphere", value: store.franchiseMood },
+              { label: store.specialty && t("stores.detail.featured", { value: "" }).replace(": ", ""), value: store.specialty },
+              { label: t("stores.detail.email"), value: store.contactEmail },
+              { label: t("stores.detail.phone"), value: store.phoneNumber },
+            ].filter((e) => e.value && e.label).map((entry) => (
               <div key={entry.label} className="rounded-xl border border-ink-900/10 bg-cream-100 p-4">
                 <span className="block text-xs font-bold uppercase tracking-widest text-ink-400">{entry.label}</span>
                 <strong className="mt-1 block text-sm leading-6 text-ink-900">{entry.value}</strong>
@@ -336,17 +342,17 @@ export default function StoreDetailPage() {
           {/* Content sections */}
           <ContentSectionsBlock
             sections={store.sections}
-            eyebrow="Store story"
-            title="More about this branch"
-            description="Detailed branch content driven from backend content sections."
+            eyebrow={t("stores.detail.storeStory")}
+            title={t("stores.detail.moreAbout")}
+            description={t("stores.detail.storeStoryBody")}
           />
 
           {/* Menu accordion */}
           {categories.length ? (
             <section>
               <div className="mb-3 flex items-center justify-between gap-2">
-                <h2 className="font-display text-base font-semibold text-ink-900">Menu at this store</h2>
-                <Badge variant="beige">{formatCompact(categories.length)} categories</Badge>
+                <h2 className="font-display text-base font-semibold text-ink-900">{t("stores.detail.menuAtStore")}</h2>
+                <Badge variant="beige">{t("stores.detail.categories", { count: formatCompact(categories.length) })}</Badge>
               </div>
               {cartMessage ? <p className="mb-3 text-sm text-ink-500">{cartMessage}</p> : null}
               <div className="flex flex-col gap-2">
@@ -362,12 +368,12 @@ export default function StoreDetailPage() {
                         <div>
                           <p className="font-display font-semibold text-ink-900">{category.title}</p>
                           <p className="mt-0.5 text-xs text-ink-500">
-                            {category.items.length} items
-                            {category.reviewCount ? ` · ${category.averageRating.toFixed(1)}★` : " · no reviews yet"}
+                            {t("stores.detail.itemsCount", { count: category.items.length })}
+                            {category.reviewCount ? ` · ${category.averageRating.toFixed(1)}★` : ` · ${t("stores.detail.noReviewsYet")}`}
                           </p>
                           {category.description ? <p className="mt-1 text-xs text-ink-500 line-clamp-1">{category.description}</p> : null}
                         </div>
-                        <Badge variant="matcha">{isExpanded ? "Collapse" : "Open"}</Badge>
+                        <Badge variant="matcha">{isExpanded ? t("stores.detail.collapse") : t("stores.detail.open")}</Badge>
                       </button>
 
                       {isExpanded ? (
@@ -395,11 +401,11 @@ export default function StoreDetailPage() {
                                     <div>
                                       <div className="flex flex-wrap items-center gap-1.5">
                                         <h3 className="font-display text-sm font-semibold text-ink-900">{item.name}</h3>
-                                        {item.franchiseRequired ? <Badge variant="beige">Required</Badge> : null}
+                                        {item.franchiseRequired ? <Badge variant="beige">{t("stores.detail.required")}</Badge> : null}
                                         <Badge variant={availability.allowed ? "matcha" : "ink"}>
-                                          {item.stock > 0 ? `${item.stock} left` : "Sold out"}
+                                          {item.stock > 0 ? t("stores.detail.stockLeft", { count: item.stock }) : t("stores.detail.soldOut")}
                                         </Badge>
-                                        {availability.preorderOnly ? <Badge variant="warn">Preorder</Badge> : null}
+                                        {availability.preorderOnly ? <Badge variant="warn">{t("stores.detail.preorder")}</Badge> : null}
                                       </div>
                                       {item.note ? <p className="mt-0.5 text-xs text-ink-500">{item.note}</p> : null}
                                     </div>
@@ -408,10 +414,10 @@ export default function StoreDetailPage() {
                                   {item.description ? <p className="text-xs text-ink-600 line-clamp-2">{item.description}</p> : null}
                                   <div className="flex flex-wrap gap-2">
                                     <Button size="sm" onClick={() => handleQuickAddToCart(item)} disabled={!availability.allowed}>
-                                      Add to cart
+                                      {t("stores.detail.addToCart")}
                                     </Button>
                                     <Link className={ui.secondaryButton + " !text-xs !px-3 !py-2"} to={`/menu/${item.id}?store=${store.id}`}>
-                                      View item
+                                      {t("stores.detail.viewItem")}
                                     </Link>
                                   </div>
                                 </div>
@@ -434,14 +440,14 @@ export default function StoreDetailPage() {
           <section>
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
-                <p className={ui.eyebrow}>Reviews</p>
-                <h2 className={ui.sectionTitle}>What customers say</h2>
+                <p className={ui.eyebrow}>{t("stores.detail.reviewsEyebrow")}</p>
+                <h2 className={ui.sectionTitle}>{t("stores.detail.reviewsTitle")}</h2>
               </div>
-              <Badge variant="beige">{formatCompact(storeReviews.length)} reviews</Badge>
+              <Badge variant="beige">{t("stores.detail.reviewsCount", { count: formatCompact(storeReviews.length) })}</Badge>
             </div>
 
             <UserReviewForm
-              title="Write a review for this store"
+              title={t("stores.detail.writeReview")}
               existingReview={getCurrentUserReview("store", store.id)}
               canSubmit={auth.hasRole("USER")}
               onSubmit={handleSubmitReview}
@@ -456,7 +462,7 @@ export default function StoreDetailPage() {
                       <div>
                         <p className="font-semibold text-ink-900">{review.title}</p>
                         <p className="mt-0.5 text-xs text-ink-400">
-                          {review.userName || review.userEmail || "Kamatcha guest"} · {formatDate(review.createdAt)}
+                          {review.userName || review.userEmail || "Kamatcha guest"} · {formatDate(review.createdAt, t("stores.detail.recentlyUpdated"))}
                         </p>
                       </div>
                       <Badge variant="matcha">{Number(review.rating).toFixed(1)}★</Badge>
@@ -467,7 +473,7 @@ export default function StoreDetailPage() {
               </div>
             ) : (
               <div className="mt-4 rounded-xl border border-dashed border-beige-300 bg-cream-50 p-6 text-center text-sm text-ink-400">
-                This store does not have any reviews yet.
+                {t("stores.detail.noReviewsEmpty")}
               </div>
             )}
           </section>

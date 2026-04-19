@@ -6,6 +6,7 @@ import { useToastMessage } from "../hooks/useToastMessage";
 import { getApiErrorMessage } from "../lib/api";
 import { getDefaultAuthenticatedPath } from "../lib/authRedirects";
 import { ui } from "../ui";
+import { useTranslation } from "react-i18next";
 
 const initialForm = {
   fullName: "",
@@ -15,6 +16,7 @@ const initialForm = {
 };
 
 export default function RegisterPage() {
+  const { t } = useTranslation("auth");
   const auth = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState(initialForm);
@@ -23,7 +25,7 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  useToastMessage(error, { type: "error", title: "Registration failed" });
+  useToastMessage(error, { type: "error", title: t("register.failedTitle") });
 
   if (auth.isAuthenticated) {
     return <Navigate replace to={getDefaultAuthenticatedPath(auth.user)} />;
@@ -40,7 +42,7 @@ export default function RegisterPage() {
     setError("");
 
     if (form.password !== form.confirmPassword) {
-      setError("Password confirmation does not match.");
+      setError(t("register.passwordMismatch"));
       setLoading(false);
       return;
     }
@@ -60,7 +62,7 @@ export default function RegisterPage() {
         },
       });
     } catch (submitError) {
-      setError(getApiErrorMessage(submitError, "Registration failed."));
+      setError(getApiErrorMessage(submitError, t("register.failed")));
     } finally {
       setLoading(false);
     }
@@ -74,18 +76,18 @@ export default function RegisterPage() {
       </p>
       <p className={ui.eyebrow}>Kamatcha</p>
       <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-ink-900">
-        Create account
+        {t("register.title")}
       </h1>
       <p className="mt-2 text-sm leading-7 text-ink-600">
-        Join Kamatcha — place orders, track deliveries, and unlock member perks.
+        {t("register.subtitle")}
       </p>
 
       {/* Steps intro */}
       <div className="mt-5 grid grid-cols-3 gap-3">
         {[
-          { step: "1", label: "Register", note: "Enter your details" },
-          { step: "2", label: "Verify OTP", note: "Confirm via email" },
-          { step: "3", label: "Sign in", note: "Start using the app" },
+          { step: "1", label: t("register.steps.register"), note: t("register.steps.registerNote") },
+          { step: "2", label: t("register.steps.verifyOtp"), note: t("register.steps.verifyOtpNote") },
+          { step: "3", label: t("register.steps.signIn"), note: t("register.steps.signInNote") },
         ].map(({ step, label, note }) => (
           <div key={step} className="rounded-xl border border-ink-900/10 bg-cream-100 p-3 text-center">
             <span className="inline-block rounded-full bg-matcha-500 px-2 py-0.5 text-[10px] font-bold text-cream-50">
@@ -103,11 +105,11 @@ export default function RegisterPage() {
         aria-describedby={error ? "register-error" : undefined}
       >
         <label className="grid gap-2">
-          <span className="text-sm font-semibold text-ink-900">Full name</span>
+          <span className="text-sm font-semibold text-ink-900">{t("register.fullName")}</span>
           <input
             className={ui.input}
             name="fullName"
-            placeholder="Alex Nguyen"
+            placeholder={t("register.fullNamePlaceholder")}
             value={form.fullName}
             onChange={handleChange}
             required
@@ -115,7 +117,7 @@ export default function RegisterPage() {
         </label>
 
         <label className="grid gap-2">
-          <span className="text-sm font-semibold text-ink-900">Email</span>
+          <span className="text-sm font-semibold text-ink-900">{t("register.email")}</span>
           <input
             className={ui.input}
             type="email"
@@ -128,13 +130,13 @@ export default function RegisterPage() {
         </label>
 
         <label className="grid gap-2">
-          <span className="text-sm font-semibold text-ink-900">Password</span>
+          <span className="text-sm font-semibold text-ink-900">{t("register.password")}</span>
           <div className="relative">
             <input
               className={`${ui.input} pr-24`}
               type={showPassword ? "text" : "password"}
               name="password"
-              placeholder="Enter a password"
+              placeholder={t("register.passwordPlaceholder")}
               value={form.password}
               onChange={handleChange}
               autoComplete="new-password"
@@ -144,21 +146,21 @@ export default function RegisterPage() {
               className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-matcha-500 px-3 py-1.5 text-xs font-semibold text-cream-50 transition hover:bg-matcha-700"
               type="button"
               onClick={() => setShowPassword((c) => !c)}
-              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-label={showPassword ? t("register.hidePassword") : t("register.showPassword")}
             >
-              {showPassword ? "Hide" : "Show"}
+              {showPassword ? t("register.hide") : t("register.show")}
             </button>
           </div>
         </label>
 
         <label className="grid gap-2">
-          <span className="text-sm font-semibold text-ink-900">Confirm password</span>
+          <span className="text-sm font-semibold text-ink-900">{t("register.confirmPassword")}</span>
           <div className="relative">
             <input
               className={`${ui.input} pr-24`}
               type={showConfirmPassword ? "text" : "password"}
               name="confirmPassword"
-              placeholder="Re-enter your password"
+              placeholder={t("register.confirmPasswordPlaceholder")}
               value={form.confirmPassword}
               onChange={handleChange}
               autoComplete="new-password"
@@ -168,9 +170,9 @@ export default function RegisterPage() {
               className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-matcha-500 px-3 py-1.5 text-xs font-semibold text-cream-50 transition hover:bg-matcha-700"
               type="button"
               onClick={() => setShowConfirmPassword((c) => !c)}
-              aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+              aria-label={showConfirmPassword ? t("register.hidePassword") : t("register.showPassword")}
             >
-              {showConfirmPassword ? "Hide" : "Show"}
+              {showConfirmPassword ? t("register.hide") : t("register.show")}
             </button>
           </div>
         </label>
@@ -182,7 +184,7 @@ export default function RegisterPage() {
         ) : null}
 
         <div className="rounded-xl border border-ink-900/10 bg-cream-100 px-4 py-3 text-sm leading-7 text-ink-600">
-          After registration you will receive an OTP by email to verify the account.
+          {t("register.otpNote")}
         </div>
 
         <button
@@ -191,17 +193,17 @@ export default function RegisterPage() {
           disabled={loading}
           aria-busy={loading}
         >
-          {loading ? "Submitting..." : "Create account"}
+          {loading ? t("register.submitting") : t("register.submit")}
         </button>
       </form>
 
       {/* Footer links */}
       <div className="mt-5 flex flex-wrap gap-4 text-sm text-ink-600">
         <Link className="font-semibold text-matcha-700 hover:text-matcha-500" to="/verify-otp">
-          Already have an OTP? Verify now
+          {t("register.alreadyHaveOtp")}
         </Link>
         <Link className="font-semibold text-matcha-700 hover:text-matcha-500" to="/login">
-          Already have an account? Sign in
+          {t("register.alreadyHaveAccount")}
         </Link>
       </div>
     </AuthLayout>

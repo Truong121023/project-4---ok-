@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import AdminPageHeader from "./admin/admin-page-header";
 import AdminStatCard from "./admin/admin-stat-card";
 import { useAuth } from "../context/AuthContext";
@@ -391,6 +392,7 @@ function BarColumn({ count, isPeak, label, shortDate, value }) {
 }
 
 export default function AdminHomepageAnalytics() {
+  const { t } = useTranslation("admin");
   const auth = useAuth();
   const isAdmin = auth.hasRole("ADMIN");
   const isManagerMode = auth.hasRole("MANAGER") && !isAdmin;
@@ -494,7 +496,7 @@ export default function AdminHomepageAnalytics() {
         });
       } catch (requestError) {
         if (!cancelled) {
-          setError(getApiErrorMessage(requestError, "Unable to load homepage analytics."));
+          setError(getApiErrorMessage(requestError, t("orders.analyticsLoadError")));
         }
       } finally {
         if (!cancelled) {
@@ -523,18 +525,18 @@ export default function AdminHomepageAnalytics() {
     <section className={ui.panel}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <AdminPageHeader
-          eyebrow={isManagerMode ? "Manager analytics" : "Admin analytics"}
-          title="Operational overview"
+          eyebrow={isManagerMode ? t("analytics.managerEyebrow") : t("analytics.eyebrow")}
+          title={t("analytics.title")}
           subtitle={
             isManagerMode
-              ? "Numbers are locked to your assigned store only."
-              : "Activity summary across all stores in the system."
+              ? t("analytics.managerSubtitle")
+              : t("analytics.subtitle")
           }
         />
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-ink-900/8 bg-cream-100 px-3 py-2 text-xs text-ink-600">
-          <span className={ui.pill}>{analytics?.scopeLabel || "Current scope"}</span>
-          <span>Orders: live processing.</span>
-          <span>Reviews: today's comments.</span>
+          <span className={ui.pill}>{analytics?.scopeLabel || t("analytics.scopeLabel")}</span>
+          <span>{t("analytics.ordersLive")}</span>
+          <span>{t("analytics.reviewsToday")}</span>
         </div>
       </div>
 
@@ -546,7 +548,7 @@ export default function AdminHomepageAnalytics() {
 
       {loading && (
         <div className="mt-4 rounded-lg border border-dashed border-ink-900/10 bg-cream-100 p-4 text-sm text-ink-400">
-          Loading homepage analytics…
+          {t("charts.loading")}
         </div>
       )}
 
@@ -554,20 +556,20 @@ export default function AdminHomepageAnalytics() {
         <>
           {/* KPI strip */}
           <div className="mt-4 grid gap-3 xl:grid-cols-5">
-            <AdminStatCard featured label="Daily revenue" note="Paid today in current scope." value={formatCurrency(analytics.todayRevenue)} />
-            <AdminStatCard label="Order volume" note="Orders created today." value={formatCompactNumber(analytics.todayOrders)} />
-            <AdminStatCard label="Avg order value" note="Paid revenue / paid orders today." value={formatCurrency(analytics.averageOrderValue)} />
-            <AdminStatCard label="New comments" note="Reviews created today." value={formatCompactNumber(analytics.newComments)} />
-            <AdminStatCard label="New customers" note="New accounts or first-time buyers." value={formatCompactNumber(analytics.newCustomers)} />
+            <AdminStatCard featured label={t("analytics.dailyRevenue")} note={t("analytics.dailyRevenueNote")} value={formatCurrency(analytics.todayRevenue)} />
+            <AdminStatCard label={t("analytics.orderVolume")} note={t("analytics.orderVolumeNote")} value={formatCompactNumber(analytics.todayOrders)} />
+            <AdminStatCard label={t("analytics.avgOrderValue")} note={t("analytics.avgOrderValueNote")} value={formatCurrency(analytics.averageOrderValue)} />
+            <AdminStatCard label={t("analytics.newComments")} note={t("analytics.newCommentsNote")} value={formatCompactNumber(analytics.newComments)} />
+            <AdminStatCard label={t("analytics.newCustomers")} note={t("analytics.newCustomersNote")} value={formatCompactNumber(analytics.newCustomers)} />
           </div>
 
           {/* Best seller + Best store */}
           <div className="mt-5 grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
             <article className="rounded-lg border border-ink-900/8 bg-cream-50 p-4 shadow-soft">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <AdminPageHeader eyebrow="Best seller" title={analytics.bestSeller?.dishName || "No data yet"} />
+                <AdminPageHeader eyebrow={t("analytics.bestSeller")} title={analytics.bestSeller?.dishName || t("analytics.noData")} />
                 <Link className={ui.secondaryButton} to={buildAdminWorkspacePath({ sectionKey: "orders" })}>
-                  Open orders
+                  {t("analytics.openOrders")}
                 </Link>
               </div>
 
@@ -575,9 +577,9 @@ export default function AdminHomepageAnalytics() {
                 <>
                   <div className="mt-3 grid gap-2 sm:grid-cols-3">
                     {[
-                      { label: "Qty sold", value: formatCompactNumber(analytics.bestSeller.quantitySold) },
-                      { label: "Orders", value: formatCompactNumber(analytics.bestSeller.orderCount) },
-                      { label: "Revenue", value: formatCurrency(analytics.bestSeller.revenue) },
+                      { label: t("analytics.qtyLabel"), value: formatCompactNumber(analytics.bestSeller.quantitySold) },
+                      { label: t("analytics.ordersLabel"), value: formatCompactNumber(analytics.bestSeller.orderCount) },
+                      { label: t("analytics.revenueLabel"), value: formatCurrency(analytics.bestSeller.revenue) },
                     ].map((stat) => (
                       <div key={stat.label} className="rounded-md border border-ink-900/8 bg-beige-100 px-2.5 py-2">
                         <p className="text-[11px] uppercase tracking-[0.14em] text-ink-500">{stat.label}</p>
@@ -587,30 +589,30 @@ export default function AdminHomepageAnalytics() {
                   </div>
                   {analytics.bestSeller.storeName && (
                     <p className="mt-2 text-xs text-ink-500">
-                      Leading store: <strong>{analytics.bestSeller.storeName}</strong>
+                      {t("analytics.leadingStore")} <strong>{analytics.bestSeller.storeName}</strong>
                     </p>
                   )}
                 </>
               ) : (
                 <div className="mt-3 rounded-md border border-dashed border-ink-900/10 bg-cream-100 p-3 text-xs text-ink-400">
-                  No best seller data yet for the current scope.
+                  {t("analytics.bestSellerEmpty")}
                 </div>
               )}
             </article>
 
             <article className="rounded-lg border border-matcha-700/20 bg-matcha-900 p-4 text-cream-50 shadow-soft">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <AdminPageHeader eyebrow="Best store" title={analytics.bestStore?.storeName || analytics.scopeLabel} />
+                <AdminPageHeader eyebrow={t("analytics.bestStore")} title={analytics.bestStore?.storeName || analytics.scopeLabel} />
                 <span className="rounded-full bg-cream-50/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-cream-50/70">
-                  Last 7 days
+                  {t("analytics.lastSevenDays")}
                 </span>
               </div>
 
               <div className="mt-3 grid gap-2 sm:grid-cols-3">
                 {[
-                  { label: "Revenue", value: formatCurrency(analytics.bestStore?.revenue) },
-                  { label: "Paid orders", value: formatCompactNumber(analytics.bestStore?.paidOrders) },
-                  { label: "Total orders", value: formatCompactNumber(analytics.bestStore?.totalOrders) },
+                  { label: t("analytics.revenueLabel"), value: formatCurrency(analytics.bestStore?.revenue) },
+                  { label: t("analytics.paidOrders"), value: formatCompactNumber(analytics.bestStore?.paidOrders) },
+                  { label: t("analytics.totalOrdersLabel"), value: formatCompactNumber(analytics.bestStore?.totalOrders) },
                 ].map((stat) => (
                   <div key={stat.label}>
                     <p className="text-[10px] uppercase tracking-[0.14em] text-cream-50/50">{stat.label}</p>
@@ -621,8 +623,8 @@ export default function AdminHomepageAnalytics() {
 
               <p className="mt-3 text-xs leading-5 text-cream-50/60">
                 {isManagerMode
-                  ? "Locked to your assigned store."
-                  : "Ranked by paid revenue, then total orders."}
+                  ? t("analytics.lockedToStore")
+                  : t("analytics.rankedByRevenue")}
               </p>
             </article>
           </div>
@@ -631,14 +633,14 @@ export default function AdminHomepageAnalytics() {
           <div className="mt-5 grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
             <article className="rounded-lg border border-ink-900/8 bg-cream-50 p-4 shadow-soft">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <AdminPageHeader eyebrow="Orders last 7 days" title="Daily order trend" />
-                <Link className={ui.secondaryButton} to="/admin/reports">Open report</Link>
+                <AdminPageHeader eyebrow={t("analytics.ordersLast7Days")} title={t("analytics.dailyOrderTrend")} />
+                <Link className={ui.secondaryButton} to="/admin/reports">{t("analytics.openReport")}</Link>
               </div>
 
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {[
-                  { label: "Total orders", value: formatCompactNumber(analytics.ordersLast7DaysTotal) },
-                  { label: "Revenue", value: formatCurrency(analytics.ordersLast7DaysRevenue) },
+                  { label: t("analytics.totalOrders"), value: formatCompactNumber(analytics.ordersLast7DaysTotal) },
+                  { label: t("analytics.revenue"), value: formatCurrency(analytics.ordersLast7DaysRevenue) },
                 ].map((stat) => (
                   <div key={stat.label} className="rounded-md border border-ink-900/8 bg-beige-100 px-2.5 py-2">
                     <p className="text-[11px] uppercase tracking-[0.14em] text-ink-500">{stat.label}</p>
@@ -663,9 +665,9 @@ export default function AdminHomepageAnalytics() {
 
             <article className="rounded-lg border border-ink-900/8 bg-cream-50 p-4 shadow-soft">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <AdminPageHeader eyebrow="Latest comment" title="Customer review signal" />
+                <AdminPageHeader eyebrow={t("analytics.latestComment")} title={t("analytics.customerReviewSignal")} />
                 <Link className={ui.secondaryButton} to={buildAdminWorkspacePath({ sectionKey: "reviews" })}>
-                  Open reviews
+                  {t("analytics.openReviews")}
                 </Link>
               </div>
 
@@ -681,15 +683,15 @@ export default function AdminHomepageAnalytics() {
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-ink-900">
-                      {analytics.latestComment.title || "Latest comment"}
+                      {analytics.latestComment.title || t("analytics.latestComment")}
                     </p>
                     <p className="mt-1.5 text-xs leading-5 text-ink-600">
-                      {analytics.latestComment.comment || "No detailed comment."}
+                      {analytics.latestComment.comment || ""}
                     </p>
                   </div>
                   <div className="text-xs text-ink-400">
                     <span>
-                      {analytics.latestComment.userName || analytics.latestComment.userEmail || "Customer"}
+                      {analytics.latestComment.userName || analytics.latestComment.userEmail || t("analytics.customer")}
                     </span>
                     <span className="mx-1.5">·</span>
                     <span>{formatShortDate(analytics.latestComment.createdAt)}</span>
@@ -697,7 +699,7 @@ export default function AdminHomepageAnalytics() {
                 </div>
               ) : (
                 <div className="mt-3 rounded-md border border-dashed border-ink-900/10 bg-cream-100 p-3 text-xs text-ink-400">
-                  No review comments yet in the current scope.
+                  {t("analytics.latestCommentEmpty")}
                 </div>
               )}
             </article>

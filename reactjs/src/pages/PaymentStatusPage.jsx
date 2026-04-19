@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import InvoicePreviewModal from "../components/InvoicePreviewModal";
 import OrderStatusTracker from "../components/OrderStatusTracker";
 import PaymentQrCard from "../components/PaymentQrCard";
@@ -40,8 +41,13 @@ function formatDateTime(value) {
 }
 
 /** Stepper with "Payment" active */
-function PaymentStepper() {
-  const steps = ["Cart", "Delivery", "Payment", "Confirm"];
+function PaymentStepper({ t }) {
+  const steps = [
+    t("paymentStatus.steps.cart"),
+    t("paymentStatus.steps.delivery"),
+    t("paymentStatus.steps.payment"),
+    t("paymentStatus.steps.confirm"),
+  ];
   return (
     <nav aria-label="Checkout steps">
       <ol className="flex items-center gap-2 overflow-x-auto">
@@ -77,6 +83,7 @@ function PaymentStepper() {
 }
 
 export default function PaymentStatusPage({ mode = "success" }) {
+  const { t } = useTranslation("checkout");
   const auth = useAuth();
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
@@ -96,8 +103,8 @@ export default function PaymentStatusPage({ mode = "success" }) {
   const canViewInvoice = canViewOrderInvoice(order);
   const hasPaymentSession = hasUsablePaymentSession(order);
 
-  useToastMessage(error, { type: "error", title: "Payment" });
-  useToastMessage(notice, { type: "info", title: "Payment" });
+  useToastMessage(error, { type: "error", title: t("paymentStatus.eyebrow") });
+  useToastMessage(notice, { type: "info", title: t("paymentStatus.eyebrow") });
 
   useEffect(() => {
     const normalizedPaymentStatus = String(order?.paymentStatus ?? "").toUpperCase();
@@ -131,18 +138,18 @@ export default function PaymentStatusPage({ mode = "success" }) {
     }
 
     if (nextOrder.paymentCheckoutUrl) {
-      setNotice("A new PayOS payment link has been created. Redirecting now...");
+      setNotice(t("paymentStatus.newLinkReady"));
       navigateToExternalUrl(nextOrder.paymentCheckoutUrl);
       return true;
     }
 
-    setNotice("A new PayOS payment session is ready. Scan the QR code below to continue.");
+    setNotice(t("paymentStatus.newQrReady"));
     return true;
   };
 
   const loadPaymentState = async () => {
     if (!orderId) {
-      setError("Unable to find the order that needs a payment refresh.");
+      setError(t("paymentStatus.orderNotFound"));
       setLoading(false);
       return;
     }
@@ -169,7 +176,7 @@ export default function PaymentStatusPage({ mode = "success" }) {
         setOrder(detailOrder);
         syncPendingPayment(detailOrder);
       } catch {
-        setError(requestError.message || "Unable to sync payment status.");
+        setError(requestError.message || t("paymentStatus.unableToSync"));
       }
     } finally {
       setLoading(false);
@@ -190,7 +197,7 @@ export default function PaymentStatusPage({ mode = "success" }) {
 
   const handleCreateNewPayment = async () => {
     if (!orderId) {
-      setError("Unable to find the order that needs a new PayOS payment.");
+      setError(t("paymentStatus.orderNotFound"));
       return;
     }
 
@@ -213,7 +220,7 @@ export default function PaymentStatusPage({ mode = "success" }) {
       syncPendingPayment(latestOrder);
 
       if (!canRetryPayment(latestOrder)) {
-        setNotice("This order is no longer eligible for a new payment session.");
+        setNotice(t("paymentStatus.notEligible"));
         return;
       }
 
@@ -221,33 +228,31 @@ export default function PaymentStatusPage({ mode = "success" }) {
         return;
       }
 
-      setNotice(
-        "The system could not create a new PayOS payment session for this order yet. Please try again shortly.",
-      );
+      setNotice(t("paymentStatus.couldNotCreate"));
     } catch (requestError) {
-      setError(requestError.message || "Unable to create a new PayOS payment.");
+      setError(requestError.message || t("paymentStatus.unableToCreate"));
     } finally {
       setCreatingPayment(false);
     }
   };
 
   const heading = isCancelMode
-    ? "Checking payment after cancellation"
-    : "Checking payment result";
+    ? t("paymentStatus.cancelTitle")
+    : t("paymentStatus.successTitle");
   const description = isCancelMode
-    ? "If you just cancelled on PayOS, this page refreshes the order so the latest status is shown."
-    : "If you just completed payment on PayOS, this page syncs the order and payment details again.";
+    ? t("paymentStatus.cancelSubtitle")
+    : t("paymentStatus.successSubtitle");
 
   /* ---------- Status rail (right column) ---------- */
   const statusRail = order ? (
     <>
-      <h2 className="font-display text-xl font-semibold text-ink-900">Current status</h2>
+      <h2 className="font-display text-xl font-semibold text-ink-900">{t("paymentStatus.statusTitle")}</h2>
 
       <div className="mt-5 grid gap-3">
         {[
-          { label: "Payment", value: getPaymentStatusMeta(order.paymentStatus).label },
-          { label: "Order stage", value: getOrderStatusMeta(order.status).label },
-          { label: "Delivery type", value: formatDeliveryTypeLabel(order.deliveryType) },
+          { label: t("paymentStatus.payment"), value: getPaymentStatusMeta(order.paymentStatus).label },
+          { label: t("paymentStatus.orderStage"), value: getOrderStatusMeta(order.status).label },
+          { label: t("paymentStatus.deliveryType"), value: formatDeliveryTypeLabel(order.deliveryType) },
         ].map((stat) => (
           <div
             key={stat.label}
@@ -267,18 +272,18 @@ export default function PaymentStatusPage({ mode = "success" }) {
             rel="noreferrer"
             target="_blank"
           >
-            Pay now
+            {t("paymentStatus.payNow")}
           </a>
         </div>
       )}
 
       <div className="mt-5 flex flex-col gap-3">
         <button className={ui.secondaryButton} type="button" onClick={handleRefresh}>
-          {refreshing ? "Refreshing..." : "Refresh payment"}
+          {refreshing ? t("paymentStatus.refreshing") : t("paymentStatus.refresh")}
         </button>
         {canRefreshPayment && !hasPaymentSession && (
           <button className={ui.primaryButton} type="button" onClick={handleCreateNewPayment}>
-            {creatingPayment ? "Creating new PayOS..." : "Create new PayOS payment"}
+            {creatingPayment ? t("paymentStatus.creatingPayment") : t("paymentStatus.createNewPayment")}
           </button>
         )}
         {canViewInvoice && invoicePreviewUrl && (
@@ -287,14 +292,14 @@ export default function PaymentStatusPage({ mode = "success" }) {
             type="button"
             onClick={() => setInvoiceModalOpen(true)}
           >
-            Open invoice
+            {t("paymentStatus.openInvoice")}
           </button>
         )}
         <Link className={ui.secondaryButton} to={`/orders/${order.id}`}>
-          View order
+          {t("paymentStatus.viewOrder")}
         </Link>
         <Link className={ui.secondaryButton} to="/orders">
-          Order history
+          {t("paymentStatus.orderHistory")}
         </Link>
       </div>
     </>
@@ -302,10 +307,10 @@ export default function PaymentStatusPage({ mode = "success" }) {
 
   return (
     <main className={ui.page}>
-      <CheckoutLayout stepper={<PaymentStepper />} summary={order ? statusRail : null}>
+      <CheckoutLayout stepper={<PaymentStepper t={t} />} summary={order ? statusRail : null}>
         {/* Page header */}
         <div className="mb-6">
-          <p className={ui.eyebrow}>Payment</p>
+          <p className={ui.eyebrow}>{t("paymentStatus.eyebrow")}</p>
           <h1 className="font-display text-3xl font-bold leading-tight tracking-tight text-ink-900 sm:text-4xl">
             {heading}
           </h1>
@@ -315,7 +320,7 @@ export default function PaymentStatusPage({ mode = "success" }) {
         {/* Loading */}
         {loading && (
           <div className="rounded-xl border border-dashed border-ink-900/15 bg-cream-50/50 p-6 text-sm text-ink-600">
-            Syncing payment status...
+            {t("paymentStatus.syncing")}
           </div>
         )}
 
@@ -358,64 +363,61 @@ export default function PaymentStatusPage({ mode = "success" }) {
               </div>
 
               <div className="mt-5 grid gap-2 text-sm leading-7 text-ink-600">
-                {order.storeName && <span>Store: {order.storeName}</span>}
-                <span>Subtotal: {formatPrice(order.subtotalAmount)}</span>
+                {order.storeName && <span>{t("paymentStatus.orderFields.store", { value: order.storeName })}</span>}
+                <span>{t("paymentStatus.orderFields.subtotal", { value: formatPrice(order.subtotalAmount) })}</span>
                 {Number(order.discountAmount ?? 0) > 0 && (
-                  <span>Discount: {formatPrice(order.discountAmount)}</span>
+                  <span>{t("paymentStatus.orderFields.discount", { value: formatPrice(order.discountAmount) })}</span>
                 )}
                 {order.shippingFeeAmount !== undefined && order.shippingFeeAmount !== null && (
-                  <span>Shipping fee: {formatPrice(order.shippingFeeAmount)}</span>
+                  <span>{t("paymentStatus.orderFields.shippingFee", { value: formatPrice(order.shippingFeeAmount) })}</span>
                 )}
                 {Number(order.creditPointsAwarded ?? 0) > 0 && (
-                  <span>
-                    Credit earned: {Number(order.creditPointsAwarded).toLocaleString("vi-VN")} pts
-                  </span>
+                  <span>{t("paymentStatus.orderFields.creditEarned", { count: Number(order.creditPointsAwarded).toLocaleString("vi-VN") })}</span>
                 )}
                 {order.shippingDistanceKm !== undefined && order.shippingDistanceKm !== null && (
-                  <span>Shipping distance: {formatShippingDistance(order.shippingDistanceKm)}</span>
+                  <span>{t("paymentStatus.orderFields.shippingDistance", { value: formatShippingDistance(order.shippingDistanceKm) })}</span>
                 )}
                 {order.shippingFeeBreakdown?.length > 0 && (
-                  <span>Breakdown: {formatShippingBreakdown(order.shippingFeeBreakdown)}</span>
+                  <span>{formatShippingBreakdown(order.shippingFeeBreakdown)}</span>
                 )}
-                {order.promotionCode && <span>Promotion code: {order.promotionCode}</span>}
-                <span>Delivery type: {formatDeliveryTypeLabel(order.deliveryType)}</span>
+                {order.promotionCode && <span>{t("paymentStatus.orderFields.promotionCode", { value: order.promotionCode })}</span>}
+                <span>{t("paymentStatus.orderFields.deliveryType", { value: formatDeliveryTypeLabel(order.deliveryType) })}</span>
                 {order.scheduledDeliveryAt && (
-                  <span>Scheduled for: {formatDateTime(order.scheduledDeliveryAt)}</span>
+                  <span>{t("paymentStatus.orderFields.scheduledFor", { value: formatDateTime(order.scheduledDeliveryAt) })}</span>
                 )}
                 {order.preparingStaffName && (
-                  <span>Preparing staff: {order.preparingStaffName}</span>
+                  <span>{t("paymentStatus.orderFields.preparingStaff", { value: order.preparingStaffName })}</span>
                 )}
                 {order.deliveringShipperName && (
-                  <span>Delivery rider: {order.deliveringShipperName}</span>
+                  <span>{t("paymentStatus.orderFields.deliveryRider", { value: order.deliveringShipperName })}</span>
                 )}
-                <span>Recipient: {order.deliveryFullName || "N/A"}</span>
-                <span>Phone: {order.deliveryPhoneNumber || "N/A"}</span>
-                <span>Address: {order.deliveryAddress || "N/A"}</span>
+                <span>{t("paymentStatus.orderFields.recipient", { value: order.deliveryFullName || "N/A" })}</span>
+                <span>{t("paymentStatus.orderFields.phone", { value: order.deliveryPhoneNumber || "N/A" })}</span>
+                <span>{t("paymentStatus.orderFields.address", { value: order.deliveryAddress || "N/A" })}</span>
                 {order.paymentProvider && (
-                  <span>Payment provider: {order.paymentProvider}</span>
+                  <span>{t("paymentStatus.orderFields.paymentProvider", { value: order.paymentProvider })}</span>
                 )}
                 {order.paymentReference && (
-                  <span>Payment reference: {order.paymentReference}</span>
+                  <span>{t("paymentStatus.orderFields.paymentReference", { value: order.paymentReference })}</span>
                 )}
-                {order.invoiceAvailable && <span>Invoice ready: Yes</span>}
-                {order.invoiceNumber && <span>Invoice number: {order.invoiceNumber}</span>}
+                {order.invoiceAvailable && <span>{t("paymentStatus.orderFields.invoiceReady")}</span>}
+                {order.invoiceNumber && <span>{t("paymentStatus.orderFields.invoiceNumber", { value: order.invoiceNumber })}</span>}
                 {order.invoiceIssuedAt && (
-                  <span>Invoice issued at: {formatDateTime(order.invoiceIssuedAt)}</span>
+                  <span>{t("paymentStatus.orderFields.invoiceIssuedAt", { value: formatDateTime(order.invoiceIssuedAt) })}</span>
                 )}
                 {order.paymentExpiresAt && (
-                  <span>Payment expires at: {formatDateTime(order.paymentExpiresAt)}</span>
+                  <span>{t("paymentStatus.orderFields.paymentExpiresAt", { value: formatDateTime(order.paymentExpiresAt) })}</span>
                 )}
-                {order.paidAt && <span>Paid at: {formatDateTime(order.paidAt)}</span>}
-                <span>Created at: {formatDateTime(order.createdAt)}</span>
-                <span>Updated at: {formatDateTime(order.updatedAt)}</span>
+                {order.paidAt && <span>{t("paymentStatus.orderFields.paidAt", { value: formatDateTime(order.paidAt) })}</span>}
+                <span>{t("paymentStatus.orderFields.createdAt", { value: formatDateTime(order.createdAt) })}</span>
+                <span>{t("paymentStatus.orderFields.updatedAt", { value: formatDateTime(order.updatedAt) })}</span>
               </div>
             </article>
 
             {/* Expired session warning */}
             {canRefreshPayment && !hasPaymentSession && (
               <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-5 py-4 text-sm leading-7 text-amber-900">
-                The current PayOS session is no longer usable. Create a new payment to continue
-                checkout.
+                {t("paymentStatus.expiredSession")}
               </div>
             )}
 

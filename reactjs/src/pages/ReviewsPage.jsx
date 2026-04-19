@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import QuickAddToCartButton from "../components/QuickAddToCartButton";
 import QuickFavoriteButton from "../components/QuickFavoriteButton";
 import CatalogLayout from "../components/templates/catalog-layout";
@@ -20,22 +21,26 @@ import { ui } from "../ui";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-function formatTargetType(value) {
-  return { store: "Store", event: "Event", dish: "Item" }[normalizeTargetType(value)] ?? "Content";
+function formatTargetType(value, t) {
+  const type = normalizeTargetType(value);
+  if (type === "store") return t("card.typeStore");
+  if (type === "event") return t("card.typeEvent");
+  if (type === "dish") return t("card.typeDish");
+  return t("card.typeContent");
 }
 
-function fallbackTargetLabel(review) {
-  const type = formatTargetType(review.targetType);
+function fallbackTargetLabel(review, t) {
+  const type = formatTargetType(review.targetType, t);
   const id = String(review.targetId ?? "").trim();
   return id ? `${type} #${id}` : type;
 }
 
-function resolveReviewTargetLabel(review, targetNameMap = {}, storeReferenceMap = {}) {
+function resolveReviewTargetLabel(review, targetNameMap = {}, storeReferenceMap = {}, t) {
   const targetType = normalizeTargetType(review.targetType);
   const targetId = String(review.targetId ?? "").trim();
   if (review.targetLabel) return review.targetLabel;
   if (targetType === "store" && storeReferenceMap[targetId]?.name) return storeReferenceMap[targetId].name;
-  return targetNameMap[targetId] || fallbackTargetLabel(review);
+  return targetNameMap[targetId] || fallbackTargetLabel(review, t);
 }
 
 function buildStoreReferenceMap(stores) {
@@ -83,13 +88,13 @@ function reviewBelongsToStore(review, ctx) {
   return false;
 }
 
-function resolveReviewLink(review, storeReferenceMap = {}) {
+function resolveReviewLink(review, storeReferenceMap = {}, t) {
   const type = normalizeTargetType(review.targetType);
   const targetId = String(review.targetId ?? "").trim();
-  if (type === "store") return { to: buildStorePath({ ...review, targetSlug: review.targetSlug || storeReferenceMap[targetId]?.slug }), label: "View store" };
-  if (type === "event") return { to: buildEventPath(review), label: "View event" };
-  if (type === "dish") return { to: `/menu/${review.targetId}`, label: "View item" };
-  return { to: "/stores", label: "View details" };
+  if (type === "store") return { to: buildStorePath({ ...review, targetSlug: review.targetSlug || storeReferenceMap[targetId]?.slug }), label: t("card.viewStore") };
+  if (type === "event") return { to: buildEventPath(review), label: t("card.viewEvent") };
+  if (type === "dish") return { to: `/menu/${review.targetId}`, label: t("card.viewItem") };
+  return { to: "/stores", label: t("card.viewDetails") };
 }
 
 function sortReviews(items, sortKey) {
@@ -128,7 +133,7 @@ function ReviewSkeleton() {
 }
 
 // ─── review card ──────────────────────────────────────────────────────────────
-function ReviewCard({ review, onActionMessage }) {
+function ReviewCard({ review, onActionMessage, t }) {
   const type = normalizeTargetType(review.targetType);
   const ratingNum = Number(review.rating ?? 0);
   const ratingBadgeVariant = ratingNum >= 4 ? "matcha" : ratingNum >= 3 ? "warn" : "danger";
@@ -139,7 +144,7 @@ function ReviewCard({ review, onActionMessage }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="font-display text-base font-semibold leading-snug text-ink-900 line-clamp-1">
-            {review.title || review.displayTargetLabel || "Customer review"}
+            {review.title || review.displayTargetLabel || t("card.defaultTitle")}
           </h2>
           {review.displayTargetLabel && review.title !== review.displayTargetLabel ? (
             <p className="mt-0.5 text-xs font-medium text-matcha-700 line-clamp-1">{review.displayTargetLabel}</p>
@@ -148,18 +153,18 @@ function ReviewCard({ review, onActionMessage }) {
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
           <Badge variant={ratingBadgeVariant}>{ratingNum.toFixed(1)}★</Badge>
-          <Badge variant="beige">{formatTargetType(review.targetType)}</Badge>
+          <Badge variant="beige">{formatTargetType(review.targetType, t)}</Badge>
         </div>
       </div>
 
       {/* Comment */}
       <blockquote className="rounded-lg border border-beige-200 bg-beige-100/60 px-4 py-3 text-sm leading-relaxed text-ink-700 line-clamp-3">
-        {review.comment || "The customer did not leave a detailed comment."}
+        {review.comment || t("card.noComment")}
       </blockquote>
 
       {/* Reviewer */}
       <p className="text-xs font-semibold text-ink-800">
-        {review.userName || review.userEmail || "Kamatcha customer"}
+        {review.userName || review.userEmail || t("card.defaultUser")}
       </p>
 
       {/* Actions */}
@@ -167,7 +172,7 @@ function ReviewCard({ review, onActionMessage }) {
         {type === "dish" ? (
           <QuickAddToCartButton
             className={ui.secondaryButton + " !text-xs !px-3 !py-2"}
-            resolvePayload={() => resolveDishPayload(review.targetId)}
+            resolvePayload={() => resolveDishPayload(review.targetId, t)}
             onResult={onActionMessage}
           />
         ) : null}
@@ -176,8 +181,8 @@ function ReviewCard({ review, onActionMessage }) {
             className={ui.secondaryButton + " !text-xs !px-3 !py-2"}
             targetType={type}
             targetId={review.targetId}
-            activeLabel="Saved"
-            inactiveLabel={type === "store" ? "Save store" : "Save item"}
+            activeLabel={t("card.saved")}
+            inactiveLabel={type === "store" ? t("card.saveStore") : t("card.saveItem")}
             onResult={onActionMessage}
           />
         ) : null}
@@ -190,19 +195,20 @@ function ReviewCard({ review, onActionMessage }) {
 }
 
 // dish quick-add helper (module-level to avoid closure over state)
-async function resolveDishPayload(dishId) {
+async function resolveDishPayload(dishId, t) {
   const response = await fetchPublicDishDetail(dishId);
   const ranked = response.stores
     .map((s) => ({ store: s, availability: getCartAvailabilityDecision(s) }))
     .sort((a, b) => (b.availability.allowed ? 1 : 0) - (a.availability.allowed ? 1 : 0));
   const best = ranked[0];
-  if (!best?.store) return { blocked: true, blockedMessage: "No store is currently serving this item." };
-  if (!best.availability.allowed) return { dishId, storeId: best.store.id, blocked: true, blockedMessage: best.availability.reason || "Not ready." };
+  if (!best?.store) return { blocked: true, blockedMessage: t("card.noStore") };
+  if (!best.availability.allowed) return { dishId, storeId: best.store.id, blocked: true, blockedMessage: best.availability.reason || t("card.notReady") };
   return { dishId, storeId: best.store.id, quantity: 1, preorderOnly: best.availability.preorderOnly, preorderMessage: getCartSuccessMessage(best.availability.preorderOnly) };
 }
 
 // ─── page ─────────────────────────────────────────────────────────────────────
 export default function ReviewsPage() {
+  const { t } = useTranslation("reviews");
   const [sortKey, setSortKey] = useState("date-desc");
   const [targetFilter, setTargetFilter] = useState("all");
   const [selectedStoreKey, setSelectedStoreKey] = useState("");
@@ -232,7 +238,7 @@ export default function ReviewsPage() {
     setError("");
     fetchPublicReviews({ targetType: reviewTargetQuery(targetFilter), sort: reviewSortQuery(sortKey), page: 0, size: 100 })
       .then((r) => { if (!cancelled) setReviews((r.items ?? []).filter((rv) => isSupportedTargetType(rv?.targetType))); })
-      .catch((err) => { if (!cancelled) setError(err.message || "Unable to load reviews."); })
+      .catch((err) => { if (!cancelled) setError(err.message || t("page.loadError")); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [sortKey, targetFilter]);
@@ -267,10 +273,10 @@ export default function ReviewsPage() {
   const viewModels = useMemo(
     () => sortReviews(reviews, sortKey).map((rv) => ({
       ...rv,
-      displayTargetLabel: resolveReviewTargetLabel(rv, targetNameMap, storeReferenceMap),
-      link: resolveReviewLink(rv, storeReferenceMap),
+      displayTargetLabel: resolveReviewTargetLabel(rv, targetNameMap, storeReferenceMap, t),
+      link: resolveReviewLink(rv, storeReferenceMap, t),
     })),
-    [reviews, sortKey, storeReferenceMap, targetNameMap]
+    [reviews, sortKey, storeReferenceMap, targetNameMap, t]
   );
 
   const storeScopedVMs = useMemo(
@@ -296,31 +302,31 @@ export default function ReviewsPage() {
     return typeFilteredVMs.filter((rv) => String(rv.targetId) === String(selectedTargetId));
   }, [selectedTargetId, typeFilteredVMs]);
 
-  const filterLabel = { store: "store", dish: "menu item", event: "event" }[targetFilter] ?? "";
+  const filterLabelKey = { store: "filters.store", dish: "filters.menuItem", event: "filters.event" }[targetFilter] ?? "";
 
   const filterRail = (
     <div className="flex flex-col gap-5">
       <div>
-        <p className={ui.eyebrow}>Store scope</p>
+        <p className={ui.eyebrow}>{t("filters.storeScope")}</p>
         <select className={ui.input} value={selectedStoreKey} onChange={(e) => setSelectedStoreKey(e.target.value)}>
-          <option value="">All stores</option>
+          <option value="">{t("filters.allStores")}</option>
           {storeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </div>
 
       <div>
-        <p className={ui.eyebrow}>Filter by type</p>
+        <p className={ui.eyebrow}>{t("filters.filterByType")}</p>
         <select className={ui.input} value={targetFilter} onChange={(e) => setTargetFilter(e.target.value)}>
-          <option value="all">{selectedStoreKey ? "All in store" : "All"}</option>
-          <option value="store">Store</option>
-          <option value="dish">Menu item</option>
-          <option value="event">Event</option>
+          <option value="all">{selectedStoreKey ? t("filters.allInStore") : t("filters.all")}</option>
+          <option value="store">{t("filters.store")}</option>
+          <option value="dish">{t("filters.menuItem")}</option>
+          <option value="event">{t("filters.event")}</option>
         </select>
       </div>
 
       {targetFilter !== "all" ? (
         <div>
-          <p className={ui.eyebrow}>Specific target</p>
+          <p className={ui.eyebrow}>{t("filters.specificTarget")}</p>
           <select
             className={ui.input}
             value={selectedTargetId}
@@ -328,7 +334,13 @@ export default function ReviewsPage() {
             onChange={(e) => setSelectedTargetId(e.target.value)}
           >
             <option value="">
-              {!selectedStoreKey ? "Choose a store first" : storeDetailLoading ? "Loading..." : targetOptions.length ? `All ${filterLabel}` : `No ${filterLabel} yet`}
+              {!selectedStoreKey
+                ? t("filters.chooseStore")
+                : storeDetailLoading
+                  ? t("filters.loading")
+                  : targetOptions.length
+                    ? t("filters.allTarget", { label: filterLabelKey ? t(filterLabelKey) : "" })
+                    : t("filters.noTarget", { label: filterLabelKey ? t(filterLabelKey) : "" })}
             </option>
             {targetOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
@@ -336,12 +348,12 @@ export default function ReviewsPage() {
       ) : null}
 
       <div>
-        <p className={ui.eyebrow}>Sort by</p>
+        <p className={ui.eyebrow}>{t("filters.sortBy")}</p>
         <select className={ui.input} value={sortKey} onChange={(e) => setSortKey(e.target.value)}>
-          <option value="date-desc">Newest first</option>
-          <option value="date-asc">Oldest first</option>
-          <option value="rating-desc">Highest rated</option>
-          <option value="rating-asc">Lowest rated</option>
+          <option value="date-desc">{t("filters.newestFirst")}</option>
+          <option value="date-asc">{t("filters.oldestFirst")}</option>
+          <option value="rating-desc">{t("filters.highestRated")}</option>
+          <option value="rating-asc">{t("filters.lowestRated")}</option>
         </select>
       </div>
 
@@ -353,36 +365,34 @@ export default function ReviewsPage() {
   return (
     <main className="bg-bg min-h-screen">
       <div className="mx-auto w-full max-w-7xl px-4 pb-2 pt-8 sm:px-6 lg:px-8">
-        <p className={ui.eyebrow}>Reviews</p>
-        <h1 className={ui.bannerTitle}>Customer reviews</h1>
-        <p className={ui.copy}>
-          Choose a store to filter by branch, then narrow by menu item or event.
-        </p>
+        <p className={ui.eyebrow}>{t("page.eyebrow")}</p>
+        <h1 className={ui.bannerTitle}>{t("page.title")}</h1>
+        <p className={ui.copy}>{t("page.subtitle")}</p>
         {selectedStoreKey ? (
           <p className="mt-2 text-sm text-ink-500">
-            Store: <strong className="text-ink-800">{selectedStore?.name || selectedStoreKey}</strong>
+            {t("page.storeLabel", { name: selectedStore?.name || selectedStoreKey })}
           </p>
         ) : null}
         <p className="mt-2 text-sm text-ink-500">
-          Showing <strong className="text-ink-800">{filteredVMs.length}</strong> reviews
+          {t("page.showing", { count: filteredVMs.length })}
         </p>
       </div>
 
       <CatalogLayout
         filters={filterRail}
-        filtersLabel="Review filters"
+        filtersLabel={t("filters.label")}
         loading={loading}
         skeleton={<ReviewSkeleton />}
         empty={
           <EmptyState
             icon="💬"
-            title="No reviews found"
-            description="Try changing the filters to see more reviews."
+            title={t("empty.title")}
+            description={t("empty.description")}
           />
         }
       >
         {filteredVMs.map((review) => (
-          <ReviewCard key={review.id} review={review} onActionMessage={setActionMessage} />
+          <ReviewCard key={review.id} review={review} onActionMessage={setActionMessage} t={t} />
         ))}
       </CatalogLayout>
     </main>

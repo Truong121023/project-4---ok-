@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import ImageGalleryModal from "./ImageGalleryModal";
 import SmartImage from "./SmartImage";
 import { normalizeImagePathList } from "../lib/images";
@@ -11,6 +12,7 @@ export default function MediaLibrary({
   heroClassName = "h-72",
   thumbnailClassName = "h-20",
 }) {
+  const { t } = useTranslation("admin");
   const [activeImageIndex, setActiveImageIndex] = useState(-1);
   const imagePaths = normalizeImagePathList(images);
   const heroImage = imagePaths[0] ?? "";
@@ -28,7 +30,7 @@ export default function MediaLibrary({
                 setActiveImageIndex(0);
               }
             }}
-            aria-label={`Xem thu vien anh cua ${alt}`}
+            aria-label={t("mediaLibrary.viewGallery", { alt })}
           >
             <SmartImage
               className={`w-full object-cover transition duration-200 hover:scale-[1.01] ${heroClassName}`}
@@ -47,7 +49,7 @@ export default function MediaLibrary({
 
           {imagePaths.length ? (
             <span className="pointer-events-none absolute bottom-4 right-4 rounded-full bg-black/45 px-3 py-1.5 text-xs font-semibold tracking-[0.14em] text-white backdrop-blur">
-              Mo gallery
+              {t("mediaLibrary.openGallery")}
             </span>
           ) : null}
         </div>
@@ -56,9 +58,11 @@ export default function MediaLibrary({
           <div className="grid gap-2">
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                Library
+                {t("mediaLibrary.library")}
               </span>
-              <span className="text-xs text-stone-500">{libraryImages.length} anh bo sung</span>
+              <span className="text-xs text-stone-500">
+                {t("mediaLibrary.additionalImages", { count: libraryImages.length })}
+              </span>
             </div>
 
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -71,7 +75,7 @@ export default function MediaLibrary({
                     className="overflow-hidden rounded-[1.1rem] border border-matcha-900/10 bg-stone-100 text-left transition hover:-translate-y-0.5"
                     type="button"
                     onClick={() => setActiveImageIndex(imageIndex)}
-                    aria-label={`Xem anh ${imageIndex + 1} cua ${alt}`}
+                    aria-label={t("mediaLibrary.viewImage", { number: imageIndex + 1, alt })}
                   >
                     <SmartImage
                       className={`w-full object-cover ${thumbnailClassName}`}

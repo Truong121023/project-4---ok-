@@ -1,8 +1,11 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import AuthLayout from "../components/templates/auth-layout";
 import { ui } from "../ui";
 
 export default function UnauthorizedPage() {
+  const { t } = useTranslation("common");
+
   return (
     <AuthLayout>
       {/* Decorative kanji */}
@@ -10,14 +13,16 @@ export default function UnauthorizedPage() {
         禁止
       </p>
 
-      <p className={ui.eyebrow}>403 / Unauthorized</p>
+      <p className={ui.eyebrow}>{t("unauthorized.eyebrow")}</p>
       <h1 className="mt-3 font-display text-2xl font-bold leading-tight text-ink-900">
-        Your account does not have access to this page.
+        {t("unauthorized.title")}
       </h1>
       <p className="mt-4 text-sm leading-7 text-ink-600">
-        The admin area only allows <code className="rounded bg-cream-100 px-1 font-mono text-xs">ADMIN</code> or{" "}
-        <code className="rounded bg-cream-100 px-1 font-mono text-xs">MANAGER</code> roles. Return
-        home or sign in with a different account.
+        {t("unauthorized.body1")}{" "}
+        <code className="rounded bg-cream-100 px-1 font-mono text-xs">ADMIN</code>{" "}
+        {t("unauthorized.or")}{" "}
+        <code className="rounded bg-cream-100 px-1 font-mono text-xs">MANAGER</code>{" "}
+        {t("unauthorized.body2")}
       </p>
 
       {/* Empty state illustration */}
@@ -29,10 +34,10 @@ export default function UnauthorizedPage() {
 
       <div className="flex flex-wrap gap-3">
         <Link className={ui.secondaryButton} to="/">
-          Back to home
+          {t("unauthorized.backHome")}
         </Link>
         <Link className={ui.primaryButton} to="/login">
-          Sign in again
+          {t("unauthorized.signIn")}
         </Link>
       </div>
     </AuthLayout>

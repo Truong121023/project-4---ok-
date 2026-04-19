@@ -10,6 +10,7 @@
  * If you see this in production, check that SiteLayout.jsx no longer imports it.
  */
 import { Link, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import BrandLogo from "./BrandLogo";
 import { useAuth } from "../context/AuthContext";
 import useAdminOperationHref from "../hooks/useAdminOperationHref";
@@ -21,6 +22,7 @@ function cn(...values) {
 }
 
 export default function LeftSidebar() {
+  const { t } = useTranslation("common");
   const auth = useAuth();
   const location = useLocation();
   const operationHref = useAdminOperationHref();
@@ -32,13 +34,16 @@ export default function LeftSidebar() {
     ? getAdminNavigation({ isManagerMode, operationHref })
     : { primaryLinks: [], secondaryLinks: [] };
 
+  // navigationLinks now use labelKey — map to href+label for sidebar rendering
   const userLinks = navigationLinks.map(link => ({
     href: link.to,
-    label: link.label,
+    label: t(link.labelKey),
     key: link.to,
   }));
 
-  const allLinks = canAccessAdminArea ? primaryLinks : userLinks;
+  const allLinks = canAccessAdminArea
+    ? primaryLinks.map(e => ({ ...e, label: t(`nav.${e.key}`, { defaultValue: e.label }) }))
+    : userLinks;
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 overflow-y-auto border-r border-matcha-900/10 bg-cream-50/96 p-5 shadow-lift backdrop-blur-xl">
@@ -50,7 +55,7 @@ export default function LeftSidebar() {
 
       <div className="mb-6 rounded-2xl border border-matcha-900/10 bg-white/78 p-4">
         <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-stone-500">
-          {auth.isAuthenticated ? "Signed in" : "Not signed in"}
+          {auth.isAuthenticated ? t("buttons.signedIn") : t("buttons.signOut")}
         </p>
         {auth.isAuthenticated ? (
           <>
@@ -58,15 +63,19 @@ export default function LeftSidebar() {
               {auth.user?.fullName || "User"}
             </strong>
             <span className="mt-1 block text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
-              {auth.user?.role || "ACCOUNT"}
+              {auth.user?.role
+                ? t(`role.${auth.user.role.toLowerCase()}`, { defaultValue: auth.user.role })
+                : ""}
             </span>
           </>
         ) : (
-          <p className="mt-2 text-sm text-stone-600">Sign in to access your account</p>
+          <p className="mt-2 text-sm text-stone-600">
+            {t("buttons.signIn")}
+          </p>
         )}
       </div>
 
-      <nav aria-label="Sidebar navigation">
+      <nav aria-label={t("aria.sidebarNav")}>
         <ul className="grid gap-2">
           {allLinks.map((entry) => (
             <li key={entry.key || entry.href}>
@@ -94,7 +103,7 @@ export default function LeftSidebar() {
                 className="block rounded-xl border border-matcha-900/10 bg-white/78 px-4 py-3 text-sm font-semibold text-tea-900 transition hover:-translate-y-0.5 hover:bg-white"
                 to="/support-chat"
               >
-                24/7 Support
+                {t("nav.support")}
               </Link>
             </li>
           )}
@@ -103,7 +112,7 @@ export default function LeftSidebar() {
             <li>
               <div className="mt-4 border-t border-matcha-900/10 pt-4">
                 <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.22em] text-stone-500">
-                  More
+                  {t("buttons.more")}
                 </p>
                 <ul className="grid gap-2">
                   {secondaryLinks.map((entry) => (
@@ -112,7 +121,7 @@ export default function LeftSidebar() {
                         className="block rounded-xl border border-matcha-900/10 bg-white/78 px-4 py-3 text-sm font-semibold text-tea-900 transition hover:-translate-y-0.5 hover:bg-white"
                         to={entry.href}
                       >
-                        {entry.label}
+                        {t(`nav.${entry.key}`, { defaultValue: entry.label })}
                       </Link>
                     </li>
                   ))}

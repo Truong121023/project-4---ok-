@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import PaymentQrCard from "../components/PaymentQrCard";
 import CheckoutLayout from "../components/templates/checkout-layout";
 import { useAuth } from "../context/AuthContext";
@@ -24,8 +25,13 @@ function formatDateTime(value) {
 }
 
 /** Stepper with "Confirm" active */
-function ConfirmStepper() {
-  const steps = ["Cart", "Delivery", "Payment", "Confirm"];
+function ConfirmStepper({ t }) {
+  const steps = [
+    t("checkoutResult.steps.cart"),
+    t("checkoutResult.steps.delivery"),
+    t("checkoutResult.steps.payment"),
+    t("checkoutResult.steps.confirm"),
+  ];
   return (
     <nav aria-label="Checkout steps">
       <ol className="flex items-center gap-2 overflow-x-auto">
@@ -61,6 +67,7 @@ function ConfirmStepper() {
 }
 
 export default function CheckoutResultPage() {
+  const { t } = useTranslation("checkout");
   const auth = useAuth();
   const location = useLocation();
   const { orderId } = useParams();
@@ -99,7 +106,7 @@ export default function CheckoutResultPage() {
         }
       } catch (requestError) {
         if (!cancelled) {
-          setError(requestError.message || "Unable to load the payment details for this order.");
+          setError(requestError.message || t("checkoutResult.loadError"));
         }
       } finally {
         if (!cancelled) {
@@ -128,19 +135,19 @@ export default function CheckoutResultPage() {
   /* ---------- Next-step rail (right column) ---------- */
   const nextStepRail = checkoutResult ? (
     <>
-      <h2 className="font-display text-xl font-semibold text-ink-900">Next step</h2>
+      <h2 className="font-display text-xl font-semibold text-ink-900">{t("checkoutResult.nextStepTitle")}</h2>
       <p className="mt-2 text-sm leading-7 text-ink-600">
-        Complete the transfer, then refresh or open the order page to follow the status.
+        {t("checkoutResult.nextStepBody")}
       </p>
 
       <div className="mt-5 grid gap-3">
         {[
-          { label: "Payment", value: paymentStatusMeta.label },
+          { label: t("checkoutResult.statusPayment"), value: paymentStatusMeta.label },
           {
-            label: "Orders created",
+            label: t("checkoutResult.statusOrdersCreated"),
             value: createdOrders.length.toLocaleString("vi-VN"),
           },
-          { label: "Order stage", value: orderStatusMeta.label },
+          { label: t("checkoutResult.statusOrderStage"), value: orderStatusMeta.label },
         ].map((stat) => (
           <div
             key={stat.label}
@@ -159,7 +166,7 @@ export default function CheckoutResultPage() {
             type="button"
             onClick={() => navigateToExternalUrl(checkoutResult.paymentCheckoutUrl)}
           >
-            Open PayOS
+            {t("checkoutResult.openPayos")}
           </button>
         )}
         {primaryOrderId && (
@@ -167,19 +174,19 @@ export default function CheckoutResultPage() {
             className={ui.secondaryButton}
             to={`/payment/success?orderId=${primaryOrderId}`}
           >
-            I have paid — refresh status
+            {t("checkoutResult.paidRefresh")}
           </Link>
         )}
         {primaryOrderId && (
           <Link className={ui.secondaryButton} to={`/orders/${primaryOrderId}`}>
-            Track primary order
+            {t("checkoutResult.trackPrimaryOrder")}
           </Link>
         )}
         <Link className={ui.secondaryButton} to="/orders">
-          Order history
+          {t("checkoutResult.orderHistory")}
         </Link>
         <Link className={ui.secondaryButton} to="/cart">
-          Back to cart
+          {t("checkoutResult.backToCart")}
         </Link>
       </div>
     </>
@@ -188,25 +195,24 @@ export default function CheckoutResultPage() {
   return (
     <main className={ui.page}>
       <CheckoutLayout
-        stepper={<ConfirmStepper />}
+        stepper={<ConfirmStepper t={t} />}
         summary={checkoutResult ? nextStepRail : null}
       >
         {/* Page header */}
         <div className="mb-6">
-          <p className={ui.eyebrow}>Checkout result</p>
+          <p className={ui.eyebrow}>{t("checkoutResult.eyebrow")}</p>
           <h1 className="font-display text-3xl font-bold leading-tight tracking-tight text-ink-900 sm:text-4xl">
-            Payment details ready
+            {t("checkoutResult.title")}
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-ink-600">
-            Your order has been created. Review the transfer details, complete the payment, then
-            track the order status from the next step.
+            {t("checkoutResult.subtitle")}
           </p>
         </div>
 
         {/* Loading */}
         {loading && (
           <div className="rounded-xl border border-dashed border-ink-900/15 bg-cream-50/50 p-6 text-sm text-ink-600">
-            Loading the payment details...
+            {t("checkoutResult.loading")}
           </div>
         )}
 
@@ -227,10 +233,10 @@ export default function CheckoutResultPage() {
             <article className="overflow-hidden rounded-xl border border-ink-900/10 shadow-soft">
               <div className="bg-gradient-to-r from-matcha-900 to-matcha-700 px-6 py-6 text-cream-50">
                 <span className="inline-flex rounded-full bg-cream-50/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em]">
-                  {checkoutResult.statusSummary || "Payment session created"}
+                  {checkoutResult.statusSummary || t("checkoutResult.paymentCreated")}
                 </span>
                 <p className="mt-4 text-xs font-bold uppercase tracking-[0.18em] text-cream-50/70">
-                  Total payment
+                  {t("checkoutResult.totalPayment")}
                 </p>
                 <strong className="mt-2 block font-display text-4xl font-bold">
                   {formatPrice(checkoutResult.totalAmount)}
@@ -254,39 +260,33 @@ export default function CheckoutResultPage() {
 
             {/* Delivery details */}
             <article className="rounded-xl border border-ink-900/10 bg-cream-50 p-5 shadow-soft">
-              <h2 className="font-display text-xl font-semibold text-ink-900">Delivery details</h2>
+              <h2 className="font-display text-xl font-semibold text-ink-900">{t("checkoutResult.deliveryDetails")}</h2>
               <div className="mt-4 grid gap-2 text-sm leading-7 text-ink-600">
-                <span>Recipient: {checkoutResult.deliveryFullName || "N/A"}</span>
-                <span>Phone: {checkoutResult.deliveryPhoneNumber || "N/A"}</span>
-                <span>Address: {checkoutResult.deliveryAddress || "N/A"}</span>
-                <span>Payment: {paymentStatusMeta.label}</span>
-                <span>Order stage: {orderStatusMeta.label}</span>
+                <span>{t("checkoutResult.recipient", { value: checkoutResult.deliveryFullName || "N/A" })}</span>
+                <span>{t("checkoutResult.phone", { value: checkoutResult.deliveryPhoneNumber || "N/A" })}</span>
+                <span>{t("checkoutResult.address", { value: checkoutResult.deliveryAddress || "N/A" })}</span>
+                <span>{t("checkoutResult.payment", { value: paymentStatusMeta.label })}</span>
+                <span>{t("checkoutResult.orderStage", { value: orderStatusMeta.label })}</span>
                 {checkoutResult.scheduledDeliveryAt && (
-                  <span>Scheduled for: {formatDateTime(checkoutResult.scheduledDeliveryAt)}</span>
+                  <span>{t("checkoutResult.scheduledFor", { value: formatDateTime(checkoutResult.scheduledDeliveryAt) })}</span>
                 )}
                 {checkoutResult.shippingFeeAmount !== undefined &&
                   checkoutResult.shippingFeeAmount !== null && (
-                    <span>Shipping fee: {formatPrice(checkoutResult.shippingFeeAmount)}</span>
+                    <span>{t("checkoutResult.shippingFee", { value: formatPrice(checkoutResult.shippingFeeAmount) })}</span>
                   )}
                 {checkoutResult.shippingDistanceKm !== undefined &&
                   checkoutResult.shippingDistanceKm !== null && (
-                    <span>
-                      Shipping distance:{" "}
-                      {formatShippingDistance(checkoutResult.shippingDistanceKm)}
-                    </span>
+                    <span>{t("checkoutResult.shippingDistance", { value: formatShippingDistance(checkoutResult.shippingDistanceKm) })}</span>
                   )}
                 {checkoutResult.shippingFeeBreakdown?.length > 0 && (
-                  <span>
-                    Per-store breakdown:{" "}
-                    {formatShippingBreakdown(checkoutResult.shippingFeeBreakdown)}
-                  </span>
+                  <span>{t("checkoutResult.shippingBreakdown", { value: formatShippingBreakdown(checkoutResult.shippingFeeBreakdown) })}</span>
                 )}
               </div>
             </article>
 
             {/* Created orders list */}
             <article className="rounded-xl border border-ink-900/10 bg-cream-50 p-5 shadow-soft">
-              <h2 className="font-display text-xl font-semibold text-ink-900">Created orders</h2>
+              <h2 className="font-display text-xl font-semibold text-ink-900">{t("checkoutResult.createdOrders")}</h2>
               <div className="mt-4 grid gap-4">
                 {createdOrders.map((order) => (
                   <div
@@ -299,22 +299,22 @@ export default function CheckoutResultPage() {
                           {order.storeName}
                         </h3>
                         <p className="mt-1 text-sm text-ink-500">
-                          Order #{order.id} · {getOrderStatusMeta(order.status).label}
+                          {t("checkoutResult.orderSummary", { id: order.id, status: getOrderStatusMeta(order.status).label })}
                         </p>
                       </div>
                       <strong className={ui.price}>{formatPrice(order.totalAmount)}</strong>
                     </div>
                     <div className="mt-3 grid gap-1 text-sm text-ink-600">
-                      <span>Payment: {getPaymentStatusMeta(order.paymentStatus).label}</span>
-                      <span>Delivery: {formatDeliveryTypeLabel(order.deliveryType)}</span>
+                      <span>{t("checkoutResult.orderPayment", { value: getPaymentStatusMeta(order.paymentStatus).label })}</span>
+                      <span>{t("checkoutResult.orderDelivery", { value: formatDeliveryTypeLabel(order.deliveryType) })}</span>
                       {order.shippingFeeAmount !== undefined &&
                         order.shippingFeeAmount !== null && (
-                          <span>Shipping fee: {formatPrice(order.shippingFeeAmount)}</span>
+                          <span>{t("checkoutResult.shippingFee", { value: formatPrice(order.shippingFeeAmount) })}</span>
                         )}
                     </div>
                     <div className="mt-4">
                       <Link className={ui.primaryButton} to={`/orders/${order.id}`}>
-                        Track this order
+                        {t("checkoutResult.trackThisOrder")}
                       </Link>
                     </div>
                   </div>

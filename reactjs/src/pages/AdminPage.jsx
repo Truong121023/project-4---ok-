@@ -1,5 +1,6 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import InvoicePreviewModal from "../components/InvoicePreviewModal";
 import AdminFormField from "../components/admin/AdminFormField";
 import SmartImage from "../components/SmartImage";
@@ -84,19 +85,19 @@ const orderStatusOptions = ["", "PENDING", "CONFIRMED", "PREPARING", "READY_FOR_
 const adminOrderActionConfig = {
   CONFIRM_ORDER: {
     path: (id) => `/api/admin/orders/${id}/confirm`,
-    successMessage: "Order confirmed and moved to preparing successfully.",
+    successKey: "orders.confirmSuccess",
   },
   CANCEL_ORDER: {
     path: (id) => `/api/admin/orders/${id}/cancel`,
-    successMessage: "Order cancelled successfully.",
+    successKey: "orders.cancelSuccess",
   },
   MARK_PAID: {
     path: (id) => `/api/admin/orders/${id}/mark-paid`,
-    successMessage: "Order marked as paid successfully.",
+    successKey: "orders.markPaidSuccess",
   },
   GENERATE_INVOICE: {
     path: (id) => `/api/admin/orders/${id}/invoice/generate`,
-    successMessage: "Invoice generated successfully.",
+    successKey: "orders.invoiceGeneratedSuccess",
   },
 };
 const adminAiFormTypes = {
@@ -1018,6 +1019,7 @@ const sectionPageMeta = {
 };
 
 export default function AdminPage({ forcedSection = "" }) {
+  const { t } = useTranslation("admin");
   const auth = useAuth();
   const toast = useToast();
   const location = useLocation();
@@ -2531,7 +2533,7 @@ export default function AdminPage({ forcedSection = "" }) {
           : createDraftForSection("feedbacks", nextReferenceCollections, nextScopedCollections),
       }));
     } catch (requestError) {
-      handleApiFailure(requestError, "Unable to load admin data.");
+      handleApiFailure(requestError, t("orders.loadAdminError"));
     } finally {
       setLoading(false);
     }
@@ -2557,9 +2559,9 @@ export default function AdminPage({ forcedSection = "" }) {
         return nextHistory;
       } catch (requestError) {
         if (requestError?.status === 401 || requestError?.status === 403) {
-          handleApiFailure(requestError, "Unable to load order scan history.");
+          handleApiFailure(requestError, t("orders.loadScanError"));
         } else {
-          setOrderScanError(getApiErrorMessage(requestError, "Unable to load order scan history."));
+          setOrderScanError(getApiErrorMessage(requestError, t("orders.loadScanError")));
         }
 
         return [];
@@ -2620,7 +2622,7 @@ export default function AdminPage({ forcedSection = "" }) {
           ...current,
           orders: hydrateSectionDraft("orders", nextOrder),
         }));
-        setNotice(response?.message ?? actionConfig.successMessage);
+        setNotice(response?.message ?? t(actionConfig.successKey));
 
         await Promise.all([
           refreshAll({
@@ -2631,7 +2633,7 @@ export default function AdminPage({ forcedSection = "" }) {
           loadOrderScanHistory(nextOrder.id, { silent: true }),
         ]);
       } catch (requestError) {
-        handleApiFailure(requestError, "Unable to update the order workflow.");
+        handleApiFailure(requestError, t("orders.updateWorkflowError"));
       } finally {
         setOrderActionLoading("");
       }
@@ -3449,7 +3451,7 @@ export default function AdminPage({ forcedSection = "" }) {
         );
       }
     } catch (requestError) {
-      handleApiFailure(requestError, "Unable to load record details.");
+      handleApiFailure(requestError, t("orders.loadDetailError"));
     } finally {
       setEditingDetailLoading((current) => ({
         ...current,
@@ -3639,7 +3641,7 @@ export default function AdminPage({ forcedSection = "" }) {
       const userDetail = normalizeDetailResponse(detailResponse);
 
       if (!userDetail) {
-        throw new Error("Unable to load account data for password reset.");
+        throw new Error(t("orders.loadAccountError"));
       }
 
       if (!canChangeUserPassword(userDetail)) {
@@ -3757,7 +3759,7 @@ export default function AdminPage({ forcedSection = "" }) {
       const detailRecord = normalizeDetailResponse(detailResponse);
 
       if (!detailRecord) {
-        throw new Error("Unable to load the selected record before updating activation.");
+        throw new Error(t("orders.loadRecordError"));
       }
 
       const toggleField = toggleConfig.field;
@@ -3864,7 +3866,7 @@ export default function AdminPage({ forcedSection = "" }) {
         const userDetail = normalizeDetailResponse(detailResponse);
 
         if (!userDetail) {
-          throw new Error("Unable to load the user account before changing its role.");
+          throw new Error(t("orders.loadUserRoleError"));
         }
 
         payload = {
@@ -4631,12 +4633,12 @@ export default function AdminPage({ forcedSection = "" }) {
 
                   <div className="rounded-[1.25rem] border border-matcha-900/10 bg-white/80 p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
-                      Delivery details
+                      {t("orderDetail.deliveryDetails")}
                     </p>
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
                       {selectedOrderRecord.deliveryFullName ? (
                         <div className="rounded-[1rem] border border-matcha-900/10 bg-white/82 p-3">
-                          <p className="text-xs uppercase tracking-[0.14em] text-stone-500">Recipient</p>
+                          <p className="text-xs uppercase tracking-[0.14em] text-stone-500">{t("orderDetail.recipient")}</p>
                           <strong className="mt-2 block text-base text-tea-900">
                             {selectedOrderRecord.deliveryFullName}
                           </strong>
@@ -4644,7 +4646,7 @@ export default function AdminPage({ forcedSection = "" }) {
                       ) : null}
                       {selectedOrderRecord.deliveryPhoneNumber ? (
                         <div className="rounded-[1rem] border border-matcha-900/10 bg-white/82 p-3">
-                          <p className="text-xs uppercase tracking-[0.14em] text-stone-500">Phone</p>
+                          <p className="text-xs uppercase tracking-[0.14em] text-stone-500">{t("orderDetail.phone")}</p>
                           <strong className="mt-2 block text-base text-tea-900">
                             {selectedOrderRecord.deliveryPhoneNumber}
                           </strong>
@@ -5577,21 +5579,21 @@ export default function AdminPage({ forcedSection = "" }) {
 
             <div className="flex flex-wrap gap-3">
               <Link className={ui.secondaryButton} to={ADMIN_HOME_PATH}>
-                Back to admin home
+                {t("workspace.backToHome")}
               </Link>
               <button className={ui.secondaryButton} type="button" onClick={refreshAll}>
-                {loading ? "Loading..." : "Reload data"}
+                {loading ? t("workspace.loadingAction") : t("workspace.reloadData")}
               </button>
               <button className={ui.primaryButton} type="button" onClick={() => resetSection(activeSection)}>
                 {isDetailSection
                   ? isFeedbackSection
-                    ? "Clear feedback selection"
-                    : "Clear review selection"
+                    ? t("workspace.clearFeedbackSelection")
+                    : t("workspace.clearReviewSelection")
                   : isManagerMode && activeSection === "stores"
-                    ? "Reset panel"
+                    ? t("workspace.resetPanel")
                   : activeSection === "orders"
-                    ? "Clear order selection"
-                    : "Create new form"}
+                    ? t("workspace.clearOrderSelection")
+                    : t("workspace.createNewForm")}
               </button>
             </div>
           </div>
@@ -5620,7 +5622,7 @@ export default function AdminPage({ forcedSection = "" }) {
               </div>
 
               <p className="mt-4 text-sm leading-7 text-stone-500">
-                This overview helps you quickly monitor operational scale and overall system data.
+                {t("workspace.overviewNote")}
               </p>
             </>
           ) : (
@@ -5875,7 +5877,7 @@ export default function AdminPage({ forcedSection = "" }) {
                       type="button"
                       onClick={() => resetSection(activeSection)}
                     >
-                      {isFeedbackSection ? "Clear feedback selection" : "Clear review selection"}
+                      {isFeedbackSection ? t("workspace.clearFeedbackSelection") : t("workspace.clearReviewSelection")}
                     </button>
                   ) : null}
                 </div>
@@ -6359,25 +6361,25 @@ export default function AdminPage({ forcedSection = "" }) {
                     type="submit"
                   >
                     {saving
-                      ? "Processing..."
+                      ? t("workspace.processing")
                       : isActiveEditLoading
-                        ? "Loading record..."
+                        ? t("workspace.loadingRecord")
                       : activeSection === "orders" && !hasActiveEditingId
-                        ? "Choose an order"
+                        ? t("workspace.chooseOrder")
                       : !canCreateRecord(activeSection) && !hasActiveEditingId
-                        ? "Choose a record"
+                        ? t("workspace.chooseRecord")
                       : isAdminRoleOnlyUserEdit
-                        ? "Update role"
+                        ? t("workspace.updateRole")
                       : hasActiveEditingId
-                        ? "Save changes"
-                        : "Create"}
+                        ? t("workspace.saveChanges")
+                        : t("workspace.createRecord")}
                   </button>
                   <button
                     className={ui.secondaryButton}
                     type="button"
                     onClick={() => resetSection(activeSection)}
                   >
-                    Reset form
+                    {t("workspace.resetForm")}
                   </button>
                 </div>
               </div>

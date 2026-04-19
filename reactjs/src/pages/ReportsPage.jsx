@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import AdminDataTable from "../components/admin/admin-data-table";
 import AdminPageHeader from "../components/admin/admin-page-header";
 import AdminStatCard from "../components/admin/admin-stat-card";
@@ -73,6 +74,7 @@ function resolvePaidDate(order) {
 }
 
 export default function ReportsPage() {
+  const { t } = useTranslation("admin");
   const auth = useAuth();
   const isAdmin = auth.hasRole("ADMIN");
   const isManager = auth.hasRole("MANAGER");
@@ -108,7 +110,7 @@ export default function ReportsPage() {
         }
       } catch (requestError) {
         if (!cancelled) {
-          setError(getApiErrorMessage(requestError, "Unable to load report data."));
+          setError(getApiErrorMessage(requestError, t("orders.loadError")));
         }
       } finally {
         if (!cancelled) {
@@ -251,7 +253,7 @@ export default function ReportsPage() {
       }
     });
 
-    return currentTopName || "No store data";
+    return currentTopName || t("reports.noStoreData");
   }, [storeRevenueMap]);
 
   const handlePreset = (presetKey) => {
@@ -332,7 +334,7 @@ export default function ReportsPage() {
   const tableColumns = [
     {
       key: "order",
-      header: "Order",
+      header: t("tables.columns.order"),
       render: (row) => (
         <div>
           <strong className="block text-xs font-semibold text-ink-900">#{row.id}</strong>
@@ -342,21 +344,21 @@ export default function ReportsPage() {
     },
     {
       key: "store",
-      header: "Store",
+      header: t("tables.columns.store"),
       render: (row) => (
         <span className="text-xs text-ink-800">{row.storeLabel}</span>
       ),
     },
     {
       key: "completed",
-      header: "Completed",
+      header: t("tables.columns.completed"),
       render: (row) => (
         <span className="text-xs text-ink-600">{formatDateTime(resolveCompletedDate(row))}</span>
       ),
     },
     {
       key: "status",
-      header: "Status",
+      header: t("tables.columns.status"),
       render: (row) => (
         <div>
           <span className="block text-xs text-ink-800">{row.status || "N/A"}</span>
@@ -366,17 +368,17 @@ export default function ReportsPage() {
     },
     {
       key: "storeRevenue",
-      header: "Store rev.",
+      header: t("tables.columns.storeRevenue"),
       render: (row) => <span className="font-mono text-xs text-ink-800">{formatCurrency(row.storeRevenue)}</span>,
     },
     {
       key: "orderRevenue",
-      header: "Order rev.",
+      header: t("tables.columns.orderRevenue"),
       render: (row) => <span className="font-mono text-xs font-semibold text-matcha-700">{formatCurrency(row.orderRevenue)}</span>,
     },
     {
       key: "portfolio",
-      header: "Portfolio",
+      header: t("tables.columns.portfolio"),
       render: (row) => (
         <div className="flex items-center gap-2">
           <span className="font-mono text-[11px] text-ink-400">{Math.round(row.revenueRatio)}%</span>
@@ -397,16 +399,12 @@ export default function ReportsPage() {
       {/* Header */}
       <section className={ui.panel}>
         <AdminPageHeader
-          eyebrow="Reports"
-          title="Order and revenue analytics"
-          subtitle={
-            isAdmin
-              ? "Track completed orders, compare store contribution, and review revenue distribution across the network."
-              : "Track completed orders and revenue contribution for your assigned store scope."
-          }
+          eyebrow={t("reports.eyebrow")}
+          title={t("reports.title")}
+          subtitle={isAdmin ? t("reports.subtitleAdmin") : t("reports.subtitleManager")}
           actions={
             <span className={ui.pill}>
-              {isAdmin ? "Admin scope" : auth.user?.workingStoreName || "Manager scope"}
+              {isAdmin ? t("reports.scopeAdmin") : auth.user?.workingStoreName || t("reports.scopeManager")}
             </span>
           }
         />
@@ -419,11 +417,11 @@ export default function ReportsPage() {
             {/* Filters toolbar */}
             <div className="rounded-lg border border-ink-900/8 bg-cream-100 px-4 py-3">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-500">
-                Reports workspace
+                {t("reports.workspace")}
               </p>
               <div className="mt-3 flex flex-wrap gap-3">
                 <label className="grid min-w-[9rem] gap-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">Start</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">{t("reports.filterStart")}</span>
                   <input
                     className={ui.input}
                     type="date"
@@ -432,7 +430,7 @@ export default function ReportsPage() {
                   />
                 </label>
                 <label className="grid min-w-[9rem] gap-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">End</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">{t("reports.filterEnd")}</span>
                   <input
                     className={ui.input}
                     type="date"
@@ -442,9 +440,9 @@ export default function ReportsPage() {
                 </label>
                 <div className="flex flex-wrap items-end gap-2">
                   {[
-                    { key: "today", label: "Today" },
-                    { key: "7d", label: "7 days" },
-                    { key: "30d", label: "30 days" },
+                    { key: "today", label: t("reports.presetToday") },
+                    { key: "7d", label: t("reports.preset7d") },
+                    { key: "30d", label: t("reports.preset30d") },
                   ].map((preset) => (
                     <button
                       key={preset.key}
@@ -467,10 +465,10 @@ export default function ReportsPage() {
             {/* KPI cards */}
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {[
-                { label: "Total orders", value: formatCompactNumber(completedOrders.length), note: `${formatCompactNumber(filteredRows.length)} visible` },
-                { label: "Total stores", value: formatCompactNumber(totalStores), note: `Top: ${topStoreName}` },
-                { label: "Rev / store", value: totalStores ? formatCurrency(totalRevenue / totalStores) : formatCurrency(0), note: "Avg across stores" },
-                { label: "Rev / order", value: formatCurrency(averageOrderValue), note: `${formatCompactNumber(completedPaidOrders.length)} paid` },
+                { label: t("reports.kpiTotalOrders"), value: formatCompactNumber(completedOrders.length), note: t("reports.kpiVisible", { count: formatCompactNumber(filteredRows.length) }) },
+                { label: t("reports.kpiTotalStores"), value: formatCompactNumber(totalStores), note: t("reports.kpiTop", { name: topStoreName }) },
+                { label: t("reports.kpiRevPerStore"), value: totalStores ? formatCurrency(totalRevenue / totalStores) : formatCurrency(0), note: t("reports.kpiAvgStores") },
+                { label: t("reports.kpiRevPerOrder"), value: formatCurrency(averageOrderValue), note: t("reports.kpiPaid", { count: formatCompactNumber(completedPaidOrders.length) }) },
               ].map((card) => (
                 <AdminStatCard key={card.label} label={card.label} value={card.value} note={card.note} />
               ))}
@@ -481,23 +479,23 @@ export default function ReportsPage() {
               columns={tableColumns}
               rows={revenueRows}
               loading={loading}
-              loadingText="Loading report data…"
-              emptyText="No completed orders match the selected date range or search query."
+              loadingText={t("reports.loadingText")}
+              emptyText={t("reports.emptyText")}
               stickyHeader
               toolbar={
                 <input
                   className={ui.input}
                   type="text"
-                  placeholder="Search orders or stores…"
+                  placeholder={t("tables.searchPlaceholder")}
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                 />
               }
               toolbarEnd={
                 <>
-                  <span className="text-xs text-ink-400">{formatCompactNumber(filteredRows.length)} rows</span>
+                  <span className="text-xs text-ink-400">{t("tables.rows", { count: formatCompactNumber(filteredRows.length) })}</span>
                   <button className={ui.secondaryButton} type="button" onClick={handleExportExcel}>
-                    Export CSV
+                    {t("tables.exportCsv")}
                   </button>
                 </>
               }
@@ -508,33 +506,32 @@ export default function ReportsPage() {
           <aside className="grid min-w-0 gap-4">
             <div className={`${ui.card} sticky top-4`}>
               <AdminPageHeader
-                eyebrow="Summary"
-                title="Performance in range"
+                eyebrow={t("reports.summaryEyebrow")}
+                title={t("reports.summaryTitle")}
                 actions={
-                  <span className={ui.pill}>{formatCompactNumber(filteredRows.length)} rows</span>
+                  <span className={ui.pill}>{t("tables.rows", { count: formatCompactNumber(filteredRows.length) })}</span>
                 }
               />
 
               <div className="mt-3 rounded-lg border border-matcha-200 bg-matcha-50 px-3 py-2.5 text-xs leading-5 text-ink-700">
-                Only <strong>COMPLETED</strong> orders in the date range are counted.
-                <strong> Paid pending</strong> = paid but not yet completed.
+                {t("reports.summaryNote")}
               </div>
 
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 {[
-                  { label: "Completed", value: formatCompactNumber(completedOrders.length) },
-                  { label: "Paid pending", value: formatCompactNumber(paidPendingOrders.length) },
-                  { label: "Revenue", value: formatCurrency(totalRevenue), featured: true },
-                  { label: "Avg order", value: formatCurrency(averageOrderValue) },
+                  { label: t("reports.summaryCompleted"), value: formatCompactNumber(completedOrders.length) },
+                  { label: t("reports.summaryPaidPending"), value: formatCompactNumber(paidPendingOrders.length) },
+                  { label: t("reports.summaryRevenue"), value: formatCurrency(totalRevenue), featured: true },
+                  { label: t("reports.summaryAvgOrder"), value: formatCurrency(averageOrderValue) },
                 ].map((card) => (
                   <AdminStatCard key={card.label} label={card.label} value={card.value} featured={card.featured} />
                 ))}
               </div>
 
               <div className="mt-4 rounded-lg border border-ink-900/8 bg-cream-100 px-3 py-2.5 text-xs leading-5 text-ink-700">
-                <p>Range: <strong>{startDate || "N/A"}</strong> – <strong>{endDate || "N/A"}</strong></p>
-                <p className="mt-1">Scope: <strong>{isAdmin ? "Admin" : auth.user?.workingStoreName || "Manager"}</strong></p>
-                <p className="mt-1">Stores: <strong>{formatCompactNumber(totalStores)}</strong></p>
+                <p>{t("reports.rangeLabel")} <strong>{startDate || "N/A"}</strong> – <strong>{endDate || "N/A"}</strong></p>
+                <p className="mt-1">{t("reports.scopeLabel")} <strong>{isAdmin ? t("reports.scopeAdmin") : auth.user?.workingStoreName || t("reports.scopeManager")}</strong></p>
+                <p className="mt-1">{t("reports.storesLabel")} <strong>{formatCompactNumber(totalStores)}</strong></p>
               </div>
             </div>
           </aside>

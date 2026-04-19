@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { useToast } from "../context/ToastContext";
 import { getOrderInvoicePreviewHref } from "../lib/orderWorkflow";
 
@@ -7,17 +8,19 @@ export default function InvoicePreviewModal({
   order,
   open = false,
   onClose,
-  title = "Invoice preview",
+  title,
 }) {
+  const { t } = useTranslation("admin");
   const toast = useToast();
   const iframeRef = useRef(null);
   const [frameLoading, setFrameLoading] = useState(true);
   const invoiceUrl = getOrderInvoicePreviewHref(order);
+  const resolvedTitle = title ?? t("invoice.title");
   const invoiceLabel = order?.invoiceNumber
-    ? `Invoice ${order.invoiceNumber}`
+    ? t("invoice.invoiceLabel", { number: order.invoiceNumber })
     : order?.id
-      ? `Order invoice #${order.id}`
-      : "Invoice";
+      ? t("invoice.orderInvoiceLabel", { id: order.id })
+      : t("invoice.title");
 
   const handleClose = useCallback(() => {
     onClose?.();
@@ -25,8 +28,8 @@ export default function InvoicePreviewModal({
 
   const handlePrint = useCallback(() => {
     if (!invoiceUrl) {
-      toast.warning("This invoice does not have a preview link available for printing yet.", {
-        title: "Invoice",
+      toast.warning(t("invoice.noPreviewLink"), {
+        title: t("invoice.title"),
       });
       return;
     }
@@ -41,11 +44,11 @@ export default function InvoicePreviewModal({
       frameWindow.focus?.();
       frameWindow.print?.();
     } catch {
-      toast.warning("Your browser blocked direct printing in the popup. Open a new tab and press Ctrl+P.", {
-        title: "Invoice",
+      toast.warning(t("invoice.browserBlocked"), {
+        title: t("invoice.title"),
       });
     }
-  }, [invoiceUrl, toast]);
+  }, [invoiceUrl, toast, t]);
 
   useEffect(() => {
     if (!open) {
@@ -86,11 +89,10 @@ export default function InvoicePreviewModal({
       <div className="relative flex h-[96vh] w-[min(98vw,1680px)] flex-col overflow-hidden rounded-[2rem] border border-matcha-900/10 bg-[#f8f4ec] shadow-[0_28px_80px_rgba(39,30,19,0.28)]">
         <div className="flex flex-wrap items-start justify-between gap-4 border-b border-matcha-900/10 bg-white/78 px-5 py-4 lg:px-7 lg:py-5">
           <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-tea-700">{title}</p>
+            <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-tea-700">{resolvedTitle}</p>
             <h2 className="mt-2 text-2xl font-bold tracking-tight text-tea-900">{invoiceLabel}</h2>
             <p className="mt-2 text-sm leading-7 text-stone-600">
-              Preview the invoice directly in this popup. You can click <strong>Print invoice</strong> or
-              press <strong>Ctrl+P</strong>.
+              {t("invoice.previewNote")}
             </p>
           </div>
 
@@ -100,7 +102,7 @@ export default function InvoicePreviewModal({
               type="button"
               onClick={handlePrint}
             >
-              Print invoice
+              {t("invoice.printInvoice")}
             </button>
             <a
               className="inline-flex items-center justify-center rounded-full border border-matcha-900/10 bg-white/70 px-5 py-3 text-sm font-semibold text-tea-900 transition hover:-translate-y-0.5 hover:bg-white"
@@ -108,14 +110,14 @@ export default function InvoicePreviewModal({
               rel="noreferrer"
               target="_blank"
             >
-              Open new tab
+              {t("invoice.openNewTab")}
             </a>
             <button
               className="inline-flex items-center justify-center rounded-full border border-matcha-900/10 bg-white/70 px-5 py-3 text-sm font-semibold text-tea-900 transition hover:-translate-y-0.5 hover:bg-white"
               type="button"
               onClick={handleClose}
             >
-              Close
+              {t("invoice.close")}
             </button>
           </div>
         </div>
@@ -125,9 +127,9 @@ export default function InvoicePreviewModal({
             <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-[#f6f1e8]/80">
               <div className="rounded-[1.4rem] border border-matcha-900/10 bg-white/82 px-6 py-5 text-center shadow-[0_18px_44px_rgba(79,70,45,0.08)]">
                 <p className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">
-                  Invoice Preview
+                  {t("invoice.preview")}
                 </p>
-                <p className="mt-3 text-base font-semibold text-tea-900">Loading invoice...</p>
+                <p className="mt-3 text-base font-semibold text-tea-900">{t("invoice.loading")}</p>
               </div>
             </div>
           ) : null}

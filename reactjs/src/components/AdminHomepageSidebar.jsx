@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
 import useAdminOperationHref from "../hooks/useAdminOperationHref";
 import {
@@ -29,6 +30,7 @@ function SidebarLink({ active, href, label }) {
 }
 
 export default function AdminHomepageSidebar() {
+  const { t } = useTranslation("admin");
   const auth = useAuth();
   const location = useLocation();
   const isAdmin = auth.hasRole("ADMIN");
@@ -45,18 +47,18 @@ export default function AdminHomepageSidebar() {
         {/* User identity card */}
         <div className="rounded-lg border border-matcha-700/20 bg-matcha-900 p-4 text-cream-50">
           <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-cream-50/60">
-            Signed in
+            {t("home.signedIn")}
           </p>
           <strong className="mt-2 block text-lg font-semibold leading-tight tracking-tight text-cream-50">
-            {auth.user?.fullName || "Admin user"}
+            {auth.user?.fullName || t("home.adminUser")}
           </strong>
           <span className="mt-1 block text-[11px] font-semibold uppercase tracking-[0.16em] text-cream-50/60">
             {auth.user?.role || "Account"}
           </span>
           <p className="mt-2 text-xs leading-5 text-cream-50/70">
             {isManagerMode
-              ? auth.user?.workingStoreName || "No working store assigned."
-              : auth.user?.email || "No email available."}
+              ? auth.user?.workingStoreName || t("home.noStore")
+              : auth.user?.email || t("home.noEmail")}
           </p>
           {isManagerMode && auth.user?.workingStoreAddress ? (
             <p className="mt-1 text-xs leading-5 text-cream-50/50">
@@ -68,9 +70,9 @@ export default function AdminHomepageSidebar() {
         {/* Primary nav */}
         <div>
           <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.2em] text-ink-500">
-            Main navigation
+            {t("home.mainNavigation")}
           </p>
-          <nav className="grid gap-1" aria-label="Homepage admin navigation">
+          <nav className="grid gap-1" aria-label={t("aria.homepageAdminNav")}>
             {primaryLinks.map((entry) => (
               <SidebarLink
                 key={entry.key}
@@ -87,13 +89,13 @@ export default function AdminHomepageSidebar() {
           <div>
             <div className="mb-2 flex items-center justify-between gap-2">
               <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-ink-500">
-                More modules
+                {t("home.moreModules")}
               </p>
               <Link className="text-[11px] font-semibold uppercase tracking-[0.16em] text-matcha-600" to="/admin">
-                Dashboard
+                {t("home.dashboard")}
               </Link>
             </div>
-            <nav className="grid gap-1" aria-label="Homepage admin modules">
+            <nav className="grid gap-1" aria-label={t("aria.homepageAdminModules")}>
               {secondaryLinks.map((entry) => (
                 <SidebarLink
                   key={entry.key}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import SmartImage from "../components/SmartImage";
 import EditorialLayout from "../components/templates/editorial-layout";
 import { formatShortDateTimeVn } from "../lib/locale";
@@ -8,12 +9,13 @@ import { buildNewsPath } from "../lib/newsRouting";
 import { buildStorePath } from "../lib/storeRouting";
 import { ui } from "../ui";
 
-function formatDateTime(value) {
-  if (!value) return "Not published yet";
+function formatDateTime(value, notPublished) {
+  if (!value) return notPublished;
   return formatShortDateTimeVn(value, value);
 }
 
 export default function NewsPage() {
+  const { t } = useTranslation("news");
   const location = useLocation();
   const [searchValue, setSearchValue] = useState("");
   const [featuredOnly, setFeaturedOnly] = useState(false);
@@ -36,7 +38,7 @@ export default function NewsPage() {
         });
         if (!cancelled) setNewsItems(response.items);
       } catch (requestError) {
-        if (!cancelled) setError(requestError.message || "Unable to load news.");
+        if (!cancelled) setError(requestError.message || t("page.loadError"));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -49,24 +51,24 @@ export default function NewsPage() {
   const filters = (
     <div className="flex flex-wrap items-end gap-4">
       <label className="grid min-w-[220px] flex-1 gap-1.5">
-        <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">Search</span>
+        <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">{t("filters.search")}</span>
         <input
           className={ui.input}
           type="text"
-          placeholder="Title, summary..."
+          placeholder={t("filters.searchPlaceholder")}
           value={searchValue}
           onChange={(e) => setSearchValue(e.target.value)}
         />
       </label>
       <label className="grid gap-1.5">
-        <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">Filter</span>
+        <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">{t("filters.filter")}</span>
         <select
           className={ui.input}
           value={featuredOnly ? "featured" : "all"}
           onChange={(e) => setFeaturedOnly(e.target.value === "featured")}
         >
-          <option value="all">All news</option>
-          <option value="featured">Featured only</option>
+          <option value="all">{t("filters.allNews")}</option>
+          <option value="featured">{t("filters.featuredOnly")}</option>
         </select>
       </label>
     </div>
@@ -74,10 +76,10 @@ export default function NewsPage() {
 
   return (
     <EditorialLayout
-      eyebrow="News"
-      kanji="新聞"
-      headline="Latest updates from Kamatcha"
-      subcopy="Follow launch announcements, store news, and the latest system updates."
+      eyebrow={t("page.eyebrow")}
+      kanji={t("page.kanji")}
+      headline={t("page.headline")}
+      subcopy={t("page.subcopy")}
       filters={filters}
     >
       {error ? (
@@ -88,7 +90,7 @@ export default function NewsPage() {
 
       {loading ? (
         <div className="rounded-xl border border-dashed border-beige-300 bg-cream-50 p-6 text-sm text-ink-600">
-          Loading news...
+          {t("page.loading")}
         </div>
       ) : null}
 
@@ -126,8 +128,8 @@ export default function NewsPage() {
                   <div className="flex flex-col justify-between gap-5">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        {newsItem.featured ? <span className={ui.pill}>Featured</span> : null}
-                        <span className={ui.pill}>{formatDateTime(newsItem.publishedAt)}</span>
+                        {newsItem.featured ? <span className={ui.pill}>{t("card.featured")}</span> : null}
+                        <span className={ui.pill}>{formatDateTime(newsItem.publishedAt, t("page.notPublished"))}</span>
                       </div>
                       <h2 className="mt-4 font-display text-3xl font-semibold text-ink-900">{newsItem.title}</h2>
                       <p className="mt-4 text-sm leading-7 text-ink-600">{newsItem.summary}</p>
@@ -142,16 +144,16 @@ export default function NewsPage() {
 
                     <div className="flex flex-wrap gap-3">
                       {canOpenNews ? (
-                        <Link className={ui.primaryButton} to={newsPath}>Read article</Link>
+                        <Link className={ui.primaryButton} to={newsPath}>{t("card.readArticle")}</Link>
                       ) : (
-                        <span className={ui.secondaryButton}>Detail slug unavailable</span>
+                        <span className={ui.secondaryButton}>{t("card.slugUnavailable")}</span>
                       )}
                       {newsItem.relatedStoreId || newsItem.relatedStoreSlug ? (
                         <Link
                           className={ui.secondaryButton}
                           to={buildStorePath({ storeId: newsItem.relatedStoreId, storeSlug: newsItem.relatedStoreSlug })}
                         >
-                          View related store
+                          {t("card.viewRelatedStore")}
                         </Link>
                       ) : null}
                     </div>
@@ -161,7 +163,7 @@ export default function NewsPage() {
             })
           ) : (
             <article className="rounded-xl border border-dashed border-beige-300 bg-cream-50 p-8 text-sm text-ink-600">
-              No matching news found.
+              {t("empty.title")}
             </article>
           )}
         </section>

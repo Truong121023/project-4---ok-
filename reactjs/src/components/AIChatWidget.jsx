@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import SmartImage from "./SmartImage";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
@@ -482,6 +483,7 @@ function ActionButtons({ actions, onAction, title = "Quick actions" }) {
 }
 
 export default function AIChatWidget() {
+  const { t } = useTranslation("account");
   const auth = useAuth();
   const toast = useToast();
   const siteData = useSiteData();
@@ -811,109 +813,139 @@ export default function AIChatWidget() {
     }
   };
 
+  const isEmpty = !messages.length && !threadLoading && !(threadsLoading && !messages.length);
+  const handleComposerKeyDown = (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      if (!sending && draftMessage.trim()) {
+        void handleSubmit(event);
+      }
+    }
+  };
+
   return (
-    <section className="rounded-[2.4rem] border border-matcha-900/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(248,245,239,0.98))] p-4 shadow-[0_24px_60px_rgba(79,70,45,0.14)] backdrop-blur-xl sm:p-6 lg:p-8">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5">
-        <div className="flex items-center gap-4">
-          <div className="grid h-14 w-14 shrink-0 place-items-center rounded-[1.45rem] bg-gradient-to-br from-matcha-500 to-matcha-700 text-foam shadow-[0_18px_34px_rgba(89,108,61,0.24)]">
-            <RobotIcon className="h-6 w-6" />
+    <section className="mx-auto flex h-full w-full max-w-4xl flex-col overflow-hidden rounded-[1.75rem] border border-matcha-900/10 bg-white shadow-[0_24px_60px_rgba(79,70,45,0.12)]">
+      {/* Compact header */}
+      <header className="flex items-center justify-between gap-3 border-b border-matcha-900/10 bg-gradient-to-br from-matcha-500/8 via-white to-cream-50 px-4 py-3 sm:px-5 sm:py-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-matcha-500 to-matcha-700 text-foam shadow-[0_8px_18px_rgba(89,108,61,0.28)]">
+            <RobotIcon className="h-5 w-5" />
           </div>
-          <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
-            <div>
-              <span className="text-xs font-extrabold uppercase tracking-[0.24em] text-tea-700">
-                Chatbox AI
-              </span>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-tea-900 sm:text-3xl">
-                AI assistant
-              </h1>
-            </div>
-            <button
-              className="inline-flex items-center gap-2 rounded-full border border-matcha-900/10 bg-white/88 px-4 py-3 text-sm font-semibold text-tea-900 transition hover:-translate-y-0.5 hover:bg-white"
-              type="button"
-              onClick={() => setHistoryPanelOpen(true)}
-            >
-              <HistoryIcon className="h-5 w-5 text-matcha-700" />
-              <span>History</span>
-              {threads.length ? (
-                <span className="rounded-full bg-matcha-500/12 px-2 py-0.5 text-xs font-bold text-matcha-700">
-                  {threads.length}
-                </span>
-              ) : null}
-            </button>
+          <div className="min-w-0">
+            <h2 className="truncate text-sm font-semibold text-tea-900 sm:text-base">
+              {activeThreadTitle || "Kamatcha AI"}
+            </h2>
+            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-matcha-700">
+              <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 align-middle" />
+              Online
+            </p>
           </div>
         </div>
-
-        <div className="rounded-[1.8rem] border border-matcha-900/10 bg-white/78 p-4 shadow-[0_10px_24px_rgba(79,70,45,0.06)] sm:p-5">
-          <div className="flex gap-3 overflow-x-auto pb-1">
-            {quickPrompts.map((prompt) => (
-              <button
-                key={prompt}
-                className="min-w-[15rem] rounded-[1.3rem] border border-matcha-900/10 bg-[#f8f5ef] px-4 py-3 text-left text-sm font-medium leading-6 text-stone-700 transition hover:-translate-y-0.5 hover:bg-white sm:min-w-[18rem]"
-                type="button"
-                onClick={() => setDraftMessage(prompt)}
-              >
-                {prompt}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {error ? (
-          <div className="rounded-[1.2rem] border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        ) : null}
-
-        {threadError ? (
-          <div className="rounded-[1.2rem] border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-700">
-            {threadError}
-          </div>
-        ) : null}
-
-        <div
-          ref={scrollRef}
-          className="grid h-[60dvh] min-h-[32rem] gap-4 overflow-y-auto rounded-[1.95rem] border border-matcha-900/10 bg-white/82 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] sm:p-6 lg:h-[64dvh]"
+        <button
+          className="inline-flex items-center gap-1.5 rounded-full border border-matcha-900/10 bg-white px-3 py-1.5 text-xs font-semibold text-tea-900 transition hover:-translate-y-0.5 hover:bg-cream-50 sm:gap-2 sm:px-3.5 sm:py-2 sm:text-sm"
+          type="button"
+          onClick={() => setHistoryPanelOpen(true)}
         >
-          {threadLoading || (threadsLoading && !messages.length) ? (
-            <div className="justify-self-start rounded-[1.3rem] border border-matcha-900/10 bg-[#f8f5ef] px-4 py-3 text-sm text-stone-600 shadow-[0_10px_24px_rgba(79,70,45,0.06)]">
-              Loading this AI conversation...
-            </div>
-          ) : messages.length ? (
-            messages.map((message) => {
-              const isUser = message.role === "user";
-              const groupedActions = groupActionsByReference(message.actions);
+          <HistoryIcon className="h-4 w-4 text-matcha-700" />
+          <span className="hidden sm:inline">History</span>
+          {threads.length ? (
+            <span className="rounded-full bg-matcha-500/15 px-1.5 py-0.5 text-[10px] font-bold text-matcha-700">
+              {threads.length}
+            </span>
+          ) : null}
+        </button>
+      </header>
 
-              return (
-                <article
-                  key={message.id}
+      {(error || threadError) ? (
+        <div className="border-b border-red-200 bg-red-50/90 px-4 py-2.5 text-xs text-red-700 sm:px-5">
+          {error || threadError}
+        </div>
+      ) : null}
+
+      {/* Messages area */}
+      <div
+        ref={scrollRef}
+        className="flex min-h-[20rem] flex-1 flex-col gap-3 overflow-y-auto bg-[linear-gradient(180deg,#f8f5ef_0%,#fdfbf7_100%)] px-4 py-4 sm:px-5 sm:py-5"
+      >
+        {threadLoading || (threadsLoading && !messages.length) ? (
+          <div className="self-start rounded-[1.1rem] border border-matcha-900/10 bg-white px-4 py-2.5 text-sm text-stone-600 shadow-sm">
+            Loading this AI conversation...
+          </div>
+        ) : isEmpty ? (
+          <div className="m-auto grid w-full max-w-md place-items-center text-center">
+            <div className="grid h-14 w-14 place-items-center rounded-full bg-matcha-500/10 text-matcha-700">
+              <RobotIcon className="h-7 w-7" />
+            </div>
+            <h3 className="mt-3 font-display text-lg font-semibold text-tea-900">
+              How can I help you today?
+            </h3>
+            <p className="mt-1 text-sm leading-6 text-stone-600">
+              Pick a suggestion or type a message below to start chatting.
+            </p>
+            <div className="mt-5 grid w-full gap-2">
+              {quickPrompts.map((prompt) => (
+                <button
+                  key={prompt}
+                  className="rounded-full border border-matcha-900/10 bg-white px-4 py-2.5 text-left text-sm leading-6 text-stone-700 shadow-sm transition hover:-translate-y-0.5 hover:border-matcha-500/40 hover:bg-matcha-500/5"
+                  type="button"
+                  onClick={() => setDraftMessage(prompt)}
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          messages.map((message) => {
+            const isUser = message.role === "user";
+            const groupedActions = groupActionsByReference(message.actions);
+
+            return (
+              <article
+                key={message.id}
+                className={cn(
+                  "flex w-full gap-2 sm:gap-2.5",
+                  isUser ? "flex-row-reverse" : "flex-row",
+                )}
+              >
+                <div
                   className={cn(
-                    "max-w-[96%] rounded-[1.4rem] px-4 py-3 text-sm leading-7 break-words sm:max-w-[88%] sm:px-5 sm:py-4 sm:text-[0.95rem]",
+                    "grid h-8 w-8 shrink-0 place-items-center rounded-full text-[11px] font-bold",
                     isUser
-                      ? "justify-self-end border border-matcha-700/25 bg-gradient-to-br from-matcha-500 to-matcha-700 text-foam shadow-[0_18px_32px_rgba(89,108,61,0.24)]"
-                      : "justify-self-start border border-matcha-900/10 bg-[#f8f5ef] text-stone-700 shadow-[0_10px_24px_rgba(79,70,45,0.06)]",
+                      ? "bg-matcha-700 text-foam"
+                      : "bg-gradient-to-br from-matcha-500 to-matcha-700 text-foam",
                   )}
                 >
-                  <div
-                    className={cn(
-                      "flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.16em]",
-                      isUser ? "text-foam/80" : "text-stone-500",
-                    )}
-                  >
-                    <span>{isUser ? "You" : "AI"}</span>
-                    <span>{formatTime(message.createdAt)}</span>
-                  </div>
+                  {isUser ? "You" : <RobotIcon className="h-4 w-4" />}
+                </div>
+                <div
+                  className={cn(
+                    "max-w-[82%] rounded-2xl px-4 py-2.5 text-sm leading-6 break-words sm:text-[0.9375rem]",
+                    isUser
+                      ? "rounded-tr-sm bg-gradient-to-br from-matcha-500 to-matcha-700 text-foam shadow-[0_8px_20px_rgba(89,108,61,0.18)]"
+                      : "rounded-tl-sm border border-matcha-900/10 bg-white text-stone-700 shadow-sm",
+                  )}
+                >
                   {isUser ? (
-                    <p className="mt-2 whitespace-pre-wrap font-medium">{message.content}</p>
+                    <p className="whitespace-pre-wrap font-medium">{message.content}</p>
                   ) : (
                     <AIMessageContent content={message.content} />
                   )}
+                  <div
+                    className={cn(
+                      "mt-1.5 text-[10px] uppercase tracking-[0.14em]",
+                      isUser ? "text-foam/70" : "text-stone-400",
+                    )}
+                  >
+                    {formatTime(message.createdAt)}
+                  </div>
 
                   {!isUser && message.references?.length ? (
-                    <div className="mt-4 rounded-[1.1rem] border border-matcha-900/10 bg-white/55 p-3">
-                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-stone-500">
+                    <div className="mt-3 rounded-xl border border-matcha-900/10 bg-cream-50/70 p-2.5">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-stone-500">
                         Related picks
                       </p>
-                      <div className="mt-3 grid gap-3 xl:grid-cols-2">
+                      <div className="mt-2 grid gap-2 xl:grid-cols-2">
                         {message.references.map((reference) => (
                           <ReferenceCard
                             key={reference.referenceKey || `${reference.entityType}-${reference.id}`}
@@ -938,46 +970,63 @@ export default function AIChatWidget() {
                       title="Quick actions"
                     />
                   ) : null}
-                </article>
-              );
-            })
-          ) : (
-            <div className="grid place-items-center rounded-[1.4rem] border border-dashed border-matcha-900/15 bg-[#f8f5ef]/80 p-8 text-center">
-              <div className="max-w-xl">
-                <RobotIcon className="mx-auto h-12 w-12 text-matcha-700" />
-                <p className="mt-4 text-sm leading-7 text-stone-600 sm:text-base">
-                  Pick a suggestion or type a message to start chatting.
-                </p>
-              </div>
-            </div>
-          )}
+                </div>
+              </article>
+            );
+          })
+        )}
 
-          {sending ? (
-            <div className="justify-self-start rounded-[1.3rem] border border-matcha-900/10 bg-[#f8f5ef] px-4 py-3 text-sm text-stone-600 shadow-[0_10px_24px_rgba(79,70,45,0.06)]">
-              AI is preparing an answer...
-            </div>
-          ) : null}
-        </div>
+        {sending ? (
+          <div className="flex items-center gap-2 self-start rounded-2xl rounded-tl-sm border border-matcha-900/10 bg-white px-4 py-2.5 text-sm text-stone-600 shadow-sm">
+            <span className="flex gap-1">
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-matcha-500 [animation-delay:-0.3s]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-matcha-500 [animation-delay:-0.15s]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-matcha-500" />
+            </span>
+            <span className="text-xs">AI is thinking...</span>
+          </div>
+        ) : null}
+      </div>
 
-        <form
-          className="grid gap-3 rounded-[1.95rem] border border-matcha-900/10 bg-white/82 p-4 shadow-[0_10px_24px_rgba(79,70,45,0.06)] sm:p-5"
-          onSubmit={handleSubmit}
-        >
+      {/* Inline composer */}
+      <form
+        className="border-t border-matcha-900/10 bg-white px-3 py-3 sm:px-4 sm:py-3.5"
+        onSubmit={handleSubmit}
+      >
+        <div className="flex items-end gap-2 rounded-2xl border border-matcha-900/15 bg-cream-50 px-3 py-2 transition focus-within:border-matcha-500 focus-within:bg-white focus-within:shadow-[0_0_0_3px_oklch(46%_0.11_140_/_0.12)]">
           <textarea
-            className={`${ui.input} min-h-[10rem] resize-y border border-matcha-900/10 bg-[#f8f5ef] px-5 py-4 text-base leading-7`}
-            placeholder="Ask about stores, dishes, promotions, or orders..."
-            aria-label="Message to Kamatcha AI"
+            className="max-h-40 min-h-[2.25rem] flex-1 resize-none border-0 bg-transparent py-1.5 text-sm leading-6 text-ink-900 outline-none placeholder:text-ink-400"
+            placeholder={t("chat.widgetComposerPlaceholder")}
+            aria-label={t("chat.widgetComposerAria")}
+            rows={1}
             value={draftMessage}
             disabled={sending}
             onChange={(event) => setDraftMessage(event.target.value)}
+            onKeyDown={handleComposerKeyDown}
           />
-          <div className="flex justify-end">
-            <button className={`${ui.primaryButton} min-w-[10rem]`} disabled={sending} type="submit">
-              {sending ? "Sending..." : activeThreadId ? "Send reply" : "Start chat"}
-            </button>
-          </div>
-        </form>
-      </div>
+          <button
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-matcha-500 to-matcha-700 text-foam shadow-[0_6px_14px_rgba(89,108,61,0.28)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_20px_rgba(89,108,61,0.32)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
+            disabled={sending || !draftMessage.trim()}
+            type="submit"
+            aria-label={sending ? t("chat.widgetSending") : t("chat.widgetSend")}
+          >
+            {sending ? (
+              <svg aria-hidden="true" className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3" />
+                <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeLinecap="round" strokeWidth="3" />
+              </svg>
+            ) : (
+              <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
+                <path d="M5 12l14-7-5 14-2.5-5L5 12z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" />
+              </svg>
+            )}
+          </button>
+        </div>
+        <p className="mt-1.5 px-2 text-[11px] text-stone-400">
+          Press <kbd className="rounded border border-matcha-900/10 bg-cream-50 px-1 font-mono text-[10px]">Enter</kbd> to send,{" "}
+          <kbd className="rounded border border-matcha-900/10 bg-cream-50 px-1 font-mono text-[10px]">Shift+Enter</kbd> for new line
+        </p>
+      </form>
 
       <div
         className="pointer-events-none fixed inset-y-0 right-0 z-50 flex justify-end"
@@ -1020,7 +1069,7 @@ export default function AIChatWidget() {
 
               <input
                 className={ui.input}
-                placeholder="Search chat history..."
+                placeholder={t("chat.widgetHistorySearchPlaceholder")}
                 value={threadSearch}
                 onChange={(event) => setThreadSearch(event.target.value)}
               />

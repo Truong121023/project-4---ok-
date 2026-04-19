@@ -6,8 +6,10 @@ import { useToastMessage } from "../hooks/useToastMessage";
 import { getApiErrorMessage } from "../lib/api";
 import { getDefaultAuthenticatedPath } from "../lib/authRedirects";
 import { ui } from "../ui";
+import { useTranslation } from "react-i18next";
 
 export default function ForgotPasswordPage() {
+  const { t } = useTranslation("auth");
   const auth = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -26,8 +28,8 @@ export default function ForgotPasswordPage() {
   const [sendingOtp, setSendingOtp] = useState(false);
   const [resetting, setResetting] = useState(false);
 
-  useToastMessage(error, { type: "error", title: "Unable to process" });
-  useToastMessage(notice, { type: "success", title: "Notice" });
+  useToastMessage(error, { type: "error", title: t("forgotPassword.errorTitle") });
+  useToastMessage(notice, { type: "success", title: t("login.notice") });
 
   if (auth.isAuthenticated) {
     return <Navigate replace to={getDefaultAuthenticatedPath(auth.user)} />;
@@ -47,9 +49,9 @@ export default function ForgotPasswordPage() {
       const response = await auth.requestResetOtp({ email: form.email });
       setOtpRequested(true);
       setOtpExpiresAt(response?.otpExpiresAt ?? "");
-      setNotice(response?.message ?? "OTP sent. Please check your email.");
+      setNotice(response?.message ?? t("forgotPassword.otpSentDefault"));
     } catch (requestError) {
-      setError(getApiErrorMessage(requestError, "Unable to send the reset OTP."));
+      setError(getApiErrorMessage(requestError, t("forgotPassword.unableToSendOtp")));
     } finally {
       setSendingOtp(false);
     }
@@ -62,7 +64,7 @@ export default function ForgotPasswordPage() {
     setNotice("");
 
     if (form.newPassword !== form.confirmPassword) {
-      setError("Password confirmation does not match.");
+      setError(t("forgotPassword.passwordMismatch"));
       setResetting(false);
       return;
     }
@@ -77,12 +79,12 @@ export default function ForgotPasswordPage() {
         replace: true,
         state: {
           message: response?.message
-            ? `${response.message} Please sign in with your new password.`
-            : "Password reset successful. Please sign in with your new password.",
+            ? `${response.message} ${t("forgotPassword.resetSuccessDefault").split(". ").slice(-1)[0]}`
+            : t("forgotPassword.resetSuccessDefault"),
         },
       });
     } catch (resetError) {
-      setError(getApiErrorMessage(resetError, "Unable to reset the password."));
+      setError(getApiErrorMessage(resetError, t("forgotPassword.unableToReset")));
     } finally {
       setResetting(false);
     }
@@ -96,17 +98,17 @@ export default function ForgotPasswordPage() {
       </p>
       <p className={ui.eyebrow}>Kamatcha</p>
       <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-ink-900">
-        Reset password
+        {t("forgotPassword.title")}
       </h1>
       <p className="mt-2 text-sm leading-7 text-ink-600">
-        Request an OTP by email, then enter the code and your new password.
+        {t("forgotPassword.subtitle")}
       </p>
 
       {/* Steps */}
       <div className="mt-5 grid grid-cols-2 gap-3">
         {[
-          { step: "1", label: "Request OTP", note: "Enter email to receive code" },
-          { step: "2", label: "Set new password", note: "Use OTP to create new password" },
+          { step: "1", label: t("forgotPassword.step1Label"), note: t("forgotPassword.step1Note") },
+          { step: "2", label: t("forgotPassword.step2Label"), note: t("forgotPassword.step2Note") },
         ].map(({ step, label, note }) => (
           <div key={step} className="rounded-xl border border-ink-900/10 bg-cream-100 p-3">
             <span className="inline-block rounded-full bg-matcha-500 px-2 py-0.5 text-[10px] font-bold text-cream-50">
@@ -120,7 +122,7 @@ export default function ForgotPasswordPage() {
 
       {otpExpiresAt ? (
         <div className="mt-4 rounded-xl border border-ink-900/10 bg-cream-100 px-4 py-3 text-sm leading-7 text-ink-600">
-          OTP expires at: {otpExpiresAt}
+          {t("forgotPassword.otpExpiresAt", { time: otpExpiresAt })}
         </div>
       ) : null}
 
@@ -128,16 +130,16 @@ export default function ForgotPasswordPage() {
       <form className="mt-6 grid gap-4" onSubmit={handleRequestOtp}>
         <div>
           <p className={ui.eyebrow}>Step 1</p>
-          <p className="font-display text-xl font-semibold text-ink-900">Send reset code</p>
+          <p className="font-display text-xl font-semibold text-ink-900">{t("forgotPassword.step1Title")}</p>
         </div>
 
         <label className="grid gap-2">
-          <span className="text-sm font-semibold text-ink-900">Email</span>
+          <span className="text-sm font-semibold text-ink-900">{t("forgotPassword.email")}</span>
           <input
             className={ui.input}
             type="email"
             name="email"
-            placeholder="user@kamatcha.com"
+            placeholder={t("forgotPassword.emailPlaceholder")}
             value={form.email}
             onChange={handleChange}
             required
@@ -145,7 +147,7 @@ export default function ForgotPasswordPage() {
         </label>
 
         <button className={ui.primaryButton} disabled={sendingOtp} type="submit" aria-busy={sendingOtp}>
-          {sendingOtp ? "Sending OTP..." : otpRequested ? "Resend OTP" : "Send OTP"}
+          {sendingOtp ? t("forgotPassword.sendingOtp") : otpRequested ? t("forgotPassword.resendOtp") : t("forgotPassword.sendOtp")}
         </button>
       </form>
 
@@ -160,7 +162,7 @@ export default function ForgotPasswordPage() {
       >
         <div>
           <p className={ui.eyebrow}>Step 2</p>
-          <p className="font-display text-xl font-semibold text-ink-900">Enter OTP &amp; new password</p>
+          <p className="font-display text-xl font-semibold text-ink-900">{t("forgotPassword.step2Title")}</p>
         </div>
 
         {notice ? (
@@ -176,11 +178,11 @@ export default function ForgotPasswordPage() {
         ) : null}
 
         <label className="grid gap-2">
-          <span className="text-sm font-semibold text-ink-900">OTP</span>
+          <span className="text-sm font-semibold text-ink-900">{t("forgotPassword.otp")}</span>
           <input
             className={ui.input}
             name="otp"
-            placeholder="Enter the OTP code"
+            placeholder={t("forgotPassword.otpPlaceholder")}
             value={form.otp}
             onChange={handleChange}
             required
@@ -188,12 +190,12 @@ export default function ForgotPasswordPage() {
         </label>
 
         <label className="grid gap-2">
-          <span className="text-sm font-semibold text-ink-900">New password</span>
+          <span className="text-sm font-semibold text-ink-900">{t("forgotPassword.newPassword")}</span>
           <input
             className={ui.input}
             type="password"
             name="newPassword"
-            placeholder="Enter a new password"
+            placeholder={t("forgotPassword.newPasswordPlaceholder")}
             value={form.newPassword}
             onChange={handleChange}
             autoComplete="new-password"
@@ -202,12 +204,12 @@ export default function ForgotPasswordPage() {
         </label>
 
         <label className="grid gap-2">
-          <span className="text-sm font-semibold text-ink-900">Confirm new password</span>
+          <span className="text-sm font-semibold text-ink-900">{t("forgotPassword.confirmPassword")}</span>
           <input
             className={ui.input}
             type="password"
             name="confirmPassword"
-            placeholder="Re-enter the new password"
+            placeholder={t("forgotPassword.confirmPasswordPlaceholder")}
             value={form.confirmPassword}
             onChange={handleChange}
             autoComplete="new-password"
@@ -221,17 +223,17 @@ export default function ForgotPasswordPage() {
           type="submit"
           aria-busy={resetting}
         >
-          {resetting ? "Resetting..." : "Reset password"}
+          {resetting ? t("forgotPassword.resetting") : t("forgotPassword.resetPassword")}
         </button>
       </form>
 
       {/* Footer links */}
       <div className="mt-5 flex flex-wrap gap-4 text-sm text-ink-600">
         <Link className="font-semibold text-matcha-700 hover:text-matcha-500" to="/login">
-          Back to sign in
+          {t("forgotPassword.backToSignIn")}
         </Link>
         <Link className="font-semibold text-matcha-700 hover:text-matcha-500" to="/register">
-          Create account
+          {t("forgotPassword.createAccount")}
         </Link>
       </div>
     </AuthLayout>

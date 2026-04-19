@@ -1,12 +1,13 @@
 import { NavLink } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
-const quickLinks = [
-  { to: "/menu", label: "Menu" },
-  { to: "/stores", label: "Stores" },
-  { to: "/events", label: "Events" },
-  { to: "/promotions", label: "Promotions" },
-  { to: "/news", label: "News" },
-  { to: "/reviews", label: "Reviews" },
+const quickLinkKeys = [
+  { to: "/menu", key: "menu" },
+  { to: "/stores", key: "stores" },
+  { to: "/events", key: "events" },
+  { to: "/promotions", key: "promotions" },
+  { to: "/news", key: "news" },
+  { to: "/reviews", key: "reviews" },
 ];
 
 function InstagramIcon({ className = "h-5 w-5" }) {
@@ -36,6 +37,8 @@ function TiktokIcon({ className = "h-5 w-5" }) {
 }
 
 export default function SiteFooter() {
+  const { t } = useTranslation("common");
+
   return (
     <footer className="mt-16 border-t border-matcha-900/10 bg-cream-200">
       {/* Main 3-column grid */}
@@ -44,7 +47,7 @@ export default function SiteFooter() {
         <div>
           <h2 className="font-display text-lg font-semibold text-tea-900">Kamatcha</h2>
           <p className="mt-3 max-w-xs text-sm leading-7 text-stone-600">
-            Matcha, milk tea, and calm corners across the city. Crafted with intention, served with care.
+            {t("footer.tagline")}
           </p>
           {/* Social icons */}
           <div className="mt-5 flex items-center gap-3">
@@ -52,7 +55,7 @@ export default function SiteFooter() {
               href="https://instagram.com"
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Kamatcha on Instagram"
+              aria-label={t("footer.instagramAriaLabel")}
               className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-matcha-900/10 bg-white/60 text-stone-600 transition hover:bg-white hover:text-tea-900"
             >
               <InstagramIcon />
@@ -61,7 +64,7 @@ export default function SiteFooter() {
               href="https://facebook.com"
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Kamatcha on Facebook"
+              aria-label={t("footer.facebookAriaLabel")}
               className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-matcha-900/10 bg-white/60 text-stone-600 transition hover:bg-white hover:text-tea-900"
             >
               <FacebookIcon />
@@ -70,7 +73,7 @@ export default function SiteFooter() {
               href="https://tiktok.com"
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Kamatcha on TikTok"
+              aria-label={t("footer.tiktokAriaLabel")}
               className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-matcha-900/10 bg-white/60 text-stone-600 transition hover:bg-white hover:text-tea-900"
             >
               <TiktokIcon />
@@ -79,19 +82,19 @@ export default function SiteFooter() {
         </div>
 
         {/* Col 2 — Quick links */}
-        <nav aria-label="Footer quick links">
+        <nav aria-label={t("aria.footerQuickLinks")}>
           <h3 className="font-display text-sm font-semibold uppercase tracking-[0.2em] text-tea-900">
-            Explore
+            {t("footer.exploreTitle")}
           </h3>
           <div className="mt-4 h-px bg-matcha-900/10" />
           <ul className="mt-4 grid gap-2">
-            {quickLinks.map(link => (
+            {quickLinkKeys.map(link => (
               <li key={link.to}>
                 <NavLink
                   to={link.to}
                   className="text-sm text-stone-600 transition hover:text-tea-900"
                 >
-                  {link.label}
+                  {t(`footer.quickLinks.${link.key}`)}
                 </NavLink>
               </li>
             ))}
@@ -101,14 +104,17 @@ export default function SiteFooter() {
         {/* Col 3 — Contact */}
         <div>
           <h3 className="font-display text-sm font-semibold uppercase tracking-[0.2em] text-tea-900">
-            Contact
+            {t("footer.contactTitle")}
           </h3>
           <div className="mt-4 h-px bg-matcha-900/10" />
           <ul className="mt-4 grid gap-3 text-sm text-stone-600">
-            <li>Open daily 07:00 – 22:30</li>
-            <li>Member hotline: <span className="font-semibold text-tea-900">1900 2026</span></li>
+            <li>{t("footer.openHours")}</li>
             <li>
-              Email:{" "}
+              {t("footer.hotline")}{" "}
+              <span className="font-semibold text-tea-900">1900 2026</span>
+            </li>
+            <li>
+              {t("footer.email")}{" "}
               <a
                 href="mailto:hello@kamatcha.vn"
                 className="font-semibold text-tea-900 transition hover:text-matcha-700"
@@ -123,10 +129,10 @@ export default function SiteFooter() {
       {/* Legal strip */}
       <div className="border-t border-matcha-900/10">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-4 py-4 text-xs text-stone-500 sm:flex-row sm:px-6">
-          <span>&copy; {new Date().getFullYear()} Kamatcha. All rights reserved.</span>
+          <span>{t("footer.copyright", { year: new Date().getFullYear() })}</span>
           <div className="flex gap-4">
-            <a href="#" className="transition hover:text-tea-900">Privacy Policy</a>
-            <a href="#" className="transition hover:text-tea-900">Terms of Service</a>
+            <a href="#" className="transition hover:text-tea-900">{t("footer.privacyPolicy")}</a>
+            <a href="#" className="transition hover:text-tea-900">{t("footer.termsOfService")}</a>
           </div>
         </div>
       </div>

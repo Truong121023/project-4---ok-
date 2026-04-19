@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import BrandLogo from "./BrandLogo";
+import LanguageSwitcher from "./LanguageSwitcher";
 import SiteMobileNav from "./site-mobile-nav";
 import { useAuth } from "../context/AuthContext";
 import { useSiteData } from "../context/SiteDataContext";
@@ -46,6 +48,7 @@ function getNavClass({ isActive }) {
 }
 
 export default function SiteHeader() {
+  const { t } = useTranslation("common");
   const auth = useAuth();
   const { cartCount } = useSiteData();
   const location = useLocation();
@@ -81,16 +84,26 @@ export default function SiteHeader() {
   const canUseSupportChat = auth.hasRole("USER", "ADMIN", "MANAGER");
 
   const adminNavLinks = canAccessAdminArea
-    ? getAdminNavigation({ isManagerMode, operationHref }).primaryLinks.map(e => ({ to: e.href, label: e.label }))
+    ? getAdminNavigation({ isManagerMode, operationHref }).primaryLinks.map(e => ({
+        to: e.href,
+        labelKey: `nav.${e.key}`,
+      }))
     : [];
 
   const navLinks = canAccessAdminArea
-    ? [...adminNavLinks, ...(canUseSupportChat ? [{ to: "/support-chat", label: "24/7 Support" }] : [])]
+    ? [
+        ...adminNavLinks,
+        ...(canUseSupportChat ? [{ to: "/support-chat", labelKey: "nav.support" }] : []),
+      ]
     : [
         ...navigationLinks,
-        ...(canUseSupportChat ? [{ to: "/support-chat", label: "24/7 Support" }] : []),
-        ...(canAccessEmployeeArea ? [{ to: "/employee", label: "Workspace" }] : []),
+        ...(canUseSupportChat ? [{ to: "/support-chat", labelKey: "nav.support" }] : []),
+        ...(canAccessEmployeeArea ? [{ to: "/employee", labelKey: "nav.workspace" }] : []),
       ];
+
+  const cartAriaLabel = cartCount
+    ? `${t("aria.cart")}, ${t("cart.items_count_other", { count: cartCount })}`
+    : t("aria.cart");
 
   return (
     <>
@@ -109,24 +122,27 @@ export default function SiteHeader() {
           </NavLink>
 
           {/* Center nav — desktop only */}
-          <nav className="hidden flex-1 justify-center gap-1 lg:flex" aria-label="Main navigation">
+          <nav className="hidden flex-1 justify-center gap-1 lg:flex" aria-label={t("aria.mainNav")}>
             {navLinks.slice(0, 6).map(link => (
               <NavLink key={link.to} className={getNavClass} to={link.to}>
-                {link.label}
+                {t(link.labelKey)}
               </NavLink>
             ))}
           </nav>
 
           {/* Right actions */}
           <div className="flex shrink-0 items-center gap-2">
+            {/* Language */}
+            <LanguageSwitcher variant="site" />
+
             {/* Cart */}
             <NavLink
               to="/cart"
-              aria-label={`Cart${cartCount ? `, ${cartCount} items` : ""}`}
+              aria-label={cartAriaLabel}
               className="inline-flex items-center gap-1.5 rounded-full border border-matcha-900/10 bg-white/72 px-3.5 py-2 text-sm font-semibold text-tea-900 transition hover:bg-white"
             >
               <CartIcon />
-              <span className="hidden sm:inline">Cart</span>
+              <span className="hidden sm:inline">{t("cart.label")}</span>
               {cartCount > 0 && (
                 <span className="rounded-full bg-matcha-500 px-1.5 py-0.5 text-[11px] font-bold text-white">
                   {cartCount}
@@ -138,11 +154,11 @@ export default function SiteHeader() {
             {auth.initializing ? null : auth.isAuthenticated ? (
               <NavLink
                 to="/account"
-                aria-label="Account"
+                aria-label={t("aria.account")}
                 className="inline-flex items-center gap-1.5 rounded-full border border-matcha-900/10 bg-white/72 px-3.5 py-2 text-sm font-semibold text-tea-900 transition hover:bg-white"
               >
                 <UserIcon />
-                <span className="hidden sm:inline">Account</span>
+                <span className="hidden sm:inline">{t("buttons.account")}</span>
               </NavLink>
             ) : (
               <>
@@ -150,13 +166,13 @@ export default function SiteHeader() {
                   to="/register"
                   className="hidden rounded-full border border-matcha-900/10 bg-white/72 px-3.5 py-2 text-sm font-semibold text-tea-900 transition hover:bg-white sm:inline-flex"
                 >
-                  Sign up
+                  {t("buttons.signUp")}
                 </NavLink>
                 <NavLink
                   to="/login"
                   className="inline-flex rounded-full bg-gradient-to-br from-matcha-500 to-matcha-700 px-3.5 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(89,108,61,0.2)] transition hover:-translate-y-0.5"
                 >
-                  Sign in
+                  {t("buttons.signIn")}
                 </NavLink>
               </>
             )}
@@ -164,7 +180,7 @@ export default function SiteHeader() {
             {/* Hamburger — mobile */}
             <button
               ref={hamburgerRef}
-              aria-label="Open navigation menu"
+              aria-label={t("aria.menu")}
               aria-expanded={mobileNavOpen}
               className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-matcha-900/10 bg-white/72 text-tea-900 transition hover:bg-white lg:hidden"
               type="button"

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import DistanceOriginControls from "../components/DistanceOriginControls";
 import QuickAddToCartButton from "../components/QuickAddToCartButton";
 import QuickFavoriteButton from "../components/QuickFavoriteButton";
@@ -69,7 +70,7 @@ function DishSkeleton() {
   );
 }
 
-function DishCard({ item, index, onCartMessage, onFavoriteMessage, userLocation }) {
+function DishCard({ item, index, onCartMessage, onFavoriteMessage, userLocation, t }) {
   const bestStoreId = item.bestStore?.storeId || item.bestStore?.id;
   const availability = item.bestStore
     ? getCartAvailabilityDecision(item.bestStore)
@@ -89,7 +90,7 @@ function DishCard({ item, index, onCartMessage, onFavoriteMessage, userLocation 
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-ink-400 text-xs">No image</div>
+          <div className="flex h-full items-center justify-center text-ink-400 text-xs">{t("card.noImage")}</div>
         )}
         <div className="absolute left-2 top-2 flex gap-1">
           <Badge variant="matcha">#{index + 1}</Badge>
@@ -114,7 +115,7 @@ function DishCard({ item, index, onCartMessage, onFavoriteMessage, userLocation 
           {item.reviewCount ? (
             <span className="text-xs text-ink-500">{item.averageRating.toFixed(1)}★ ({formatCompact(item.reviewCount)})</span>
           ) : (
-            <span className="text-xs text-ink-400">No reviews yet</span>
+            <span className="text-xs text-ink-400">{t("card.noReviews")}</span>
           )}
         </div>
 
@@ -137,24 +138,24 @@ function DishCard({ item, index, onCartMessage, onFavoriteMessage, userLocation 
             preorderMessage={getCartSuccessMessage(availability.preorderOnly)}
             blockedMessage={
               item.bestStore
-                ? availability.reason || "Not available at this store."
-                : "No eligible store available."
+                ? availability.reason || t("dishDetail.notAvailable")
+                : t("dishDetail.noEligibleStore")
             }
             onResult={onCartMessage}
           />
           <QuickFavoriteButton
             targetType="dish"
             targetId={item.id}
-            activeLabel="Saved"
-            inactiveLabel="Save"
+            activeLabel={t("card.saved")}
+            inactiveLabel={t("card.save")}
             onResult={onFavoriteMessage}
           />
           <Link className={ui.ghostButton + " !text-xs !px-3 !py-2"} to={`/menu/${item.id}`}>
-            Details
+            {t("card.details")}
           </Link>
           {item.bestStore ? (
             <Link className={ui.ghostButton + " !text-xs !px-3 !py-2"} to={buildStorePath(item.bestStore)}>
-              Store
+              {t("card.store")}
             </Link>
           ) : null}
         </div>
@@ -164,6 +165,7 @@ function DishCard({ item, index, onCartMessage, onFavoriteMessage, userLocation 
 }
 
 export default function MenuPage() {
+  const { t } = useTranslation("menu");
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchValue, setSearchValue] = useState("");
@@ -241,22 +243,22 @@ export default function MenuPage() {
 
   const locateStores = async () => {
     setLocating(true);
-    setLocationMessage("Getting your current location...");
+    setLocationMessage(t("location.getting"));
     try {
       const loc = await requestCurrentLocation();
       setUserLocation(loc);
-      setLocationMessage("Current location captured for menu results.");
+      setLocationMessage(t("location.captured"));
     } catch (err) { setLocationMessage(err.message); }
     finally { setLocating(false); }
   };
 
   const handleUseAddress = async () => {
     setGeocoding(true);
-    setLocationMessage("Looking up address...");
+    setLocationMessage(t("location.lookingUp"));
     try {
       const loc = await geocodeAddress(addressQuery);
       setUserLocation(loc);
-      setLocationMessage(`Calculating distance from: ${loc.label}`);
+      setLocationMessage(t("location.calculatingFrom", { label: loc.label }));
     } catch (err) { setLocationMessage(err.message); }
     finally { setGeocoding(false); }
   };
@@ -264,37 +266,37 @@ export default function MenuPage() {
   const clearLocation = () => {
     setUserLocation(null);
     setAddressQuery("");
-    setLocationMessage("Distance origin cleared.");
+    setLocationMessage(t("location.cleared"));
   };
 
   const filterRail = (
     <div className="flex flex-col gap-5">
       <div>
-        <p className={ui.eyebrow}>Search</p>
+        <p className={ui.eyebrow}>{t("filters.search")}</p>
         <input
           className={ui.input}
           type="text"
-          placeholder="Item name, category..."
+          placeholder={t("filters.searchPlaceholder")}
           value={searchValue}
           onChange={(e) => setSearchValue(e.target.value)}
         />
       </div>
 
       <div>
-        <p className={ui.eyebrow}>Sort by</p>
+        <p className={ui.eyebrow}>{t("filters.sortBy")}</p>
         <select className={ui.input} value={sortKey} onChange={(e) => setSortKey(e.target.value)}>
-          <option value="top-desc">Top reviews + rating</option>
-          <option value="rating-desc">Highest rated</option>
-          <option value="order-desc">Most ordered</option>
-          <option value="favorite-desc">Most favorited</option>
-          <option value="distance-asc">Nearest store</option>
+          <option value="top-desc">{t("filters.sortTopReviews")}</option>
+          <option value="rating-desc">{t("filters.sortHighestRated")}</option>
+          <option value="order-desc">{t("filters.sortMostOrdered")}</option>
+          <option value="favorite-desc">{t("filters.sortMostFavorited")}</option>
+          <option value="distance-asc">{t("filters.sortNearestStore")}</option>
         </select>
       </div>
 
       <div>
-        <p className={ui.eyebrow}>Min. rating</p>
+        <p className={ui.eyebrow}>{t("filters.minRating")}</p>
         <select className={ui.input} value={minimumStars} onChange={(e) => setMinimumStars(e.target.value)}>
-          <option value="all">All</option>
+          <option value="all">{t("filters.ratingAll")}</option>
           <option value="4.5">4.5+ stars</option>
           <option value="4">4+ stars</option>
           <option value="3.5">3.5+ stars</option>
@@ -302,19 +304,19 @@ export default function MenuPage() {
       </div>
 
       <div>
-        <p className={ui.eyebrow}>Store</p>
+        <p className={ui.eyebrow}>{t("filters.store")}</p>
         <select className={ui.input} value={selectedStoreKey} onChange={(e) => updateFilterParams({ store: e.target.value })}>
-          <option value="">All stores</option>
+          <option value="">{t("filters.storeAll")}</option>
           {storeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </div>
 
       <div>
-        <p className={ui.eyebrow}>Opening time</p>
+        <p className={ui.eyebrow}>{t("filters.openingTime")}</p>
         <select className={ui.input} value={timeFilterMode} onChange={(e) => setTimeFilterMode(e.target.value)}>
-          <option value="all">All</option>
-          <option value="now">Selling now</option>
-          <option value="custom">At specific time</option>
+          <option value="all">{t("filters.timeAll")}</option>
+          <option value="now">{t("filters.timeNow")}</option>
+          <option value="custom">{t("filters.timeCustom")}</option>
         </select>
         {timeFilterMode === "custom" ? (
           <input className={ui.input + " mt-2"} type="time" value={customTime} onChange={(e) => setCustomTime(e.target.value)} />
@@ -343,9 +345,9 @@ export default function MenuPage() {
     <main className="bg-bg min-h-screen">
       {/* Page header */}
       <div className="mx-auto w-full max-w-7xl px-4 pb-2 pt-8 sm:px-6 lg:px-8">
-        <p className={ui.eyebrow}>Menu</p>
-        <h1 className={ui.bannerTitle}>Most-loved drinks</h1>
-        <p className={ui.copy}>Browse our full menu. Filter by category, rating, or store.</p>
+        <p className={ui.eyebrow}>{t("page.eyebrow")}</p>
+        <h1 className={ui.bannerTitle}>{t("page.title")}</h1>
+        <p className={ui.copy}>{t("page.subtitle")}</p>
 
         {/* Category pills */}
         {categoryOptions.length ? (
@@ -355,7 +357,7 @@ export default function MenuPage() {
               size="sm"
               onClick={() => updateFilterParams({ category: "" })}
             >
-              All
+              {t("filters.categoryAll")}
             </Button>
             {categoryOptions.map((cat) => (
               <Button
@@ -371,21 +373,21 @@ export default function MenuPage() {
         ) : null}
 
         <p className="mt-3 text-sm text-ink-500">
-          Showing <strong className="text-ink-800">{timeFilteredDishes.length}</strong> items
+          {t("page.showing")} <strong className="text-ink-800">{timeFilteredDishes.length}</strong> {t("page.items")}
         </p>
       </div>
 
       <CatalogLayout
         filters={filterRail}
-        filtersLabel="Menu filters"
+        filtersLabel={t("filters.label")}
         loading={loading}
         skeleton={<DishSkeleton />}
         empty={
           <EmptyState
             icon="🍵"
-            title="No matching items"
-            description={selectedStoreKey ? "No items match this store." : "Try adjusting your filters."}
-            action={<Button size="sm" onClick={() => updateFilterParams({ category: "", store: "" })}>Clear filters</Button>}
+            title={t("empty.title")}
+            description={selectedStoreKey ? t("empty.descriptionStore") : t("empty.descriptionDefault")}
+            action={<Button size="sm" onClick={() => updateFilterParams({ category: "", store: "" })}>{t("empty.clearFilters")}</Button>}
           />
         }
       >
@@ -397,6 +399,7 @@ export default function MenuPage() {
             onCartMessage={setCartMessage}
             onFavoriteMessage={setFavoriteMessage}
             userLocation={userLocation}
+            t={t}
           />
         ))}
       </CatalogLayout>

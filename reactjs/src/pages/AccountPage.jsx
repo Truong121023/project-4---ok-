@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import UserFeedbackForm from "../components/UserFeedbackForm";
 import AccountLayout from "../components/templates/account-layout";
 import { useAuth } from "../context/AuthContext";
@@ -315,6 +316,7 @@ function calculateMembershipProgress(currentPoints, currentThreshold, nextThresh
 }
 
 export default function AccountPage() {
+  const { t } = useTranslation("account");
   const auth = useAuth();
   const location = useLocation();
   const {
@@ -372,18 +374,18 @@ export default function AccountPage() {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
-  useToastMessage(feedbackError, { type: "error", title: "Feedback" });
-  useToastMessage(feedbackNotice, { type: "success", title: "Feedback" });
-  useToastMessage(favoritesError, { type: "error", title: "Favorites" });
-  useToastMessage(favoriteNotice, { type: "success", title: "Favorites" });
-  useToastMessage(reviewHistoryError, { type: "error", title: "Reviews" });
-  useToastMessage(reviewNotice, { type: "success", title: "Reviews" });
-  useToastMessage(memberLevelsError, { type: "error", title: "Membership" });
-  useToastMessage(deliveryAddressError, { type: "error", title: "Delivery address" });
-  useToastMessage(deliveryAddressNotice, { type: "success", title: "Delivery address" });
-  useToastMessage(ordersError, { type: "error", title: "Orders" });
-  useToastMessage(passwordResetError, { type: "error", title: "Reset password" });
-  useToastMessage(passwordResetNotice, { type: "success", title: "Reset password" });
+  useToastMessage(feedbackError, { type: "error", title: t("feedback.eyebrow") });
+  useToastMessage(feedbackNotice, { type: "success", title: t("feedback.eyebrow") });
+  useToastMessage(favoritesError, { type: "error", title: t("favorites.eyebrow") });
+  useToastMessage(favoriteNotice, { type: "success", title: t("favorites.eyebrow") });
+  useToastMessage(reviewHistoryError, { type: "error", title: t("reviews.eyebrow") });
+  useToastMessage(reviewNotice, { type: "success", title: t("reviews.eyebrow") });
+  useToastMessage(memberLevelsError, { type: "error", title: t("membership.eyebrow") });
+  useToastMessage(deliveryAddressError, { type: "error", title: t("addresses.eyebrow") });
+  useToastMessage(deliveryAddressNotice, { type: "success", title: t("addresses.eyebrow") });
+  useToastMessage(ordersError, { type: "error", title: t("nav.orders") });
+  useToastMessage(passwordResetError, { type: "error", title: t("security.eyebrow") });
+  useToastMessage(passwordResetNotice, { type: "success", title: t("security.eyebrow") });
 
   const isUser = auth.hasRole("USER");
   const isPrivilegedAccount = auth.hasRole("ADMIN", "MANAGER");
@@ -1091,7 +1093,7 @@ export default function AccountPage() {
       {/* Quick credit */}
       {isUser && (
         <div className="rounded-lg border border-ink-900/10 bg-cream-100/60 px-4 py-3 text-center">
-          <p className="text-xs text-ink-500">Credit points</p>
+          <p className="text-xs text-ink-500">{t("overview.creditPoints")}</p>
           <strong className="block text-lg font-semibold text-ink-900">
             {formatCount(auth.user?.creditPoints ?? 0)}
           </strong>
@@ -1101,15 +1103,15 @@ export default function AccountPage() {
       {/* Nav links */}
       <nav aria-label="Account sections" className="grid gap-1">
         {[
-          { href: "/account", label: "Overview", key: "overview" },
+          { href: "/account", label: t("nav.overview"), key: "overview" },
           ...(isUser
             ? [
-                { href: "/account/orders", label: "My orders", key: "orders" },
-                { href: "/account/levels", label: "Membership", key: "levels" },
-                { href: "/account/favorites", label: "Favorites", key: "favorites" },
-                { href: "/account/addresses", label: "Addresses", key: "addresses" },
-                { href: "/account/reviews", label: "Reviews", key: "reviews" },
-                { href: "/account/feedbacks", label: "Feedback", key: "feedbacks" },
+                { href: "/account/orders", label: t("nav.orders"), key: "orders" },
+                { href: "/account/levels", label: t("nav.membership"), key: "levels" },
+                { href: "/account/favorites", label: t("nav.favorites"), key: "favorites" },
+                { href: "/account/addresses", label: t("nav.addresses"), key: "addresses" },
+                { href: "/account/reviews", label: t("reviews.eyebrow"), key: "reviews" },
+                { href: "/account/feedbacks", label: t("feedback.eyebrow"), key: "feedbacks" },
               ]
             : []),
         ].map((link) => (
@@ -1134,7 +1136,7 @@ export default function AccountPage() {
         disabled={loggingOut}
         onClick={handleLogout}
       >
-        {loggingOut ? "Signing out..." : "Sign out"}
+        {loggingOut ? t("signOut.signingOut") : t("signOut.signOut")}
       </button>
     </div>
   );
@@ -1245,7 +1247,7 @@ export default function AccountPage() {
                   to="/account"
                   onClick={handleAccountMenuClose}
                 >
-                  Account details
+                  {t("overview.title")}
                 </Link>
                 <button
                   className="inline-flex items-center justify-center rounded-full bg-gradient-to-br from-matcha-500 to-matcha-700 px-4 py-4 text-base font-semibold text-foam shadow-[0_16px_30px_rgba(89,108,61,0.24)] transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-70"
@@ -1253,7 +1255,7 @@ export default function AccountPage() {
                   type="button"
                   onClick={handleLogout}
                 >
-                  {loggingOut ? "Signing out..." : "Sign out"}
+                  {loggingOut ? t("signOut.signingOut") : t("signOut.signOut")}
                 </button>
               </div>
             </div>
@@ -1266,7 +1268,7 @@ export default function AccountPage() {
         <section className="grid gap-6 xl:grid-cols-[1fr_0.92fr]">
           <section className={`${ui.panel} grid gap-5`}>
             <div>
-              <p className={ui.eyebrow}>Current user</p>
+              <p className={ui.eyebrow}>{t("overview.currentUser")}</p>
               <p className="text-3xl font-bold tracking-tight text-tea-900">
                 {auth.user?.fullName}
               </p>
@@ -1274,53 +1276,52 @@ export default function AccountPage() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <article className="rounded-3xl border border-matcha-900/10 bg-white/65 p-5">
-                <p className="text-sm text-stone-600">Email</p>
+                <p className="text-sm text-stone-600">{t("overview.email")}</p>
                 <strong className="mt-2 block break-all text-base text-tea-900">
                   {auth.user?.email ?? "N/A"}
                 </strong>
               </article>
               <article className="rounded-3xl border border-matcha-900/10 bg-white/65 p-5">
-                <p className="text-sm text-stone-600">Role</p>
+                <p className="text-sm text-stone-600">{t("overview.role")}</p>
                 <strong className="mt-2 block text-base text-tea-900">
                   {auth.user?.role ?? "Unknown"}
                 </strong>
               </article>
               <article className="rounded-3xl border border-matcha-900/10 bg-white/65 p-5">
-                <p className="text-sm text-stone-600">Created at</p>
+                <p className="text-sm text-stone-600">{t("overview.createdAt")}</p>
                 <strong className="mt-2 block text-base text-tea-900">
                   {formatDateTime(auth.user?.createdAt)}
                 </strong>
               </article>
               <article className="rounded-3xl border border-matcha-900/10 bg-white/65 p-5">
-                <p className="text-sm text-stone-600">Store</p>
+                <p className="text-sm text-stone-600">{t("overview.store")}</p>
                 <strong className="mt-2 block text-base text-tea-900">
-                  {currentStoreName || "Manage all stores"}
+                  {currentStoreName || t("overview.manageAllStores")}
                 </strong>
                 <p className="mt-2 text-sm text-stone-600">
-                  {currentStoreId ? `Store #${currentStoreId}` : "Manage all stores"}
+                  {currentStoreId ? t("overview.storeNumber", { id: currentStoreId }) : t("overview.manageAllStores")}
                 </p>
               </article>
               {isUser ? (
                 <article className="rounded-3xl border border-matcha-900/10 bg-white/65 p-5 sm:col-span-2">
-                  <p className="text-sm text-stone-600">Credit points</p>
+                  <p className="text-sm text-stone-600">{t("overview.creditPoints")}</p>
                   <strong className="mt-2 block text-2xl text-tea-900">
                     {formatCount(auth.user?.creditPoints)}
                   </strong>
                   <p className="mt-2 text-sm leading-7 text-stone-600">
-                    Updates after paid orders. Every 1,000 VND paid adds 1 credit point that can
-                    be used to redeem vouchers.
+                    {t("overview.creditPointsSubcopy")}
                   </p>
                 </article>
               ) : null}
 
               {isUser ? (
                 <article className="rounded-3xl border border-matcha-900/10 bg-white/65 p-5 sm:col-span-2">
-                  <p className="text-sm text-stone-600">Membership points</p>
+                  <p className="text-sm text-stone-600">{t("overview.membershipPoints")}</p>
                   <strong className="mt-2 block text-2xl text-tea-900">
                     {formatCount(auth.user?.membershipPoints)}
                   </strong>
                   <p className="mt-2 text-sm leading-7 text-stone-600">
-                    Membership points track total paid spend and determine your current member tier.
+                    {t("overview.membershipPointsSubcopy")}
                   </p>
                 </article>
               ) : null}
@@ -1332,11 +1333,10 @@ export default function AccountPage() {
           <div className="grid gap-5 rounded-[1.75rem] border border-matcha-900/10 bg-white/55 p-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className={ui.eyebrow}>Security</p>
-                <h2 className="text-2xl font-semibold text-tea-900">Reset password</h2>
+                <p className={ui.eyebrow}>{t("security.eyebrow")}</p>
+                <h2 className="text-2xl font-semibold text-tea-900">{t("security.resetPasswordTitle")}</h2>
                 <p className="mt-2 max-w-2xl text-sm leading-7 text-stone-600">
-                  Request an OTP to your current account email, then enter the OTP and your new
-                  password here. The verification code will be sent to <strong>{auth.user?.email ?? "your email"}</strong>.
+                  {t("security.resetPasswordSubcopy", { email: auth.user?.email ?? "" })}
                 </p>
               </div>
 
@@ -1345,7 +1345,7 @@ export default function AccountPage() {
                 type="button"
                 onClick={handleRequestPasswordResetOtp}
               >
-                {passwordOtpSending ? "Sending OTP..." : "Send OTP"}
+                {passwordOtpSending ? t("security.sendingOtp") : t("security.sendOtp")}
               </button>
             </div>
 
@@ -1364,19 +1364,19 @@ export default function AccountPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="grid gap-2">
                 <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                  Account email
+                  {t("security.accountEmail")}
                 </span>
                 <input className={ui.input} type="email" value={auth.user?.email ?? ""} disabled />
               </label>
 
               <label className="grid gap-2">
                 <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                  OTP expires at
+                  {t("security.otpExpiresAt")}
                 </span>
                 <input
                   className={ui.input}
                   type="text"
-                  value={passwordOtpExpiresAt || "Request OTP to receive an expiry time"}
+                  value={passwordOtpExpiresAt || t("security.otpExpiresPlaceholder")}
                   disabled
                 />
               </label>
@@ -1385,20 +1385,20 @@ export default function AccountPage() {
             <div className="grid gap-4 sm:grid-cols-3">
               <label className="grid gap-2">
                 <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                  OTP
+                  {t("security.otpLabel")}
                 </span>
                 <input
                   className={ui.input}
                   type="text"
                   value={passwordResetForm.otp}
                   onChange={(event) => handlePasswordResetFormChange("otp", event.target.value)}
-                  placeholder="Enter the OTP code"
+                  placeholder={t("security.otpPlaceholder")}
                 />
               </label>
 
               <label className="grid gap-2">
                 <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                  New password
+                  {t("security.newPasswordLabel")}
                 </span>
                 <input
                   className={ui.input}
@@ -1407,14 +1407,14 @@ export default function AccountPage() {
                   onChange={(event) =>
                     handlePasswordResetFormChange("newPassword", event.target.value)
                   }
-                  placeholder="Enter a new password"
+                  placeholder={t("security.newPasswordPlaceholder")}
                   autoComplete="new-password"
                 />
               </label>
 
               <label className="grid gap-2">
                 <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                  Confirm password
+                  {t("security.confirmPasswordLabel")}
                 </span>
                 <input
                   className={ui.input}
@@ -1423,7 +1423,7 @@ export default function AccountPage() {
                   onChange={(event) =>
                     handlePasswordResetFormChange("confirmPassword", event.target.value)
                   }
-                  placeholder="Re-enter the new password"
+                  placeholder={t("security.confirmPasswordPlaceholder")}
                   autoComplete="new-password"
                 />
               </label>
@@ -1435,7 +1435,7 @@ export default function AccountPage() {
                 type="button"
                 onClick={handleResetPasswordInProfile}
               >
-                {passwordResetLoading ? "Resetting..." : "Reset password in profile"}
+                {passwordResetLoading ? t("security.resettingPassword") : t("security.resetPasswordButton")}
               </button>
             </div>
           </div>
@@ -1444,12 +1444,12 @@ export default function AccountPage() {
             <div className="grid gap-5 rounded-[1.75rem] border border-matcha-900/10 bg-white/55 p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className={ui.eyebrow}>Membership</p>
-                  <h2 className="text-2xl font-semibold text-tea-900">Current level snapshot</h2>
+                  <p className={ui.eyebrow}>{t("membershipSnapshot.eyebrow")}</p>
+                  <h2 className="text-2xl font-semibold text-tea-900">{t("membershipSnapshot.title")}</h2>
                 </div>
 
                 <Link className={ui.secondaryButton} to="/account/levels">
-                  Open membership
+                  {t("membershipSnapshot.openMembership")}
                 </Link>
               </div>
 
@@ -1461,47 +1461,47 @@ export default function AccountPage() {
 
               {memberLevelsLoading ? (
                 <div className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
-                  Loading membership levels...
+                  {t("membershipSnapshot.loadingLevels")}
                 </div>
               ) : featuredLevel ? (
                 <div className="grid gap-4 sm:grid-cols-3">
                   <article className="rounded-3xl border border-matcha-900/10 bg-white/65 p-5">
-                    <p className="text-sm text-stone-600">Current tier</p>
+                    <p className="text-sm text-stone-600">{t("membershipSnapshot.currentTier")}</p>
                     <strong className="mt-2 block text-2xl text-tea-900">
-                      {featuredLevel.levelName || featuredLevel.levelCode || "Member"}
+                      {featuredLevel.levelName || featuredLevel.levelCode || t("membershipSnapshot.memberFallback")}
                     </strong>
                     <p className="mt-2 text-sm font-semibold text-matcha-700">
-                      {featuredLevel.levelCode || "ACTIVE"}
+                      {featuredLevel.levelCode || t("membershipSnapshot.activeFallback")}
                     </p>
                   </article>
 
                   <article className="rounded-3xl border border-matcha-900/10 bg-white/65 p-5">
-                    <p className="text-sm text-stone-600">Membership points</p>
+                    <p className="text-sm text-stone-600">{t("membershipSnapshot.membershipPoints")}</p>
                     <strong className="mt-2 block text-2xl text-tea-900">
                       {formatCount(membershipPoints)}
                     </strong>
                     <p className="mt-2 text-sm text-stone-600">
-                      1,000 VND paid = 1 membership point.
+                      {t("membershipSnapshot.pointRate")}
                     </p>
                   </article>
 
                   <article className="rounded-3xl border border-matcha-900/10 bg-white/65 p-5">
-                    <p className="text-sm text-stone-600">Next tier</p>
+                    <p className="text-sm text-stone-600">{t("membershipSnapshot.nextTier")}</p>
                     <strong className="mt-2 block text-2xl text-tea-900">
-                      {featuredLevel.nextLevelName || "Top tier reached"}
+                      {featuredLevel.nextLevelName || t("membershipSnapshot.topTierReached")}
                     </strong>
                     <p className="mt-2 text-sm text-stone-600">
                       {featuredLevel.nextLevelName
-                        ? `${formatCount(
-                            Math.max(0, nextMembershipThreshold - membershipPoints),
-                          )} more points needed.`
-                        : "You have reached the highest active tier."}
+                        ? t("membershipSnapshot.morePointsNeeded", {
+                            count: formatCount(Math.max(0, nextMembershipThreshold - membershipPoints)),
+                          })
+                        : t("membershipSnapshot.highestTierReached")}
                     </p>
                   </article>
                 </div>
               ) : (
                 <div className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
-                  No membership tier data is available yet.
+                  {t("membershipSnapshot.noTierData")}
                 </div>
               )}
             </div>
@@ -1514,15 +1514,14 @@ export default function AccountPage() {
         <section className={ui.panel}>
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className={ui.eyebrow}>Membership</p>
-              <h2 className={ui.sectionTitle}>Membership tier and point ladder</h2>
+              <p className={ui.eyebrow}>{t("membershipSnapshot.levelsEyebrow")}</p>
+              <h2 className={ui.sectionTitle}>{t("membershipSnapshot.levelsTitle")}</h2>
               <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-700">
-                Membership is now calculated globally from your total paid spend. Credit remains a
-                separate balance used for redeeming vouchers.
+                {t("membershipSnapshot.levelsSubcopy")}
               </p>
             </div>
 
-            <span className={ui.pill}>{memberLevelDefinitions.length} active tiers</span>
+            <span className={ui.pill}>{t("membershipSnapshot.activeTiers", { count: memberLevelDefinitions.length })}</span>
           </div>
 
           {memberLevelsError ? (
@@ -1533,41 +1532,41 @@ export default function AccountPage() {
 
           {memberLevelsLoading ? (
             <div className="mt-6 rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
-              Loading membership levels...
+              {t("membershipSnapshot.loadingLevels")}
             </div>
           ) : null}
 
           {!memberLevelsLoading && featuredLevel ? (
             <div className="mt-6 grid gap-4 sm:grid-cols-3">
               <article className="rounded-[1.5rem] border border-matcha-900/10 bg-white/72 p-5">
-                <p className="text-sm text-stone-600">Current tier</p>
+                <p className="text-sm text-stone-600">{t("membershipSnapshot.currentTier")}</p>
                 <strong className="mt-2 block text-2xl text-tea-900">
-                  {featuredLevel.levelName || featuredLevel.levelCode || "Member"}
+                  {featuredLevel.levelName || featuredLevel.levelCode || t("membershipSnapshot.memberFallback")}
                 </strong>
                 <p className="mt-2 text-sm text-stone-600">
-                  Current points: {formatCount(membershipPoints)}
+                  {t("membershipSnapshot.currentPoints", { count: formatCount(membershipPoints) })}
                 </p>
               </article>
 
               <article className="rounded-[1.5rem] border border-matcha-900/10 bg-white/72 p-5">
-                <p className="text-sm text-stone-600">Current threshold</p>
+                <p className="text-sm text-stone-600">{t("membershipSnapshot.currentThreshold")}</p>
                 <strong className="mt-2 block text-2xl text-tea-900">
                   {formatCount(currentMembershipThreshold)}
                 </strong>
-                <p className="mt-2 text-sm text-stone-600">Minimum points to hold this tier.</p>
+                <p className="mt-2 text-sm text-stone-600">{t("membershipSnapshot.minPointsForTier")}</p>
               </article>
 
               <article className="rounded-[1.5rem] border border-matcha-900/10 bg-white/72 p-5">
-                <p className="text-sm text-stone-600">Next tier progress</p>
+                <p className="text-sm text-stone-600">{t("membershipSnapshot.nextTierProgress")}</p>
                 <strong className="mt-2 block text-2xl text-tea-900">
-                  {featuredLevel.nextLevelName || "Top tier"}
+                  {featuredLevel.nextLevelName || t("membershipSnapshot.topTierFallback")}
                 </strong>
                 <p className="mt-2 text-sm text-stone-600">
                   {featuredLevel.nextLevelName
-                    ? `${formatCount(
-                        Math.max(0, nextMembershipThreshold - membershipPoints),
-                      )} more points needed.`
-                    : "No higher active tier remains."}
+                    ? t("membershipSnapshot.morePointsNeeded", {
+                        count: formatCount(Math.max(0, nextMembershipThreshold - membershipPoints)),
+                      })
+                    : t("membershipSnapshot.noHigherTier")}
                 </p>
                 <div className="mt-4 h-3 overflow-hidden rounded-full bg-matcha-500/10">
                   <div
@@ -1614,21 +1613,21 @@ export default function AccountPage() {
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
                           <span className={ui.pill}>{level.code || "LEVEL"}</span>
-                          {isCurrentLevel ? <span className={ui.pill}>Current tier</span> : null}
-                          {isNextLevel ? <span className={ui.pill}>Next tier</span> : null}
+                          {isCurrentLevel ? <span className={ui.pill}>{t("membershipSnapshot.currentTierBadge")}</span> : null}
+                          {isNextLevel ? <span className={ui.pill}>{t("membershipSnapshot.nextTierBadge")}</span> : null}
                         </div>
 
                         <h3 className="mt-3 text-xl font-semibold text-tea-900">
-                          {level.name || level.code || "Membership level"}
+                          {level.name || level.code || t("membershipSnapshot.membershipLevel")}
                         </h3>
                         <p className="mt-2 text-sm font-semibold text-matcha-700">
-                          {level.storeName || "Global membership"}
+                          {level.storeName || t("membershipSnapshot.globalMembership")}
                         </p>
                       </div>
 
                       <div className="grid gap-1 text-right text-sm text-stone-500">
-                        <span>Threshold: {formatCount(threshold)} points</span>
-                        <span>Status: {level.active ? "Active" : "Inactive"}</span>
+                        <span>{t("membershipSnapshot.tierThreshold", { count: formatCount(threshold) })}</span>
+                        <span>{t("membershipSnapshot.tierStatus", { status: level.active ? t("membershipSnapshot.tierStatusActive") : t("membershipSnapshot.tierStatusInactive") })}</span>
                       </div>
                     </div>
 
@@ -1640,12 +1639,12 @@ export default function AccountPage() {
                     </div>
 
                     <div className="mt-4 grid gap-3 text-sm leading-7 text-stone-600 sm:grid-cols-3">
-                      <span>Current points: {formatCount(membershipPoints)}</span>
-                      <span>Threshold spend: {formatPrice(threshold * 1000)}</span>
+                      <span>{t("membershipSnapshot.tierCurrentPoints", { count: formatCount(membershipPoints) })}</span>
+                      <span>{t("membershipSnapshot.tierThresholdSpend", { value: formatPrice(threshold * 1000) })}</span>
                       <span>
                         {membershipPoints >= threshold
-                          ? "Threshold reached"
-                          : `Need ${formatCount(pointsNeeded)} more points`}
+                          ? t("membershipSnapshot.tierReached")
+                          : t("membershipSnapshot.tierNeedMore", { count: formatCount(pointsNeeded) })}
                       </span>
                     </div>
                   </article>
@@ -1656,7 +1655,7 @@ export default function AccountPage() {
 
           {!memberLevelsLoading && !memberLevelDefinitions.length && !memberLevelsError ? (
             <div className="mt-6 rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
-              No membership level data is available right now.
+              {t("membershipSnapshot.noLevelData")}
             </div>
           ) : null}
         </section>
@@ -1890,7 +1889,7 @@ export default function AccountPage() {
                   type="text"
                   value={deliveryAddressDraft.fullName}
                   onChange={(event) => handleDeliveryAddressChange("fullName", event.target.value)}
-                  placeholder="Nguyen Quang Truong"
+                  placeholder={t("addresses.fullNamePlaceholder")}
                 />
               </label>
 
@@ -1903,7 +1902,7 @@ export default function AccountPage() {
                   type="text"
                   value={deliveryAddressDraft.phoneNumber}
                   onChange={(event) => handleDeliveryAddressChange("phoneNumber", event.target.value)}
-                  placeholder="0901234567"
+                  placeholder={t("addresses.phoneNumberPlaceholder")}
                 />
               </label>
 
@@ -1915,7 +1914,7 @@ export default function AccountPage() {
                   className={`${ui.input} min-h-[8rem] resize-y`}
                   value={deliveryAddressDraft.deliveryAddress}
                   onChange={(event) => handleDeliveryAddressChange("deliveryAddress", event.target.value)}
-                  placeholder="12 Nguyen Hue, Quan 1, TP HCM"
+                  placeholder={t("addresses.addressPlaceholder")}
                 />
               </label>
 

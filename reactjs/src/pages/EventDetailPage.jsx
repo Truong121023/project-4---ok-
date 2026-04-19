@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import ContentSectionsBlock from "../components/ContentSectionsBlock";
 import MediaLibrary from "../components/MediaLibrary";
 import QuickAddToCartButton from "../components/QuickAddToCartButton";
@@ -18,12 +19,12 @@ import { formatDistanceKm } from "../lib/demoCatalog";
 import { buildStorePath } from "../lib/storeRouting";
 import { ui } from "../ui";
 
-function formatDateTime(v) { return formatDateTimeVn(v, "Schedule unavailable"); }
+function formatDateTime(v, fallback) { return formatDateTimeVn(v, fallback); }
 
-function statusLabel(event) {
-  if (event?.disabled) return event.disabledReason || "Locked";
-  if (Number(event?.remainingSlots ?? 0) > 0) return `${event.remainingSlots} slots left`;
-  return "Updating";
+function statusLabel(event, t) {
+  if (event?.disabled) return event.disabledReason || t("status.locked");
+  if (Number(event?.remainingSlots ?? 0) > 0) return t("status.slotsLeft", { count: event.remainingSlots });
+  return t("status.updating");
 }
 
 function EventDetailSkeleton() {
@@ -48,6 +49,7 @@ function EventDetailSkeleton() {
 }
 
 export default function EventDetailPage() {
+  const { t } = useTranslation("events");
   const auth = useAuth();
   const navigate = useNavigate();
   const { eventKey } = useParams();
@@ -58,6 +60,8 @@ export default function EventDetailPage() {
   const [notice, setNotice] = useState("");
   const [eventDetail, setEventDetail] = useState(null);
   const [eventReviews, setEventReviews] = useState([]);
+
+  const scheduleUnavailable = t("page.loading"); // reuse loading as fallback or define dedicated key
 
   const loadEventDetail = async () => {
     setLoading(true);
@@ -76,7 +80,7 @@ export default function EventDetailPage() {
         setEventReviews(Array.isArray(response?.reviews) ? response.reviews : []);
       }
     } catch (err) {
-      setError(err.message || "Unable to load event details.");
+      setError(err.message || t("detail.loadError"));
       setEventDetail(null);
       setEventReviews([]);
     } finally {
@@ -99,7 +103,7 @@ export default function EventDetailPage() {
   };
 
   const handleSubmitReview = async (payload) => {
-    if (!eventDetail?.id) return { ok: false, message: "This event is unavailable right now." };
+    if (!eventDetail?.id) return { ok: false, message: t("detail.unavailable") };
     const result = await submitReview({ ...payload, targetType: "event", targetId: eventDetail.id });
     if (result.ok) await loadEventDetail();
     return result;
@@ -117,10 +121,10 @@ export default function EventDetailPage() {
     return (
       <main className="bg-bg min-h-screen">
         <div className="mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8 text-center">
-          <p className={ui.eyebrow}>Event</p>
-          <h1 className={ui.bannerTitle}>Event not found</h1>
-          <p className={ui.copy + " mx-auto"}>{error || "This event does not have data yet."}</p>
-          <Link className={ui.secondaryButton + " mt-6 inline-flex"} to="/events">Back to events</Link>
+          <p className={ui.eyebrow}>{t("detail.eyebrow")}</p>
+          <h1 className={ui.bannerTitle}>{t("detail.notFound")}</h1>
+          <p className={ui.copy + " mx-auto"}>{error || t("detail.noData")}</p>
+          <Link className={ui.secondaryButton + " mt-6 inline-flex"} to="/events">{t("detail.backToEvents")}</Link>
         </div>
       </main>
     );
@@ -135,7 +139,7 @@ export default function EventDetailPage() {
     <MediaLibrary
       images={eventDetail.imagePaths}
       alt={eventDetail.title}
-      badge={eventDetail.scheduleText || eventDetail.location || "Event"}
+      badge={eventDetail.scheduleText || eventDetail.location || t("detail.eyebrow")}
       heroClassName="h-[22rem] sm:h-[30rem] rounded-xl overflow-hidden"
       thumbnailClassName="h-20"
     />
@@ -146,19 +150,25 @@ export default function EventDetailPage() {
     <div className="flex flex-col gap-4">
       {/* Status + slots */}
       <div className="flex flex-wrap gap-2">
-        <Badge variant={eventDetail.disabled ? "ink" : "matcha"}>{statusLabel(eventDetail)}</Badge>
+        <Badge variant={eventDetail.disabled ? "ink" : "matcha"}>{statusLabel(eventDetail, t)}</Badge>
         {eventDetail.scheduleText ? <Badge variant="beige">{eventDetail.scheduleText}</Badge> : null}
         {typeof eventDetail.distanceKm === "number" ? <Badge variant="beige">{formatDistanceKm(eventDetail.distanceKm)}</Badge> : null}
       </div>
 
       {/* Quick info */}
       <div className="flex flex-col gap-1 text-sm text-ink-700">
-        {eventDetail.location ? <p><span className="font-semibold text-ink-900">Location: </span>{eventDetail.location}</p> : null}
-        {(eventDetail.store?.name || eventDetail.storeName) ? (
-          <p><span className="font-semibold text-ink-900">Host store: </span>{eventDetail.store?.name || eventDetail.storeName}</p>
+        {eventDetail.location ? (
+          <p><span className="font-semibold text-ink-900">{t("detail.location")}: </span>{eventDetail.location}</p>
         ) : null}
-        {eventDetail.startsAt ? <p><span className="font-semibold text-ink-900">Starts: </span>{formatDateTime(eventDetail.startsAt)}</p> : null}
-        {eventDetail.endsAt ? <p><span className="font-semibold text-ink-900">Ends: </span>{formatDateTime(eventDetail.endsAt)}</p> : null}
+        {(eventDetail.store?.name || eventDetail.storeName) ? (
+          <p><span className="font-semibold text-ink-900">{t("detail.hostStore")}: </span>{eventDetail.store?.name || eventDetail.storeName}</p>
+        ) : null}
+        {eventDetail.startsAt ? (
+          <p><span className="font-semibold text-ink-900">{t("detail.starts")}: </span>{formatDateTime(eventDetail.startsAt, "")}</p>
+        ) : null}
+        {eventDetail.endsAt ? (
+          <p><span className="font-semibold text-ink-900">{t("detail.ends")}: </span>{formatDateTime(eventDetail.endsAt, "")}</p>
+        ) : null}
       </div>
 
       {/* Actions */}
@@ -168,17 +178,17 @@ export default function EventDetailPage() {
           size="sm"
           onClick={handleToggleFavorite}
         >
-          {isFavorite("event", eventDetail.id) ? "Saved" : "Save event"}
+          {isFavorite("event", eventDetail.id) ? t("detail.saved") : t("detail.saveEvent")}
         </Button>
         {hostStoreId ? (
           <Link
             className={ui.ghostButton + " !text-sm"}
             to={buildStorePath(eventDetail.store?.slug || eventDetail.store?.storeSlug ? eventDetail.store : eventDetail)}
           >
-            View store
+            {t("detail.viewStore")}
           </Link>
         ) : null}
-        <Link className={ui.ghostButton + " !text-sm"} to="/events">All events</Link>
+        <Link className={ui.ghostButton + " !text-sm"} to="/events">{t("detail.allEvents")}</Link>
       </div>
 
       {notice ? <p className="text-xs text-ink-500">{notice}</p> : null}
@@ -189,8 +199,8 @@ export default function EventDetailPage() {
   const relatedRegion = eventDetail.featuredDishes?.length ? (
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className={ui.sectionTitle}>Featured menu items</h2>
-        <Badge variant="beige">{eventDetail.featuredDishes.length} items</Badge>
+        <h2 className={ui.sectionTitle}>{t("detail.featuredItems")}</h2>
+        <Badge variant="beige">{t("detail.itemsCount", { count: eventDetail.featuredDishes.length })}</Badge>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {eventDetail.featuredDishes.map((item) => (
@@ -211,7 +221,7 @@ export default function EventDetailPage() {
               blocked={!hostStoreId || hostStoreDisabled}
               preorderOnly={hostStoreClosed}
               preorderMessage={getCartSuccessMessage(hostStoreClosed)}
-              blockedMessage="This item cannot be added from the host store right now."
+              blockedMessage={t("detail.blockedMessage")}
               onResult={(msg) => setNotice(msg)}
             />
           </article>
@@ -223,7 +233,7 @@ export default function EventDetailPage() {
   // ── breadcrumb ──────────────────────────────────────────────────────────────
   const breadcrumb = (
     <nav className="flex items-center gap-2 text-sm text-ink-500">
-      <Link className="hover:text-matcha-700 transition-colors" to="/events">Events</Link>
+      <Link className="hover:text-matcha-700 transition-colors" to="/events">{t("detail.eventsLink")}</Link>
       <span>/</span>
       <span className="text-ink-900 font-medium truncate max-w-[20ch]">{eventDetail.title}</span>
     </nav>
@@ -235,7 +245,7 @@ export default function EventDetailPage() {
         <div className="flex flex-col gap-6">
           {/* Title */}
           <div>
-            <p className={ui.eyebrow}>Event</p>
+            <p className={ui.eyebrow}>{t("detail.eyebrow")}</p>
             <h1 className={ui.bannerTitle}>{eventDetail.title}</h1>
             <p className="mt-2 text-base font-semibold text-matcha-700">
               {eventDetail.location || eventDetail.store?.name || eventDetail.storeName}
@@ -248,7 +258,7 @@ export default function EventDetailPage() {
           {/* Tag pills */}
           <div className="flex flex-wrap gap-2">
             {eventDetail.scheduleText ? <Badge variant="beige">{eventDetail.scheduleText}</Badge> : null}
-            <Badge variant="beige">{eventDetail.favoriteCount} saves</Badge>
+            <Badge variant="beige">{t("detail.saves", { count: eventDetail.favoriteCount })}</Badge>
             {eventDetail.reviewCount ? (
               <Badge variant="matcha">{eventDetail.averageRating.toFixed(1)}★ ({eventDetail.reviewCount})</Badge>
             ) : null}
@@ -260,10 +270,10 @@ export default function EventDetailPage() {
           {/* Stats grid */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
-              { label: "Reviews", value: eventDetail.reviewCount || 0 },
-              { label: "Slots left", value: eventDetail.remainingSlots || 0 },
-              { label: "Capacity", value: eventDetail.capacity || 0 },
-              { label: "Booked", value: eventDetail.bookedCount || 0 },
+              { label: t("detail.statReviews"), value: eventDetail.reviewCount || 0 },
+              { label: t("detail.statSlotsLeft"), value: eventDetail.remainingSlots || 0 },
+              { label: t("detail.statCapacity"), value: eventDetail.capacity || 0 },
+              { label: t("detail.statBooked"), value: eventDetail.bookedCount || 0 },
             ].map((stat) => (
               <div key={stat.label} className="rounded-xl border border-ink-900/10 bg-cream-100 p-4 text-center">
                 <strong className="block text-xl font-bold text-ink-900">{stat.value}</strong>
@@ -275,12 +285,12 @@ export default function EventDetailPage() {
           {/* Detail info cards */}
           <div className="grid gap-3 sm:grid-cols-2">
             {[
-              { label: "Starts", value: formatDateTime(eventDetail.startsAt) },
-              { label: "Ends", value: formatDateTime(eventDetail.endsAt) },
-              { label: "Location", value: eventDetail.location },
-              { label: "Schedule", value: eventDetail.scheduleText || eventDetail.schedule },
-              { label: "Host store", value: eventDetail.store?.name || eventDetail.storeName },
-              { label: "Highlight", value: eventDetail.highlightSummary },
+              { label: t("detail.cardStarts"), value: formatDateTime(eventDetail.startsAt, "") },
+              { label: t("detail.cardEnds"), value: formatDateTime(eventDetail.endsAt, "") },
+              { label: t("detail.cardLocation"), value: eventDetail.location },
+              { label: t("detail.cardSchedule"), value: eventDetail.scheduleText || eventDetail.schedule },
+              { label: t("detail.cardHostStore"), value: eventDetail.store?.name || eventDetail.storeName },
+              { label: t("detail.cardHighlight"), value: eventDetail.highlightSummary },
             ].filter((e) => e.value).map((entry) => (
               <div key={entry.label} className="rounded-xl border border-ink-900/10 bg-cream-100 p-4">
                 <span className="block text-xs font-bold uppercase tracking-widest text-ink-400">{entry.label}</span>
@@ -292,9 +302,9 @@ export default function EventDetailPage() {
           {/* Content sections */}
           <ContentSectionsBlock
             sections={eventDetail.sections}
-            eyebrow="Event story"
-            title="What to expect"
-            description="Event detail sections rendered from backend content blocks."
+            eyebrow={t("detail.eventStory")}
+            title={t("detail.whatToExpect")}
+            description={t("detail.eventStoryBody")}
           />
 
           {/* Divider */}
@@ -304,10 +314,14 @@ export default function EventDetailPage() {
           <section>
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
-                <p className={ui.eyebrow}>Reviews</p>
-                <h2 className={ui.sectionTitle}>Event reviews</h2>
+                <p className={ui.eyebrow}>{t("detail.reviewsEyebrow")}</p>
+                <h2 className={ui.sectionTitle}>{t("detail.reviewsTitle")}</h2>
               </div>
-              <Badge variant="beige">{eventReviews.length ? `${eventReviews.length} reviews` : "None yet"}</Badge>
+              <Badge variant="beige">
+                {eventReviews.length
+                  ? t("detail.reviewsCount", { count: eventReviews.length })
+                  : t("detail.noReviewsYet")}
+              </Badge>
             </div>
 
             {eventReviews.length ? (
@@ -318,7 +332,7 @@ export default function EventDetailPage() {
                       <div>
                         <p className="font-semibold text-ink-900">{review.title || "Untitled review"}</p>
                         <p className="mt-0.5 text-xs text-ink-400">
-                          {review.userName || review.userEmail || "Kamatcha guest"} · {formatDateTime(review.createdAt)}
+                          {review.userName || review.userEmail || "Kamatcha guest"} · {formatDateTime(review.createdAt, "")}
                         </p>
                       </div>
                       <Badge variant="matcha">{Number(review.rating ?? 0).toFixed(1)}★</Badge>
@@ -331,12 +345,12 @@ export default function EventDetailPage() {
               </div>
             ) : (
               <div className="mb-6 rounded-xl border border-dashed border-beige-300 bg-cream-50 p-6 text-center text-sm text-ink-400">
-                This event does not have any reviews yet.
+                {t("detail.noReviewsEmpty")}
               </div>
             )}
 
             <UserReviewForm
-              title="Write a review for this event"
+              title={t("detail.writeReview")}
               existingReview={getCurrentUserReview("event", eventDetail.id)}
               canSubmit={auth.hasRole("USER")}
               onSubmit={handleSubmitReview}

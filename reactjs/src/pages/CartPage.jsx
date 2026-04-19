@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import SmartImage from "../components/SmartImage";
 import CheckoutLayout from "../components/templates/checkout-layout";
 import { useAuth } from "../context/AuthContext";
@@ -16,40 +17,45 @@ function formatCompactNumber(value) {
   return formatNumberVi(value);
 }
 
-function describeCartItem(line) {
+function describeCartItem(line, t) {
   const quantity = Number(line.quantity ?? 0);
   const stock = Number(line.stock ?? 0);
 
   if (quantity > stock) {
     return {
-      label: `Only ${formatCompactNumber(stock)} left`,
-      hint: `Quantity exceeds current stock. Review this line before you continue to payment details.`,
+      label: t("cart.itemStatus.onlyLeft", { count: formatCompactNumber(stock) }),
+      hint: t("cart.itemStatus.exceedsStock"),
     };
   }
 
   if (line.available && !line.disabled) {
     return {
-      label: "Available now",
+      label: t("cart.itemStatus.availableNow"),
       hint: "",
     };
   }
 
   if (line.schedulable) {
     return {
-      label: "Scheduled only",
-      hint: "This item is not available right now, but it may still work as a scheduled order during checkout.",
+      label: t("cart.itemStatus.scheduledOnly"),
+      hint: t("cart.itemStatus.scheduledHint"),
     };
   }
 
   return {
-    label: "Temporarily unavailable",
-    hint: "This item may need to be removed or replaced before payment.",
+    label: t("cart.itemStatus.unavailable"),
+    hint: t("cart.itemStatus.unavailableHint"),
   };
 }
 
 /** Step indicator for cart page */
-function CartStepper() {
-  const steps = ["Cart", "Delivery", "Payment", "Confirm"];
+function CartStepper({ t }) {
+  const steps = [
+    t("cart.steps.cart"),
+    t("cart.steps.delivery"),
+    t("cart.steps.payment"),
+    t("cart.steps.confirm"),
+  ];
   return (
     <nav aria-label="Checkout steps">
       <ol className="flex items-center gap-2 overflow-x-auto">
@@ -76,6 +82,7 @@ function CartStepper() {
 }
 
 export default function CartPage() {
+  const { t } = useTranslation("checkout");
   const auth = useAuth();
   const navigate = useNavigate();
   const {
@@ -94,7 +101,7 @@ export default function CartPage() {
 
   const loginState = {
     from: { pathname: "/checkout" },
-    message: "Sign in to continue with checkout and payment.",
+    message: t("cart.guest.subtitle"),
   };
 
   const requiresUserCheckout = auth.isAuthenticated && !canUseUserFeatures;
@@ -136,7 +143,7 @@ export default function CartPage() {
     }
 
     if (!canUseUserFeatures) {
-      setNotice("Only USER accounts can place orders and complete payment.");
+      setNotice(t("cart.userOnly"));
       return;
     }
 
@@ -146,15 +153,15 @@ export default function CartPage() {
   /* ---------- Order summary rail ---------- */
   const summaryRail = (
     <>
-      <h2 className="font-display text-xl font-semibold text-ink-900">Cart summary</h2>
+      <h2 className="font-display text-xl font-semibold text-ink-900">{t("cart.summary.title")}</h2>
 
       <div className="mt-5 grid gap-3">
         {[
-          { label: "Status", value: cart.status || "OPEN" },
-          { label: "Line items", value: formatCompactNumber(cartItems.length) },
-          { label: "Stores", value: formatCompactNumber(storeCount) },
-          { label: "Total qty", value: formatCompactNumber(cartCount) },
-          { label: "Subtotal", value: formatPrice(cartSubtotal) },
+          { label: t("cart.summary.status"), value: cart.status || "OPEN" },
+          { label: t("cart.summary.lineItems"), value: formatCompactNumber(cartItems.length) },
+          { label: t("cart.summary.stores"), value: formatCompactNumber(storeCount) },
+          { label: t("cart.summary.totalQty"), value: formatCompactNumber(cartCount) },
+          { label: t("cart.summary.subtotal"), value: formatPrice(cartSubtotal) },
         ].map((stat) => (
           <div
             key={stat.label}
@@ -168,42 +175,42 @@ export default function CartPage() {
 
       {unavailableCount > 0 && (
         <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm leading-7 text-amber-900">
-          {unavailableCount} item(s) need attention before payment.
+          {t("cart.summary.attention", { count: unavailableCount })}
         </div>
       )}
 
       {!unavailableCount && cartItems.length > 0 && (
         <div className="mt-4 rounded-lg border border-matcha-200 bg-matcha-50/60 px-4 py-3 text-sm leading-7 text-matcha-700">
-          Cart is ready. Continue to choose delivery details and create a payment session.
+          {t("cart.summary.ready")}
         </div>
       )}
 
       {canUseGuestCart ? (
         <div className="mt-5 grid gap-4">
-          <p className="text-sm font-semibold text-ink-900">Sign in to order</p>
+          <p className="text-sm font-semibold text-ink-900">{t("cart.guest.title")}</p>
           <p className="text-sm leading-7 text-ink-600">
-            Keep adding items now, then sign in with a USER account to continue.
+            {t("cart.guest.subtitle")}
           </p>
           <div className="flex flex-wrap gap-3">
             <Link className={ui.primaryButton} state={loginState} to="/login">
-              Sign in to continue
+              {t("cart.guest.signIn")}
             </Link>
             <Link className={ui.secondaryButton} to="/register">
-              Create account
+              {t("cart.guest.createAccount")}
             </Link>
           </div>
         </div>
       ) : requiresUserCheckout ? (
         <div className="mt-5 rounded-lg border border-ink-900/10 bg-cream-100 px-4 py-3 text-sm leading-7 text-ink-600">
-          Only USER accounts can place orders and complete payment.
+          {t("cart.userOnly")}
         </div>
       ) : (
         <div className="mt-5 flex flex-col gap-3">
           <button className={ui.primaryButton} type="button" onClick={handleProceedToCheckout}>
-            Continue to payment details
+            {t("cart.continueToPayment")}
           </button>
           <Link className={ui.secondaryButton} to="/account">
-            Manage addresses
+            {t("cart.manageAddresses")}
           </Link>
         </div>
       )}
@@ -214,9 +221,9 @@ export default function CartPage() {
   if (userDataLoading) {
     return (
       <main className={ui.page}>
-        <CheckoutLayout stepper={<CartStepper />}>
+        <CheckoutLayout stepper={<CartStepper t={t} />}>
           <div className="rounded-xl border border-dashed border-ink-900/15 bg-cream-50/50 p-6 text-sm text-ink-600">
-            Syncing cart...
+            {t("cart.syncing")}
           </div>
         </CheckoutLayout>
       </main>
@@ -227,13 +234,13 @@ export default function CartPage() {
   if (!cartItems.length) {
     return (
       <main className={ui.page}>
-        <CheckoutLayout stepper={<CartStepper />}>
+        <CheckoutLayout stepper={<CartStepper t={t} />}>
           <div className="flex flex-col gap-6">
             <div className="rounded-xl border border-dashed border-ink-900/15 bg-cream-50/50 p-8 text-sm leading-7 text-ink-600">
-              Your cart is empty.
+              {t("cart.empty")}
             </div>
             <Link className={`${ui.primaryButton} self-start`} to="/menu">
-              Browse menu
+              {t("cart.browseMenu")}
             </Link>
           </div>
         </CheckoutLayout>
@@ -245,22 +252,22 @@ export default function CartPage() {
   return (
     <main className={ui.page}>
       <CheckoutLayout
-        stepper={<CartStepper />}
+        stepper={<CartStepper t={t} />}
         summary={cartItems.length ? summaryRail : null}
       >
         {/* Page header */}
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className={ui.eyebrow}>Cart</p>
+            <p className={ui.eyebrow}>{t("cart.eyebrow")}</p>
             <h1 className="font-display text-3xl font-bold leading-tight tracking-tight text-ink-900 sm:text-4xl">
-              Review your cart
+              {t("cart.title")}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-ink-600">
-              Check items and quantities, then continue to the payment details page.
+              {t("cart.subtitle")}
             </p>
           </div>
           <button className={ui.secondaryButton} type="button" onClick={handleClearCart}>
-            Clear all
+            {t("cart.clearAll")}
           </button>
         </div>
 
@@ -271,7 +278,7 @@ export default function CartPage() {
         {/* Cart line items */}
         <div className="grid gap-5">
           {cartItems.map((line) => {
-            const status = describeCartItem(line);
+            const status = describeCartItem(line, t);
 
             return (
               <article
@@ -300,7 +307,7 @@ export default function CartPage() {
                       <div className="text-right">
                         <strong className={ui.price}>{formatPrice(line.totalPrice)}</strong>
                         <p className="mt-1 text-xs text-ink-400">
-                          {formatPrice(line.unitPrice)} each
+                          {formatPrice(line.unitPrice)} {t("cart.each")}
                         </p>
                       </div>
                     </div>
@@ -308,7 +315,7 @@ export default function CartPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={ui.pill}>{status.label}</span>
                       <span className="text-xs text-ink-400">
-                        Stock: {formatCompactNumber(line.stock)}
+                        {t("cart.quantity.stock", { count: formatCompactNumber(line.stock) })}
                       </span>
                     </div>
 
@@ -316,7 +323,7 @@ export default function CartPage() {
                       {/* Quantity stepper */}
                       <div className="inline-flex items-center gap-3 rounded-full border border-ink-900/10 bg-cream-100 px-3 py-2">
                         <button
-                          aria-label="Decrease quantity"
+                          aria-label={t("cart.quantity.decrease")}
                           className="text-lg font-semibold text-ink-900 hover:text-matcha-700"
                           type="button"
                           onClick={() => handleQuantityChange(line, line.quantity - 1)}
@@ -327,7 +334,7 @@ export default function CartPage() {
                           {formatCompactNumber(line.quantity)}
                         </span>
                         <button
-                          aria-label="Increase quantity"
+                          aria-label={t("cart.quantity.increase")}
                           className="text-lg font-semibold text-ink-900 hover:text-matcha-700"
                           type="button"
                           onClick={() => handleQuantityChange(line, line.quantity + 1)}
@@ -338,7 +345,7 @@ export default function CartPage() {
 
                       {line.storeId ? (
                         <Link className={ui.secondaryButton} to={buildStorePath(line)}>
-                          View store
+                          {t("cart.viewStore")}
                         </Link>
                       ) : null}
 
@@ -346,7 +353,7 @@ export default function CartPage() {
                         className={ui.secondaryButton}
                         to={`/menu/${line.dishId}?store=${line.storeId}`}
                       >
-                        View item
+                        {t("cart.viewItem")}
                       </Link>
 
                       <button
@@ -354,7 +361,7 @@ export default function CartPage() {
                         type="button"
                         onClick={() => handleRemoveItem(line.id)}
                       >
-                        Remove
+                        {t("cart.remove")}
                       </button>
                     </div>
 

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import CheckoutLayout from "../components/templates/checkout-layout";
 import { ApiError } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
@@ -24,8 +25,8 @@ function formatCompactNumber(value) {
   return formatNumberVi(value);
 }
 
-function formatDeliveryType(value) {
-  return value === "SCHEDULED" ? "Scheduled" : "Delivery";
+function formatDeliveryType(value, t) {
+  return value === "SCHEDULED" ? t("checkout.deliveryType.scheduled") : t("checkout.deliveryType.delivery");
 }
 
 function resolvePrimaryOrderId(checkoutResult) {
@@ -43,8 +44,13 @@ function getMinDateTimeLocalValue() {
 }
 
 /** Checkout stepper — highlights "Delivery" + "Payment" step */
-function CheckoutStepper() {
-  const steps = ["Cart", "Delivery", "Payment", "Confirm"];
+function CheckoutStepper({ t }) {
+  const steps = [
+    t("checkout.steps.cart"),
+    t("checkout.steps.delivery"),
+    t("checkout.steps.payment"),
+    t("checkout.steps.confirm"),
+  ];
   return (
     <nav aria-label="Checkout steps">
       <ol className="flex items-center gap-2 overflow-x-auto">
@@ -80,6 +86,7 @@ function CheckoutStepper() {
 }
 
 export default function CheckoutPage() {
+  const { t } = useTranslation("checkout");
   const auth = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -193,7 +200,7 @@ export default function CheckoutPage() {
       if (!selectedDeliveryAddress.deliveryAddress) {
         setResolvedDeliveryLocation(null);
         setDeliveryLocationError(
-          "Shipping fee will be finalized after address coordinates are available.",
+          t("checkout.validation.shippingFeeFinalized"),
         );
         setDeliveryLocationLoading(false);
         return;
@@ -230,7 +237,7 @@ export default function CheckoutPage() {
         if (!cancelled) {
           setResolvedDeliveryLocation(null);
           setDeliveryLocationError(
-            "Shipping fee will be finalized after address coordinates are available.",
+            t("checkout.validation.shippingFeeFinalized"),
           );
         }
       } finally {
@@ -260,7 +267,7 @@ export default function CheckoutPage() {
         }
       } catch (requestError) {
         if (!cancelled) {
-          setVoucherError(requestError.message || "Unable to load vouchers.");
+          setVoucherError(requestError.message || t("checkout.promotion.loadingVouchers"));
         }
       } finally {
         if (!cancelled) {
@@ -371,9 +378,9 @@ export default function CheckoutPage() {
     setPromotionCode(normalizedCode);
     setNotice("");
     setVoucherError("");
-    setVoucherNotice(normalizedCode ? `Applied voucher ${normalizedCode}.` : "");
+    setVoucherNotice(normalizedCode ? t("checkout.promotion.applied2", { code: normalizedCode }) : "");
     setPricingPreviewNotice(
-      normalizedCode ? `Recalculating the order total with ${normalizedCode}...` : "",
+      normalizedCode ? t("checkout.promotion.recalculating", { code: normalizedCode }) : "",
     );
     if (selectedDeliveryAddressId) {
       setPricingPreviewLoading(true);
@@ -402,7 +409,7 @@ export default function CheckoutPage() {
       await auth.refreshMe();
       setVoucherCatalog(await fetchUserVoucherCatalog(auth));
       handleApplyPromotionCode(response.promotionCode);
-      setVoucherNotice(response.message || `Redeemed voucher ${response.promotionCode}.`);
+      setVoucherNotice(response.message || t("checkout.promotion.applied2", { code: response.promotionCode }));
     } catch (requestError) {
       setVoucherError(requestError.message || "Unable to redeem this voucher.");
     } finally {
@@ -416,7 +423,7 @@ export default function CheckoutPage() {
     }
 
     if (!selectedDeliveryAddressId) {
-      setNotice("Please choose a delivery address before creating the order.");
+      setNotice(t("checkout.validation.chooseAddress"));
       return;
     }
 
@@ -424,14 +431,14 @@ export default function CheckoutPage() {
 
     if (deliveryType === "SCHEDULED") {
       if (!scheduledDeliveryAt) {
-        setNotice("Please choose a scheduled delivery time.");
+        setNotice(t("checkout.validation.chooseScheduledTime"));
         return;
       }
 
       const scheduledDate = new Date(scheduledDeliveryAt);
 
       if (Number.isNaN(scheduledDate.getTime()) || scheduledDate.getTime() <= Date.now()) {
-        setNotice("The scheduled delivery time must be valid and in the future.");
+        setNotice(t("checkout.validation.invalidScheduledTime"));
         return;
       }
 
@@ -463,7 +470,7 @@ export default function CheckoutPage() {
       }
 
       if (!result.order?.id) {
-        setNotice("The order was created, but the payment details are not ready yet.");
+        setNotice(t("checkout.validation.orderCreatedNoPayment"));
         setCheckoutSubmitting(false);
         return;
       }
@@ -475,7 +482,7 @@ export default function CheckoutPage() {
         state: { checkoutResult: result.order },
       });
     } catch (error) {
-      setNotice(error?.message || "Unable to create the order right now.");
+      setNotice(error?.message || t("checkout.validation.unableToCreate"));
       setCheckoutSubmitting(false);
     }
   };
@@ -484,14 +491,14 @@ export default function CheckoutPage() {
   if (userDataLoading) {
     return (
       <main className={ui.page}>
-        <CheckoutLayout stepper={<CheckoutStepper />}>
+        <CheckoutLayout stepper={<CheckoutStepper t={t} />}>
           <div>
-            <p className={ui.eyebrow}>Checkout</p>
+            <p className={ui.eyebrow}>{t("checkout.eyebrow")}</p>
             <h1 className="font-display text-3xl font-bold tracking-tight text-ink-900">
-              Preparing payment details
+              {t("checkout.syncingTitle")}
             </h1>
             <div className="mt-6 rounded-xl border border-dashed border-ink-900/15 bg-cream-50/50 p-6 text-sm text-ink-600">
-              Syncing your cart, addresses, and pricing preview...
+              {t("checkout.syncingBody")}
             </div>
           </div>
         </CheckoutLayout>
@@ -503,21 +510,21 @@ export default function CheckoutPage() {
   if (!cartItems.length) {
     return (
       <main className={ui.page}>
-        <CheckoutLayout stepper={<CheckoutStepper />}>
+        <CheckoutLayout stepper={<CheckoutStepper t={t} />}>
           <div>
-            <p className={ui.eyebrow}>Checkout</p>
+            <p className={ui.eyebrow}>{t("checkout.eyebrow")}</p>
             <h1 className="font-display text-3xl font-bold tracking-tight text-ink-900">
-              Nothing to pay yet
+              {t("checkout.emptyTitle")}
             </h1>
             <div className="mt-6 rounded-xl border border-dashed border-ink-900/15 bg-cream-50/50 p-8 text-sm leading-7 text-ink-600">
-              Your cart is empty. Add items first, then come back here to create the payment order.
+              {t("checkout.emptyBody")}
             </div>
             <div className="mt-5 flex flex-wrap gap-3">
               <Link className={ui.primaryButton} to="/menu">
-                Browse menu
+                {t("checkout.browseMenu")}
               </Link>
               <Link className={ui.secondaryButton} to="/cart">
-                Back to cart
+                {t("checkout.backToCart")}
               </Link>
             </div>
           </div>
@@ -530,7 +537,7 @@ export default function CheckoutPage() {
   if (checkoutSubmitting) {
     return (
       <main className={ui.page}>
-        <CheckoutLayout stepper={<CheckoutStepper />} centered>
+        <CheckoutLayout stepper={<CheckoutStepper t={t} />} centered>
           <div className="flex flex-col items-center gap-6 py-4 text-center">
             <span
               aria-label="Loading"
@@ -538,20 +545,20 @@ export default function CheckoutPage() {
             />
             <div>
               <p className="font-display text-lg font-semibold text-ink-900">
-                Creating your payment request
+                {t("checkout.creatingTitle")}
               </p>
               <p className="mt-2 text-sm leading-7 text-ink-600">
-                Preparing the PayOS QR. Please wait...
+                {t("checkout.creatingBody")}
               </p>
             </div>
             <div className="w-full grid gap-3 sm:grid-cols-3">
               {[
-                { label: "Delivery", value: formatDeliveryType(deliveryType) },
+                { label: t("checkout.deliveryType.title"), value: formatDeliveryType(deliveryType, t) },
                 {
-                  label: "Address",
-                  value: selectedDeliveryAddress?.fullName || "Selected address",
+                  label: t("checkout.deliveryAddress.title"),
+                  value: selectedDeliveryAddress?.fullName || t("checkout.deliveryAddress.noSaved"),
                 },
-                { label: "Total", value: formatPrice(previewTotalAmount) },
+                { label: t("checkout.summary.finalTotal"), value: formatPrice(previewTotalAmount) },
               ].map((stat) => (
                 <div
                   key={stat.label}
@@ -573,13 +580,13 @@ export default function CheckoutPage() {
   /* ---------- Order summary rail ---------- */
   const summaryRail = (
     <>
-      <h2 className="font-display text-xl font-semibold text-ink-900">Payment summary</h2>
+      <h2 className="font-display text-xl font-semibold text-ink-900">{t("checkout.summary.title")}</h2>
 
       <div className="mt-5 grid gap-3">
         {[
-          { label: "Line items", value: formatCompactNumber(cartItems.length) },
-          { label: "Total qty", value: formatCompactNumber(cartCount) },
-          { label: "Item subtotal", value: formatPrice(cartSubtotal) },
+          { label: t("checkout.summary.lineItems"), value: formatCompactNumber(cartItems.length) },
+          { label: t("checkout.summary.totalQty"), value: formatCompactNumber(cartCount) },
+          { label: t("checkout.summary.itemSubtotal"), value: formatPrice(cartSubtotal) },
         ].map((stat) => (
           <div
             key={stat.label}
@@ -594,8 +601,8 @@ export default function CheckoutPage() {
           <div className="flex items-center justify-between gap-3 rounded-lg border border-matcha-200 bg-matcha-50/60 px-4 py-3">
             <span className="text-sm text-matcha-700">
               {pricingPreview?.promotionCode
-                ? `Discount (${pricingPreview.promotionCode})`
-                : "Discount"}
+                ? t("checkout.summary.discountCode", { code: pricingPreview.promotionCode })
+                : t("checkout.summary.discount")}
             </span>
             <strong className="text-sm font-semibold text-matcha-700">
               -{formatPrice(previewDiscountAmount)}
@@ -607,7 +614,7 @@ export default function CheckoutPage() {
           pricingSummary?.shippingFeeAmount !== undefined && (
             <div className="flex items-center justify-between gap-3 rounded-lg border border-ink-900/10 bg-cream-100/60 px-4 py-3">
               <span className="text-sm text-ink-600">
-                {pricingPreview?.source === "backend" ? "Shipping fee" : "Est. shipping"}
+                {pricingPreview?.source === "backend" ? t("checkout.summary.shipping") : t("checkout.summary.estShipping")}
               </span>
               <strong className="text-sm font-semibold text-ink-900">
                 {formatPrice(pricingSummary.shippingFeeAmount)}
@@ -617,7 +624,7 @@ export default function CheckoutPage() {
 
         <div className="flex items-center justify-between gap-3 rounded-lg border border-ink-900/10 bg-ink-900/5 px-4 py-3">
           <span className="text-sm font-semibold text-ink-900">
-            {pricingPreview?.source === "backend" ? "Final total" : "Est. total"}
+            {pricingPreview?.source === "backend" ? t("checkout.summary.finalTotal") : t("checkout.summary.estTotal")}
           </span>
           <strong className={ui.price}>{formatPrice(previewTotalAmount)}</strong>
         </div>
@@ -630,16 +637,16 @@ export default function CheckoutPage() {
           {(pricingPreviewLoading || deliveryLocationLoading) && (
             <p>
               {normalizedPromotionCode
-                ? `Recalculating with ${normalizedPromotionCode}...`
-                : "Updating pricing preview..."}
+                ? t("checkout.promotion.recalculating", { code: normalizedPromotionCode })
+                : t("checkout.summary.updatingPreview")}
             </p>
           )}
           {pricingSummary?.shippingDistanceKm !== undefined &&
             pricingSummary?.shippingDistanceKm !== null && (
-              <p>Distance: {formatShippingDistance(pricingSummary.shippingDistanceKm)}</p>
+              <p>{t("checkout.summary.distance", { value: formatShippingDistance(pricingSummary.shippingDistanceKm) })}</p>
             )}
           {pricingSummary?.shippingFeeBreakdown?.length > 0 && (
-            <p>Breakdown: {formatShippingBreakdown(pricingSummary.shippingFeeBreakdown)}</p>
+            <p>{t("checkout.summary.breakdown", { value: formatShippingBreakdown(pricingSummary.shippingFeeBreakdown) })}</p>
           )}
           {pricingPreview?.statusSummary && <p>{pricingPreview.statusSummary}</p>}
           {deliveryLocationError && <p>{deliveryLocationError}</p>}
@@ -661,10 +668,10 @@ export default function CheckoutPage() {
           }
           onClick={handleCheckout}
         >
-          Create order and show payment QR
+          {t("checkout.createOrder")}
         </button>
         <Link className={ui.secondaryButton} to="/cart">
-          Edit cart
+          {t("checkout.backToCart")}
         </Link>
       </div>
     </>
@@ -673,27 +680,26 @@ export default function CheckoutPage() {
   /* ---------- Main form ---------- */
   return (
     <main className={ui.page}>
-      <CheckoutLayout stepper={<CheckoutStepper />} summary={summaryRail}>
+      <CheckoutLayout stepper={<CheckoutStepper t={t} />} summary={summaryRail}>
         {/* Header */}
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className={ui.eyebrow}>Checkout</p>
+            <p className={ui.eyebrow}>{t("checkout.eyebrow")}</p>
             <h1 className="font-display text-3xl font-bold leading-tight tracking-tight text-ink-900 sm:text-4xl">
-              Payment details
+              {t("checkout.title")}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-ink-600">
-              Review the cart, choose delivery details, and create the order before you transfer
-              money with PayOS.
+              {t("checkout.subtitle")}
             </p>
           </div>
           <Link className={ui.secondaryButton} to="/cart">
-            Back to cart
+            {t("checkout.backToCart")}
           </Link>
         </div>
 
         {/* Delivery address */}
         <section className="rounded-xl border border-ink-900/10 bg-cream-50 p-5 shadow-soft">
-          <h2 className="font-display text-lg font-semibold text-ink-900">Delivery address</h2>
+          <h2 className="font-display text-lg font-semibold text-ink-900">{t("checkout.deliveryAddress.title")}</h2>
 
           <div className="mt-4 grid gap-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -705,21 +711,44 @@ export default function CheckoutPage() {
                 {deliveryAddresses.length ? (
                   deliveryAddresses.map((address) => (
                     <option key={address.id} value={address.id}>
-                      {address.primary ? "[Primary] " : ""}
+                      {address.primary ? `${t("checkout.deliveryAddress.primary")} ` : ""}
                       {address.fullName} - {address.phoneNumber}
                     </option>
                   ))
                 ) : (
-                  <option value="">No saved addresses</option>
+                  <option value="">{t("checkout.deliveryAddress.noSaved")}</option>
                 )}
               </select>
               <Link
                 className={`${ui.secondaryButton} shrink-0`}
                 to="/account/addresses"
               >
-                Manage addresses
+                {t("checkout.deliveryAddress.manage")}
               </Link>
             </div>
+
+            {!selectedDeliveryAddressId && (
+              <div
+                role="alert"
+                className="flex flex-col gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-7 text-amber-900 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="flex items-start gap-3">
+                  <span
+                    aria-hidden="true"
+                    className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-200 text-amber-900 font-bold"
+                  >
+                    !
+                  </span>
+                  <div>
+                    <p className="font-semibold">{t("checkout.deliveryAddress.missingTitle")}</p>
+                    <p className="mt-1 text-amber-800">{t("checkout.deliveryAddress.missingBody")}</p>
+                  </div>
+                </div>
+                <Link className={`${ui.primaryButton} shrink-0`} to="/account/addresses">
+                  {t("checkout.deliveryAddress.addNow")}
+                </Link>
+              </div>
+            )}
 
             {selectedDeliveryAddress && (
               <div className="rounded-lg border border-ink-900/10 bg-cream-100/60 px-4 py-3 text-sm leading-7 text-ink-600">
@@ -734,27 +763,27 @@ export default function CheckoutPage() {
 
         {/* Delivery type */}
         <section className="mt-5 rounded-xl border border-ink-900/10 bg-cream-50 p-5 shadow-soft">
-          <h2 className="font-display text-lg font-semibold text-ink-900">Delivery type</h2>
+          <h2 className="font-display text-lg font-semibold text-ink-900">{t("checkout.deliveryType.title")}</h2>
 
           <div className="mt-4 grid gap-4">
             <label className="grid gap-2">
               <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">
-                Type
+                {t("checkout.deliveryType.typeLabel")}
               </span>
               <select
                 className={ui.input}
                 value={deliveryType}
                 onChange={(event) => setDeliveryType(event.target.value)}
               >
-                <option value="DELIVERY">{formatDeliveryType("DELIVERY")}</option>
-                <option value="SCHEDULED">{formatDeliveryType("SCHEDULED")}</option>
+                <option value="DELIVERY">{formatDeliveryType("DELIVERY", t)}</option>
+                <option value="SCHEDULED">{formatDeliveryType("SCHEDULED", t)}</option>
               </select>
             </label>
 
             {deliveryType === "SCHEDULED" && (
               <label className="grid gap-2">
                 <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">
-                  Schedule for
+                  {t("checkout.deliveryType.scheduleFor")}
                 </span>
                 <input
                   className={ui.input}
@@ -770,24 +799,24 @@ export default function CheckoutPage() {
 
         {/* Promotion code */}
         <section className="mt-5 rounded-xl border border-ink-900/10 bg-cream-50 p-5 shadow-soft">
-          <h2 className="font-display text-lg font-semibold text-ink-900">Promotion code</h2>
+          <h2 className="font-display text-lg font-semibold text-ink-900">{t("checkout.promotion.title")}</h2>
 
           <div className="mt-4 grid gap-4">
             <label className="grid gap-2">
               <span className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">
-                Code
+                {t("checkout.promotion.codeLabel")}
               </span>
               <input
                 className={ui.input}
                 type="text"
                 value={promotionCode}
                 onChange={(event) => handleApplyPromotionCode(event.target.value)}
-                placeholder="For example: MATCHA10"
+                placeholder={t("checkout.promotion.placeholder")}
               />
             </label>
 
             <div className="rounded-lg border border-ink-900/10 bg-cream-100/60 px-4 py-3 text-sm leading-7 text-ink-600">
-              <p className="font-semibold text-ink-900">Quick tip</p>
+              <p className="font-semibold text-ink-900">{t("checkout.promotion.tip")}</p>
               <p className="mt-1">
                 Try{" "}
                 <strong className="text-matcha-700">KAMATCHASHIP</strong> on any delivery order.
@@ -795,22 +824,22 @@ export default function CheckoutPage() {
               {normalizedPromotionCode && (
                 <p className="mt-2 text-matcha-700">
                   {pricingPreviewLoading
-                    ? `Recalculating with ${normalizedPromotionCode}...`
+                    ? t("checkout.promotion.recalculating", { code: normalizedPromotionCode })
                     : pricingPreview?.promotionCode
-                      ? `${pricingPreview.promotionCode} applied.`
-                      : `Checking ${normalizedPromotionCode}...`}
+                      ? t("checkout.promotion.applied", { code: pricingPreview.promotionCode })
+                      : t("checkout.promotion.checking", { code: normalizedPromotionCode })}
                 </p>
               )}
             </div>
 
             {voucherLoading && (
-              <span className="text-sm text-ink-600">Loading vouchers...</span>
+              <span className="text-sm text-ink-600">{t("checkout.promotion.loadingVouchers")}</span>
             )}
 
             {readyToUseVouchers.length > 0 && (
               <div className="grid gap-2">
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">
-                  Ready to use
+                  {t("checkout.promotion.readyToUse")}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {readyToUseVouchers.slice(0, 4).map((voucher) => (
@@ -830,7 +859,7 @@ export default function CheckoutPage() {
             {ownedVouchers.length > 0 && (
               <div className="grid gap-2">
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink-500">
-                  Redeemed credit vouchers
+                  {t("checkout.promotion.redeemedCredit")}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {ownedVouchers.map((voucher) => (
@@ -857,7 +886,7 @@ export default function CheckoutPage() {
                     {voucher.name || voucher.code}
                   </p>
                   <p className="text-sm text-ink-600">
-                    Redeem with {Number(voucher.creditCost ?? 0).toLocaleString("vi-VN")} credits
+                    {t("checkout.promotion.redeemWith", { count: Number(voucher.creditCost ?? 0).toLocaleString("vi-VN") })}
                   </p>
                 </div>
                 <button
@@ -866,7 +895,7 @@ export default function CheckoutPage() {
                   disabled={redeemingVoucherId === String(voucher.id)}
                   onClick={() => handleRedeemVoucher(voucher)}
                 >
-                  {redeemingVoucherId === String(voucher.id) ? "Redeeming..." : "Redeem"}
+                  {redeemingVoucherId === String(voucher.id) ? t("checkout.promotion.redeeming") : t("checkout.promotion.redeem")}
                 </button>
               </div>
             ))}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
 import { getApiErrorMessage } from "../lib/api";
 import { fetchPublicHome, fetchUserVoucherCatalog, redeemUserVoucher } from "../lib/siteApi";
@@ -11,37 +12,37 @@ function formatCurrency(value) {
   return formatCurrencyVnd(value);
 }
 
-function formatPromotionValue(promotion) {
-  if (String(promotion?.discountType ?? "").toUpperCase() === "PERCENT") {
-    return `${Number(promotion?.discountValue ?? 0).toLocaleString("vi-VN")}%`;
-  }
-  return formatCurrency(promotion?.discountValue ?? 0);
-}
-
-function formatDiscountTarget(promotion) {
-  const normalized = String(promotion?.discountTarget ?? "ITEMS").toUpperCase();
-  if (normalized === "SHIPPING") return "Shipping fee";
-  if (normalized === "BOTH") return "Items + shipping";
-  return "Signature items";
-}
-
 function formatDateTime(value) {
   return formatDateTimeVn(value, "No schedule");
 }
 
-function PromotionCard({ promotion, canRedeem = false, canUseVoucher = false, redeeming = false, onRedeem }) {
+function PromotionCard({ promotion, canRedeem = false, canUseVoucher = false, redeeming = false, onRedeem, t }) {
+  function formatDiscountTarget(p) {
+    const normalized = String(p?.discountTarget ?? "ITEMS").toUpperCase();
+    if (normalized === "SHIPPING") return t("promotions.target.shipping");
+    if (normalized === "BOTH") return t("promotions.target.both");
+    return t("promotions.target.items");
+  }
+
+  function formatPromotionValue(p) {
+    if (String(p?.discountType ?? "").toUpperCase() === "PERCENT") {
+      return `${Number(p?.discountValue ?? 0).toLocaleString("vi-VN")}%`;
+    }
+    return formatCurrency(p?.discountValue ?? 0);
+  }
+
   return (
     <article className="rounded-xl border border-ink-900/10 bg-cream-50 p-5 shadow-soft transition-shadow hover:shadow-lift">
       <div className="flex flex-wrap items-center gap-2">
         <span className={ui.pill}>{promotion.scope || "PROMOTION"}</span>
         <span className={ui.pill}>{formatDiscountTarget(promotion)}</span>
         {promotion.creditCost > 0 ? (
-          <span className={ui.pill}>{promotion.creditCost} credit</span>
+          <span className={ui.pill}>{t("promotions.creditCost", { count: promotion.creditCost })}</span>
         ) : (
-          <span className={ui.pill}>Direct code</span>
+          <span className={ui.pill}>{t("promotions.directCode")}</span>
         )}
         {promotion.availableRedemptions > 0 ? (
-          <span className={ui.pill}>{promotion.availableRedemptions} redeemed</span>
+          <span className={ui.pill}>{t("promotions.redeemed", { count: promotion.availableRedemptions })}</span>
         ) : null}
       </div>
 
@@ -50,19 +51,19 @@ function PromotionCard({ promotion, canRedeem = false, canUseVoucher = false, re
       </h2>
       <p className="mt-2 text-base font-semibold text-matcha-700">{formatPromotionValue(promotion)}</p>
       <p className="mt-3 text-sm leading-7 text-ink-600">
-        {promotion.description || "Promotion details will be applied during checkout."}
+        {promotion.description || t("promotions.defaultDescription")}
       </p>
 
       <div className="mt-4 grid gap-2 text-sm text-ink-600">
-        <span>Code: {promotion.code || "N/A"}</span>
+        <span>{t("promotions.code", { value: promotion.code || "N/A" })}</span>
         {promotion.minOrderAmount > 0 ? (
-          <span>Minimum order: {formatCurrency(promotion.minOrderAmount)}</span>
+          <span>{t("promotions.minOrder", { value: formatCurrency(promotion.minOrderAmount) })}</span>
         ) : null}
         {promotion.maxDiscountAmount > 0 ? (
-          <span>Maximum discount: {formatCurrency(promotion.maxDiscountAmount)}</span>
+          <span>{t("promotions.maxDiscount", { value: formatCurrency(promotion.maxDiscountAmount) })}</span>
         ) : null}
-        <span>Active: {formatDateTime(promotion.startsAt)} - {formatDateTime(promotion.endsAt)}</span>
-        <span>Signature scope: valid across all stores, not store-specific.</span>
+        <span>{t("promotions.active", { from: formatDateTime(promotion.startsAt), to: formatDateTime(promotion.endsAt) })}</span>
+        <span>{t("promotions.signatureScope")}</span>
       </div>
 
       <div className="mt-5 flex flex-wrap gap-3">
@@ -73,12 +74,12 @@ function PromotionCard({ promotion, canRedeem = false, canUseVoucher = false, re
             disabled={redeeming}
             onClick={() => onRedeem?.(promotion)}
           >
-            {redeeming ? "Redeeming..." : `Redeem for ${promotion.creditCost} credit`}
+            {redeeming ? t("promotions.redeeming") : t("promotions.redeemFor", { count: promotion.creditCost })}
           </button>
         ) : null}
         {canUseVoucher ? (
           <Link className={ui.secondaryButton} to={`/cart?promotion=${encodeURIComponent(promotion.code)}`}>
-            Use at checkout
+            {t("promotions.useAtCheckout")}
           </Link>
         ) : null}
       </div>
@@ -87,6 +88,7 @@ function PromotionCard({ promotion, canRedeem = false, canUseVoucher = false, re
 }
 
 export default function PromotionsPage() {
+  const { t } = useTranslation("menu");
   const auth = useAuth();
   const isUser = auth.hasRole("USER");
   const [loading, setLoading] = useState(true);
@@ -108,7 +110,7 @@ export default function PromotionsPage() {
         if (!cancelled) setPromotions(nextPromotions);
       } catch (requestError) {
         if (!cancelled) {
-          setError(getApiErrorMessage(requestError, "Unable to load promotions."));
+          setError(getApiErrorMessage(requestError, t("promotions.loadError")));
           setPromotions([]);
         }
       } finally {
@@ -118,7 +120,7 @@ export default function PromotionsPage() {
 
     void loadPromotions();
     return () => { cancelled = true; };
-  }, [auth, isUser]);
+  }, [auth, isUser, t]);
 
   const redeemedVouchers = useMemo(
     () => promotions.filter((p) => Number(p.availableRedemptions ?? 0) > 0),
@@ -145,7 +147,7 @@ export default function PromotionsPage() {
       setPromotions(nextPromotions);
       setNotice(response.message || `Redeemed voucher ${response.promotionCode}.`);
     } catch (requestError) {
-      setError(getApiErrorMessage(requestError, "Unable to redeem this voucher."));
+      setError(getApiErrorMessage(requestError, t("promotions.redeemError")));
     } finally {
       setRedeemingPromotionId("");
     }
@@ -153,34 +155,34 @@ export default function PromotionsPage() {
 
   return (
     <EditorialLayout
-      eyebrow="Promotions"
-      kanji="割引"
-      headline="Campaigns, voucher codes, and credit exchange"
-      subcopy="Browse active promotions, redeem credit-based vouchers, and jump straight into checkout with an eligible code."
+      eyebrow={t("promotions.eyebrow")}
+      kanji={t("promotions.kanji")}
+      headline={t("promotions.title")}
+      subcopy={t("promotions.subtitle")}
     >
       {/* User stats */}
       {isUser ? (
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
             {
-              label: "Credit balance",
+              label: t("promotions.stats.creditBalance"),
               value: Number(auth.user?.creditPoints ?? 0).toLocaleString("vi-VN"),
-              note: "Available for voucher redemption.",
+              note: t("promotions.stats.creditBalanceNote"),
             },
             {
-              label: "Membership points",
+              label: t("promotions.stats.membershipPoints"),
               value: Number(auth.user?.membershipPoints ?? 0).toLocaleString("vi-VN"),
-              note: "Used to determine your current tier.",
+              note: t("promotions.stats.membershipPointsNote"),
             },
             {
-              label: "Redeemed vouchers",
+              label: t("promotions.stats.redeemedVouchers"),
               value: redeemedVouchers.length.toLocaleString("vi-VN"),
-              note: "Ready to apply at checkout.",
+              note: t("promotions.stats.redeemedVouchersNote"),
             },
             {
-              label: "Credit exchange",
+              label: t("promotions.stats.creditExchange"),
               value: creditExchangeVouchers.length.toLocaleString("vi-VN"),
-              note: "Voucher options available for redemption.",
+              note: t("promotions.stats.creditExchangeNote"),
             },
           ].map((stat) => (
             <article key={stat.label} className="rounded-xl border border-ink-900/10 bg-cream-50 p-5 shadow-soft">
@@ -202,7 +204,7 @@ export default function PromotionsPage() {
 
       {loading ? (
         <div className="rounded-xl border border-dashed border-beige-300 bg-cream-50 p-6 text-sm text-ink-600">
-          Loading promotions...
+          {t("promotions.loading")}
         </div>
       ) : null}
 
@@ -211,18 +213,18 @@ export default function PromotionsPage() {
           <section>
             <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
               <div>
-                <p className={ui.eyebrow}>Ready to use</p>
-                <h2 className={ui.sectionTitle}>Redeemed vouchers in your account</h2>
+                <p className={ui.eyebrow}>{t("promotions.sections.readyEyebrow")}</p>
+                <h2 className={ui.sectionTitle}>{t("promotions.sections.readyTitle")}</h2>
               </div>
             </div>
             <div className="grid gap-4 lg:grid-cols-2">
               {redeemedVouchers.length ? (
                 redeemedVouchers.map((promotion) => (
-                  <PromotionCard key={promotion.id || promotion.code} promotion={promotion} canUseVoucher />
+                  <PromotionCard key={promotion.id || promotion.code} promotion={promotion} canUseVoucher t={t} />
                 ))
               ) : (
                 <article className="rounded-xl border border-dashed border-beige-300 bg-cream-50 p-6 text-sm text-ink-600 lg:col-span-2">
-                  You have not redeemed any credit-based voucher yet.
+                  {t("promotions.sections.noRedeemed")}
                 </article>
               )}
             </div>
@@ -231,10 +233,10 @@ export default function PromotionsPage() {
           <section>
             <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
               <div>
-                <p className={ui.eyebrow}>Credit exchange</p>
-                <h2 className={ui.sectionTitle}>Redeem vouchers with credit points</h2>
+                <p className={ui.eyebrow}>{t("promotions.sections.creditEyebrow")}</p>
+                <h2 className={ui.sectionTitle}>{t("promotions.sections.creditTitle")}</h2>
               </div>
-              <Link className={ui.secondaryButton} to="/account/levels">View membership</Link>
+              <Link className={ui.secondaryButton} to="/account/levels">{t("promotions.sections.viewMembership")}</Link>
             </div>
             <div className="grid gap-4 lg:grid-cols-2">
               {creditExchangeVouchers.length ? (
@@ -245,11 +247,12 @@ export default function PromotionsPage() {
                     canRedeem
                     redeeming={redeemingPromotionId === String(promotion.id)}
                     onRedeem={handleRedeemVoucher}
+                    t={t}
                   />
                 ))
               ) : (
                 <article className="rounded-xl border border-dashed border-beige-300 bg-cream-50 p-6 text-sm text-ink-600 lg:col-span-2">
-                  No credit-based vouchers are currently available for your account.
+                  {t("promotions.sections.noCredit")}
                 </article>
               )}
             </div>
@@ -261,8 +264,8 @@ export default function PromotionsPage() {
         <section>
           <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className={ui.eyebrow}>Promotion codes</p>
-              <h2 className={ui.sectionTitle}>Direct campaigns currently available</h2>
+              <p className={ui.eyebrow}>{t("promotions.sections.directEyebrow")}</p>
+              <h2 className={ui.sectionTitle}>{t("promotions.sections.directTitle")}</h2>
             </div>
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
@@ -272,11 +275,12 @@ export default function PromotionsPage() {
                   key={promotion.id || promotion.code}
                   promotion={promotion}
                   canUseVoucher={Boolean(promotion.code)}
+                  t={t}
                 />
               ))
             ) : (
               <article className="rounded-xl border border-dashed border-beige-300 bg-cream-50 p-6 text-sm text-ink-600 lg:col-span-2">
-                No direct promotion code is available right now.
+                {t("promotions.sections.noDirect")}
               </article>
             )}
           </div>

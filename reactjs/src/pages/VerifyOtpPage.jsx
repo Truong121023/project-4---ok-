@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import AuthLayout from "../components/templates/auth-layout";
 import { useAuth } from "../context/AuthContext";
 import { useToastMessage } from "../hooks/useToastMessage";
@@ -8,6 +9,7 @@ import { getDefaultAuthenticatedPath } from "../lib/authRedirects";
 import { ui } from "../ui";
 
 export default function VerifyOtpPage() {
+  const { t } = useTranslation("auth");
   const auth = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -22,7 +24,7 @@ export default function VerifyOtpPage() {
 
   useToastMessage(error, {
     type: "error",
-    title: "Verification failed",
+    title: t("verifyOtp.failedTitle"),
   });
 
   if (auth.isAuthenticated) {
@@ -47,11 +49,11 @@ export default function VerifyOtpPage() {
       navigate("/login", {
         replace: true,
         state: {
-          message: `${response.message} Email ${form.email} has been activated.`,
+          message: `${response.message} ${t("verifyOtp.activated", { email: form.email })}`,
         },
       });
     } catch (submitError) {
-      setError(getApiErrorMessage(submitError, "OTP verification failed."));
+      setError(getApiErrorMessage(submitError, t("verifyOtp.failed")));
     } finally {
       setLoading(false);
     }
@@ -61,26 +63,26 @@ export default function VerifyOtpPage() {
     <AuthLayout>
       {/* Brand mark */}
       <div className="mb-6 text-center">
-        <p className={ui.eyebrow}>Kamatcha</p>
+        <p className={ui.eyebrow}>{t("verifyOtp.eyebrow")}</p>
         <h1 className="font-display text-2xl font-bold tracking-tight text-ink-900 sm:text-3xl">
-          Verify your account
+          {t("verifyOtp.title")}
         </h1>
         <p className="mt-3 text-sm leading-7 text-ink-600">
-          Enter the OTP sent to your email to activate the account and sign in.
+          {t("verifyOtp.subtitle")}
         </p>
       </div>
 
       {/* OTP expiry notice */}
       {location.state?.otpExpiresAt && (
         <div className="mb-5 rounded-lg border border-beige-300 bg-beige-100/60 px-4 py-3 text-center text-sm text-ink-600">
-          OTP expires at:{" "}
+          {t("verifyOtp.otpExpiresAt")}{" "}
           <span className="font-semibold text-ink-900">{location.state.otpExpiresAt}</span>
         </div>
       )}
 
       <form className="grid gap-5" onSubmit={handleSubmit}>
         <label className="grid gap-2">
-          <span className="text-sm font-semibold text-ink-900">Email</span>
+          <span className="text-sm font-semibold text-ink-900">{t("verifyOtp.email")}</span>
           <input
             className={ui.input}
             type="email"
@@ -93,7 +95,7 @@ export default function VerifyOtpPage() {
         </label>
 
         <label className="grid gap-2">
-          <span className="text-sm font-semibold text-ink-900">OTP code</span>
+          <span className="text-sm font-semibold text-ink-900">{t("verifyOtp.otpCode")}</span>
           <input
             className={`${ui.input} text-center text-lg tracking-[0.3em] font-semibold`}
             name="otp"
@@ -117,18 +119,18 @@ export default function VerifyOtpPage() {
         )}
 
         <button className={ui.primaryButton} type="submit" disabled={loading}>
-          {loading ? "Verifying..." : "Verify OTP"}
+          {loading ? t("verifyOtp.submitting") : t("verifyOtp.submit")}
         </button>
       </form>
 
       {/* Footer links */}
       <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm text-ink-500">
         <Link className="font-semibold text-matcha-700 hover:text-matcha-900" to="/register">
-          Back to sign up
+          {t("verifyOtp.backToSignUp")}
         </Link>
         <span aria-hidden="true" className="text-ink-300">|</span>
         <Link className="font-semibold text-matcha-700 hover:text-matcha-900" to="/login">
-          Go to sign in
+          {t("verifyOtp.goToSignIn")}
         </Link>
       </div>
     </AuthLayout>

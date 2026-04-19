@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import AccountLayout from "../components/templates/account-layout";
 import InvoicePreviewModal from "../components/InvoicePreviewModal";
 import OrderStatusTracker from "../components/OrderStatusTracker";
@@ -56,6 +57,7 @@ function isCancelledOrder(order) {
 }
 
 export default function OrdersPage() {
+  const { t } = useTranslation("orders");
   const auth = useAuth();
   const navigate = useNavigate();
   const { orderId } = useParams();
@@ -76,8 +78,8 @@ export default function OrdersPage() {
   const canViewDetailInvoice = canViewOrderInvoice(orderDetail);
   const orderDetailHasUsablePaymentSession = hasUsablePaymentSession(orderDetail);
 
-  useToastMessage(error, { type: "error", title: "Orders" });
-  useToastMessage(paymentMessage, { type: "info", title: "Payment" });
+  useToastMessage(error, { type: "error", title: t("page.eyebrow") });
+  useToastMessage(paymentMessage, { type: "info", title: t("payment.eyebrow") });
 
   useEffect(() => {
     const normalizedPaymentStatus = String(orderDetail?.paymentStatus ?? "").toUpperCase();
@@ -121,7 +123,7 @@ export default function OrdersPage() {
         }
       } catch (requestError) {
         if (!cancelled) {
-          setError(requestError.message || "Unable to load order history.");
+          setError(requestError.message || t("page.loadError"));
         }
       } finally {
         if (!cancelled) {
@@ -156,7 +158,7 @@ export default function OrdersPage() {
         }
       } catch (requestError) {
         if (!cancelled) {
-          setError(requestError.message || "Unable to load order details.");
+          setError(requestError.message || t("page.loadDetailError"));
         }
       } finally {
         if (!cancelled) {
@@ -214,12 +216,12 @@ export default function OrdersPage() {
     }
 
     if (nextOrder.paymentCheckoutUrl) {
-      setPaymentMessage("A new PayOS payment link has been created. Redirecting now...");
+      setPaymentMessage(t("payment.newLinkReady"));
       navigateToExternalUrl(nextOrder.paymentCheckoutUrl);
       return true;
     }
 
-    setPaymentMessage("A new PayOS payment session is ready. Scan the QR code below to continue.");
+    setPaymentMessage(t("payment.newQrReady"));
     return true;
   };
 
@@ -264,7 +266,7 @@ export default function OrdersPage() {
 
   const handleRefreshPayment = async (targetOrderId = orderDetail?.id) => {
     if (!targetOrderId) {
-      setPaymentMessage("Unable to find the order to refresh payment status.");
+      setPaymentMessage(t("payment.orderNotFound"));
       return;
     }
 
@@ -277,13 +279,13 @@ export default function OrdersPage() {
       const latestOrder = await syncOrderPaymentState(targetOrderId, refreshedOrder);
       setPaymentMessage(
         latestOrder.paymentStatus === "PAID"
-          ? "The order has been paid successfully."
+          ? t("payment.paid")
           : latestOrder.paymentStatus === "CANCELLED"
-            ? "The payment was cancelled."
-          : "The latest payment status has been refreshed.",
+            ? t("payment.cancelled")
+          : t("payment.refreshed"),
       );
     } catch (requestError) {
-      setError(requestError.message || "Unable to refresh payment status.");
+      setError(requestError.message || t("payment.refreshError"));
     } finally {
       setRefreshingPaymentId("");
     }
@@ -291,7 +293,7 @@ export default function OrdersPage() {
 
   const handleRecreatePayment = async (targetOrderId = orderDetail?.id) => {
     if (!targetOrderId) {
-      setPaymentMessage("Unable to find the order to create a new PayOS payment.");
+      setPaymentMessage(t("payment.createNotFound"));
       return;
     }
 
@@ -304,7 +306,7 @@ export default function OrdersPage() {
       const latestOrder = await syncOrderPaymentState(targetOrderId, refreshedOrder);
 
       if (!canRetryPayment(latestOrder)) {
-        setPaymentMessage("This order is no longer eligible for a new payment session.");
+        setPaymentMessage(t("payment.notEligible"));
         return;
       }
 
@@ -312,11 +314,9 @@ export default function OrdersPage() {
         return;
       }
 
-      setPaymentMessage(
-        "The system could not create a new PayOS payment session for this order yet. Please try again shortly.",
-      );
+      setPaymentMessage(t("payment.couldNotCreate"));
     } catch (requestError) {
-      setError(requestError.message || "Unable to create a new PayOS payment.");
+      setError(requestError.message || t("payment.createError"));
     } finally {
       setRecreatingPaymentId("");
     }
@@ -326,16 +326,16 @@ export default function OrdersPage() {
   const profileRail = (
     <div className="grid gap-4">
       <div>
-        <p className={ui.eyebrow}>Account</p>
-        <h2 className="font-display text-xl font-semibold text-ink-900">Order history</h2>
+        <p className={ui.eyebrow}>{t("page.eyebrow")}</p>
+        <h2 className="font-display text-xl font-semibold text-ink-900">{t("page.title")}</h2>
       </div>
       <nav aria-label="Account sections" className="grid gap-1">
         {[
-          { href: "/account", label: "Overview" },
-          { href: "/orders", label: "Orders", active: true },
-          { href: "/account/levels", label: "Membership" },
-          { href: "/account/addresses", label: "Addresses" },
-          { href: "/account/favorites", label: "Favorites" },
+          { href: "/account", label: t("nav.overview") },
+          { href: "/orders", label: t("nav.orders"), active: true },
+          { href: "/account/levels", label: t("nav.membership") },
+          { href: "/account/addresses", label: t("nav.addresses") },
+          { href: "/account/favorites", label: t("nav.favorites") },
         ].map((link) => (
           <Link
             key={link.href}
@@ -354,10 +354,10 @@ export default function OrdersPage() {
       {/* Stats summary */}
       <div className="grid gap-2">
         {[
-          { label: "Total orders", value: formatCompactNumber(orders.length) },
-          { label: "Active", value: formatCompactNumber(orderStats.activeCount) },
-          { label: "Completed", value: formatCompactNumber(orderStats.completedCount) },
-          { label: "Total spend", value: formatPrice(orderStats.totalAmount) },
+          { label: t("stats.totalOrders"), value: formatCompactNumber(orders.length) },
+          { label: t("stats.active"), value: formatCompactNumber(orderStats.activeCount) },
+          { label: t("stats.completed"), value: formatCompactNumber(orderStats.completedCount) },
+          { label: t("stats.totalSpend"), value: formatPrice(orderStats.totalAmount) },
         ].map((stat) => (
           <div
             key={stat.label}
@@ -377,12 +377,12 @@ export default function OrdersPage() {
       <div>
         <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
           <div>
-            <p className={ui.eyebrow}>Orders</p>
+            <p className={ui.eyebrow}>{t("page.eyebrow")}</p>
             <h1 className="font-display text-3xl font-bold leading-tight tracking-tight text-ink-900 sm:text-4xl">
-              Order history
+              {t("page.title")}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-ink-600">
-              Track orders created from checkout, their processing status, and item-by-item details.
+              {t("page.subtitle")}
             </p>
           </div>
         </div>
@@ -396,7 +396,7 @@ export default function OrdersPage() {
       {loading ? (
         <section className={ui.panel}>
           <div className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
-            Loading order history...
+            {t("page.loading")}
           </div>
         </section>
       ) : null}
@@ -427,27 +427,26 @@ export default function OrdersPage() {
                 </div>
 
                 <div className="mt-4 grid gap-2 text-sm text-stone-600">
-                  {order.storeName ? <span>Store: {order.storeName}</span> : null}
-                  <span>{formatCompactNumber(order.items.length)} line items</span>
+                  {order.storeName ? <span>{t("orderCard.store", { value: order.storeName })}</span> : null}
+                  <span>{t("orderCard.lineItems", { count: order.items.length })}</span>
                   <span>
-                    {formatCompactNumber(
-                      order.items.reduce((sum, item) => sum + Number(item.quantity ?? 0), 0),
-                    )}{" "}
-                    products
+                    {t("orderCard.products", {
+                      count: order.items.reduce((sum, item) => sum + Number(item.quantity ?? 0), 0),
+                    })}
                   </span>
-                  <span>Delivery type: {formatDeliveryTypeLabel(order.deliveryType)}</span>
+                  <span>{t("orderCard.deliveryType", { value: formatDeliveryTypeLabel(order.deliveryType) })}</span>
                   {order.shippingFeeAmount !== undefined && order.shippingFeeAmount !== null ? (
-                    <span>Shipping fee: {formatPrice(order.shippingFeeAmount)}</span>
+                    <span>{t("orderCard.shippingFee", { value: formatPrice(order.shippingFeeAmount) })}</span>
                   ) : null}
                   {Number(order.creditPointsAwarded ?? 0) > 0 ? (
-                    <span>Credit earned: {formatCompactNumber(order.creditPointsAwarded)} pts</span>
+                    <span>{t("orderCard.creditEarned", { count: order.creditPointsAwarded })}</span>
                   ) : null}
                   {order.scheduledDeliveryAt ? (
-                    <span>Scheduled for: {formatDateTime(order.scheduledDeliveryAt)}</span>
+                    <span>{t("orderCard.scheduledFor", { value: formatDateTime(order.scheduledDeliveryAt) })}</span>
                   ) : null}
-                  {order.promotionScope ? <span>Promotion scope: {order.promotionScope}</span> : null}
-                  {order.deliveryFullName ? <span>Recipient: {order.deliveryFullName}</span> : null}
-                  {order.invoiceNumber ? <span>Invoice: {order.invoiceNumber}</span> : null}
+                  {order.promotionScope ? <span>{t("orderCard.promotionScope", { value: order.promotionScope })}</span> : null}
+                  {order.deliveryFullName ? <span>{t("orderCard.recipient", { value: order.deliveryFullName })}</span> : null}
+                  {order.invoiceNumber ? <span>{t("orderCard.invoice", { value: order.invoiceNumber })}</span> : null}
                 </div>
 
                 <div className="mt-5 flex flex-wrap gap-3">
@@ -456,7 +455,7 @@ export default function OrdersPage() {
                     type="button"
                     onClick={() => navigate(`/orders/${order.id}`)}
                   >
-                    View details
+                    {t("detail.viewDetails")}
                   </button>
                 </div>
               </article>
@@ -464,7 +463,7 @@ export default function OrdersPage() {
 
             {!orders.length ? (
               <article className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-8 text-sm leading-7 text-stone-600">
-                You do not have any orders yet.
+                {t("page.noOrders")}
               </article>
             ) : null}
           </div>
@@ -473,17 +472,17 @@ export default function OrdersPage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.2em] text-tea-700">
-                  Order detail
+                  {t("detail.title")}
                 </p>
                 <h2 className="mt-2 text-2xl font-semibold text-tea-900">
-                  {orderDetail ? `Order #${orderDetail.id}` : "Choose an order"}
+                  {orderDetail ? t("detail.orderNumber", { id: orderDetail.id }) : t("detail.chooseOrder")}
                 </h2>
               </div>
             </div>
 
             {detailLoading ? (
               <div className="mt-6 rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
-                Loading details...
+                {t("detail.loading")}
               </div>
             ) : null}
 
@@ -492,82 +491,76 @@ export default function OrdersPage() {
                 <OrderStatusTracker order={orderDetail} />
 
                 <div className="grid gap-2 text-sm leading-7 text-stone-600">
-                  <span>Status: {getOrderStatusMeta(orderDetail.status).label}</span>
-                  <span>Payment: {orderDetail.paymentStatus || "N/A"}</span>
+                  <span>{t("detailFields.status", { value: getOrderStatusMeta(orderDetail.status).label })}</span>
+                  <span>{t("detailFields.payment", { value: orderDetail.paymentStatus || "N/A" })}</span>
                   {orderDetail.paymentProvider ? (
-                    <span>Payment provider: {orderDetail.paymentProvider}</span>
+                    <span>{t("detailFields.paymentProvider", { value: orderDetail.paymentProvider })}</span>
                   ) : null}
                   {orderDetail.paymentReference ? (
-                    <span>Payment reference: {orderDetail.paymentReference}</span>
+                    <span>{t("detailFields.paymentReference", { value: orderDetail.paymentReference })}</span>
                   ) : null}
-                  {orderDetail.invoiceAvailable ? <span>Invoice ready: Yes</span> : null}
+                  {orderDetail.invoiceAvailable ? <span>{t("detailFields.invoiceReady")}</span> : null}
                   {orderDetail.invoiceNumber ? (
-                    <span>Invoice number: {orderDetail.invoiceNumber}</span>
+                    <span>{t("detailFields.invoiceNumber", { value: orderDetail.invoiceNumber })}</span>
                   ) : null}
                   {orderDetail.invoiceIssuedAt ? (
-                    <span>Invoice issued at: {formatDateTime(orderDetail.invoiceIssuedAt)}</span>
+                    <span>{t("detailFields.invoiceIssuedAt", { value: formatDateTime(orderDetail.invoiceIssuedAt) })}</span>
                   ) : null}
-                  <span>Subtotal: {formatPrice(orderDetail.subtotalAmount)}</span>
+                  <span>{t("detailFields.subtotal", { value: formatPrice(orderDetail.subtotalAmount) })}</span>
                   {Number(orderDetail.discountAmount ?? 0) > 0 ? (
-                    <span>Discount: {formatPrice(orderDetail.discountAmount)}</span>
+                    <span>{t("detailFields.discount", { value: formatPrice(orderDetail.discountAmount) })}</span>
                   ) : null}
                   {orderDetail.shippingFeeAmount !== undefined &&
                   orderDetail.shippingFeeAmount !== null ? (
-                    <span>Shipping fee: {formatPrice(orderDetail.shippingFeeAmount)}</span>
+                    <span>{t("detailFields.shippingFee", { value: formatPrice(orderDetail.shippingFeeAmount) })}</span>
                   ) : null}
                   {Number(orderDetail.creditPointsAwarded ?? 0) > 0 ? (
-                    <span>Credit earned: {formatCompactNumber(orderDetail.creditPointsAwarded)} pts</span>
+                    <span>{t("detailFields.creditEarned", { count: orderDetail.creditPointsAwarded })}</span>
                   ) : null}
                   {orderDetail.shippingDistanceKm !== undefined &&
                   orderDetail.shippingDistanceKm !== null ? (
-                    <span>
-                      Shipping distance: {formatShippingDistance(orderDetail.shippingDistanceKm)}
-                    </span>
+                    <span>{t("detailFields.shippingDistance", { value: formatShippingDistance(orderDetail.shippingDistanceKm) })}</span>
                   ) : null}
                   {orderDetail.shippingFeeBreakdown?.length ? (
-                    <span>
-                      Shipping breakdown: {formatShippingBreakdown(orderDetail.shippingFeeBreakdown)}
-                    </span>
+                    <span>{t("detailFields.shippingBreakdown", { value: formatShippingBreakdown(orderDetail.shippingFeeBreakdown) })}</span>
                   ) : null}
-                  <span>Total: {formatPrice(orderDetail.totalAmount)}</span>
+                  <span>{t("detailFields.total", { value: formatPrice(orderDetail.totalAmount) })}</span>
                   {orderDetail.promotionCode ? (
-                    <span>Promotion code: {orderDetail.promotionCode}</span>
+                    <span>{t("detailFields.promotionCode", { value: orderDetail.promotionCode })}</span>
                   ) : null}
                   {orderDetail.promotionScope ? (
-                    <span>Promotion scope: {orderDetail.promotionScope}</span>
+                    <span>{t("detailFields.promotionScope", { value: orderDetail.promotionScope })}</span>
                   ) : null}
                   {Number(orderDetail.promotionEligibleAmount ?? 0) > 0 ? (
-                    <span>Eligible amount: {formatPrice(orderDetail.promotionEligibleAmount)}</span>
+                    <span>{t("detailFields.eligibleAmount", { value: formatPrice(orderDetail.promotionEligibleAmount) })}</span>
                   ) : null}
                   {orderDetail.promotionDishIds?.length ? (
-                    <span>Promotion dish IDs: {orderDetail.promotionDishIds.join(", ")}</span>
+                    <span>{t("detailFields.promotionDishIds", { value: orderDetail.promotionDishIds.join(", ") })}</span>
                   ) : null}
-                  <span>Delivery type: {formatDeliveryTypeLabel(orderDetail.deliveryType)}</span>
+                  <span>{t("detailFields.deliveryType", { value: formatDeliveryTypeLabel(orderDetail.deliveryType) })}</span>
                   {orderDetail.scheduledDeliveryAt ? (
-                    <span>Scheduled for: {formatDateTime(orderDetail.scheduledDeliveryAt)}</span>
+                    <span>{t("detailFields.scheduledFor", { value: formatDateTime(orderDetail.scheduledDeliveryAt) })}</span>
                   ) : null}
                   {orderDetail.preparingStaffName ? (
-                    <span>Preparing staff: {orderDetail.preparingStaffName}</span>
+                    <span>{t("detailFields.preparingStaff", { value: orderDetail.preparingStaffName })}</span>
                   ) : null}
                   {orderDetail.deliveringShipperName ? (
-                    <span>Delivery rider: {orderDetail.deliveringShipperName}</span>
+                    <span>{t("detailFields.deliveryRider", { value: orderDetail.deliveringShipperName })}</span>
                   ) : null}
                   {orderDetail.deliveryFullName ? (
-                    <span>
-                      Deliver to: {orderDetail.deliveryFullName} - {orderDetail.deliveryPhoneNumber}
-                    </span>
+                    <span>{t("detailFields.deliverTo", { name: orderDetail.deliveryFullName, phone: orderDetail.deliveryPhoneNumber })}</span>
                   ) : null}
                   {orderDetail.deliveryAddress ? (
-                    <span>Delivery address: {orderDetail.deliveryAddress}</span>
+                    <span>{t("detailFields.deliveryAddress", { value: orderDetail.deliveryAddress })}</span>
                   ) : null}
                   {orderDetail.paymentExpiresAt ? (
-                    <span>Payment expires at: {formatDateTime(orderDetail.paymentExpiresAt)}</span>
+                    <span>{t("detailFields.paymentExpiresAt", { value: formatDateTime(orderDetail.paymentExpiresAt) })}</span>
                   ) : null}
                   {orderDetail.paidAt ? (
-                    <span>Paid at: {formatDateTime(orderDetail.paidAt)}</span>
+                    <span>{t("detailFields.paidAt", { value: formatDateTime(orderDetail.paidAt) })}</span>
                   ) : null}
-                  <span>Created at: {formatDateTime(orderDetail.createdAt)}</span>
-                  <span>Updated at: {formatDateTime(orderDetail.updatedAt)}</span>
+                  <span>{t("detailFields.createdAt", { value: formatDateTime(orderDetail.createdAt) })}</span>
+                  <span>{t("detailFields.updatedAt", { value: formatDateTime(orderDetail.updatedAt) })}</span>
                 </div>
 
                 <div className="flex flex-wrap gap-3">
@@ -578,8 +571,8 @@ export default function OrdersPage() {
                     onClick={() => handleRefreshPayment(orderDetail.id)}
                   >
                     {refreshingPaymentId === String(orderDetail.id)
-                      ? "Refreshing..."
-                      : "Refresh payment"}
+                      ? t("payment.refreshing")
+                      : t("payment.refreshPayment")}
                   </button>
 
                   {canRefreshDetailPayment &&
@@ -591,8 +584,8 @@ export default function OrdersPage() {
                       onClick={() => handleRecreatePayment(orderDetail.id)}
                     >
                       {recreatingPaymentId === String(orderDetail.id)
-                        ? "Creating new PayOS..."
-                        : "Create new PayOS payment"}
+                        ? t("payment.creatingNewPayos")
+                        : t("payment.createNewPayos")}
                     </button>
                   ) : null}
 
@@ -603,7 +596,7 @@ export default function OrdersPage() {
                       rel="noreferrer"
                       target="_blank"
                     >
-                      Pay now
+                      {t("payment.payNow")}
                     </a>
                   ) : null}
 
@@ -613,22 +606,22 @@ export default function OrdersPage() {
                       type="button"
                       onClick={() => setInvoiceModalOpen(true)}
                     >
-                      Open invoice
+                      {t("payment.openInvoice")}
                     </button>
                   ) : null}
                 </div>
 
                 {canRefreshDetailPayment && !orderDetailHasUsablePaymentSession ? (
-                  <div className="rounded-[1.2rem] border border-amber-200 bg-amber-50/90 p-4 text-sm leading-7 text-amber-900">
-                    The current PayOS session is no longer usable. Use{" "}
-                    <strong>Create new PayOS payment</strong> to generate a fresh payment session.
-                  </div>
+                  <div
+                    className="rounded-[1.2rem] border border-amber-200 bg-amber-50/90 p-4 text-sm leading-7 text-amber-900"
+                    dangerouslySetInnerHTML={{ __html: t("payment.expiredSession") }}
+                  />
                 ) : null}
 
                 <PaymentQrCard
                   order={orderDetail}
-                  title="PayOS QR"
-                  subtitle="Scan the latest PayOS QR directly from paymentQrCode, or continue checkout with the payment button."
+                  title={t("qr.title")}
+                  subtitle={t("qr.subtitle")}
                 />
 
                 <div className="grid gap-3">
@@ -657,8 +650,8 @@ export default function OrdersPage() {
                         </div>
 
                         <div className="mt-2 grid gap-1 text-sm text-stone-600">
-                          <span>Quantity: {item.quantity}</span>
-                          <span>Unit price: {formatPrice(item.unitPrice)}</span>
+                          <span>{t("item.quantity", { count: item.quantity })}</span>
+                          <span>{t("item.unitPrice", { value: formatPrice(item.unitPrice) })}</span>
                         </div>
 
                         <div className="mt-4 flex flex-wrap gap-3">
@@ -668,18 +661,18 @@ export default function OrdersPage() {
                             storeId={item.storeId}
                             quantity={1}
                             blocked={!item.dishId || !item.storeId}
-                            blockedMessage="This item is not ready to be added to the cart again yet."
+                            blockedMessage={t("item.itemNotReady")}
                             onResult={(message) => setCartMessage(message)}
                           />
                           <QuickFavoriteButton
                             targetType="dish"
                             targetId={item.dishId}
-                            activeLabel="Saved"
-                            inactiveLabel="Save item"
+                            activeLabel={t("item.saved")}
+                            inactiveLabel={t("item.saveItem")}
                             onResult={(message) => setFavoriteMessage(message)}
                           />
                           <Link className={ui.secondaryButton} to={`/menu/${item.dishId}?store=${item.storeId}`}>
-                            View item
+                            {t("item.viewItem")}
                           </Link>
                         </div>
                       </div>
@@ -691,7 +684,7 @@ export default function OrdersPage() {
 
             {!detailLoading && !orderDetail ? (
               <div className="mt-6 rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm leading-7 text-stone-600">
-                Click an order on the left to view its details.
+                {t("detail.clickToView")}
               </div>
             ) : null}
           </aside>
