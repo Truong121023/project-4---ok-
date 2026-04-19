@@ -4953,12 +4953,12 @@ export default function AdminPage({ forcedSection = "" }) {
         >
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className={ui.eyebrow}>Change password</p>
+              <p className={ui.eyebrow}>{t("passwordModal.eyebrow")}</p>
               <h2 className="text-3xl font-bold tracking-tight text-tea-900">
-                {isSelfPassword ? "Update the current account password" : "Update account password"}
+                {isSelfPassword ? t("passwordModal.titleSelf") : t("passwordModal.titleOther")}
               </h2>
               <p className="mt-3 text-sm leading-7 text-stone-600">
-                {passwordModal.fullName || "Unnamed account"}{" "}
+                {passwordModal.fullName || t("passwordModal.unnamedAccount")}{" "}
                 {passwordModal.email ? `| ${passwordModal.email}` : ""}
               </p>
             </div>
@@ -4969,7 +4969,7 @@ export default function AdminPage({ forcedSection = "" }) {
               onClick={() => closePasswordModal()}
               disabled={passwordModal.loading}
             >
-              Close
+              {t("passwordModal.cancel")}
             </button>
           </div>
 
