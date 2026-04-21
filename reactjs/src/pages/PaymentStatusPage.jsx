@@ -4,6 +4,7 @@ import InvoicePreviewModal from "../components/InvoicePreviewModal";
 import OrderStatusTracker from "../components/OrderStatusTracker";
 import PaymentQrCard from "../components/PaymentQrCard";
 import { useAuth } from "../context/AuthContext";
+import { useSiteData } from "../context/SiteDataContext";
 import { useToastMessage } from "../hooks/useToastMessage";
 import {
   canRetryPayment,
@@ -26,7 +27,12 @@ import {
 } from "../lib/paymentSession";
 import { navigateToExternalUrl } from "../lib/externalNavigation";
 import { formatCurrencyVnd, formatDateTimeVn } from "../lib/locale";
-import { fetchUserOrderDetail, refreshUserOrderPayment } from "../lib/siteApi";
+import {
+  cancelUserOrder,
+  fetchUserOrderDetail,
+  refreshUserOrderPayment,
+  reorderUserOrder,
+} from "../lib/siteApi";
 import { formatShippingBreakdown, formatShippingDistance } from "../lib/shippingFee";
 import { ui } from "../ui";
 
@@ -38,8 +44,20 @@ function formatDateTime(value) {
   return formatDateTimeVn(value);
 }
 
+function buildTransferCheckMessage(order) {
+  const paymentStatus = String(order?.paymentStatus ?? "").toUpperCase();
+  if (paymentStatus === "PAID") {
+    return "The server confirmed your transfer successfully.";
+  }
+  if (paymentStatus === "CANCELLED" || paymentStatus === "FAILED") {
+    return "The transfer has not been confirmed for this payment session.";
+  }
+  return "The server is still checking your transfer.";
+}
+
 export default function PaymentStatusPage({ mode = "success" }) {
   const auth = useAuth();
+  const siteData = useSiteData();
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -57,6 +75,10 @@ export default function PaymentStatusPage({ mode = "success" }) {
   const canRefreshPayment = canRefreshOrderPayment(order);
   const canViewInvoice = canViewOrderInvoice(order);
   const hasPaymentSession = hasUsablePaymentSession(order);
+  const canCancelOrder =
+    Array.isArray(order?.allowedActions) && order.allowedActions.includes("CANCEL_ORDER");
+  const canReorderOrder =
+    Array.isArray(order?.allowedActions) && order.allowedActions.includes("REORDER_ORDER");
 
   useToastMessage(error, { type: "error", title: "Payment" });
   useToastMessage(notice, { type: "info", title: "Payment" });
@@ -105,9 +127,9 @@ export default function PaymentStatusPage({ mode = "success" }) {
 
   const loadPaymentState = async () => {
     if (!orderId) {
-      setError("Unable to find the order that needs a payment refresh.");
+      setError("Unable to find the order that needs transfer verification.");
       setLoading(false);
-      return;
+      return null;
     }
 
     setLoading(true);
@@ -126,17 +148,20 @@ export default function PaymentStatusPage({ mode = "success" }) {
 
       setOrder(latestOrder);
       syncPendingPayment(latestOrder);
+      return latestOrder;
     } catch (requestError) {
       try {
         const detailOrder = await fetchUserOrderDetail(auth, orderId);
         setOrder(detailOrder);
         syncPendingPayment(detailOrder);
+        return detailOrder;
       } catch {
-        setError(requestError.message || "Unable to sync payment status.");
+        setError(requestError.message || "Unable to check the transfer status.");
       }
     } finally {
       setLoading(false);
     }
+    return null;
   };
 
   useEffect(() => {
@@ -147,7 +172,10 @@ export default function PaymentStatusPage({ mode = "success" }) {
   const handleRefresh = async () => {
     setRefreshing(true);
     setNotice("");
-    await loadPaymentState();
+    const latestOrder = await loadPaymentState();
+    if (latestOrder) {
+      setNotice(buildTransferCheckMessage(latestOrder));
+    }
     setRefreshing(false);
   };
 
@@ -192,12 +220,59 @@ export default function PaymentStatusPage({ mode = "success" }) {
     }
   };
 
+  const handleCancelOrder = async () => {
+    if (!order?.id) {
+      setError("Unable to find the unpaid order to cancel.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Cancel this unpaid order and stop the current payment session?",
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const cancelledOrder = await cancelUserOrder(auth, order.id);
+      setOrder(cancelledOrder);
+      syncPendingPayment(cancelledOrder);
+      setNotice("The unpaid order has been cancelled.");
+    } catch (requestError) {
+      setError(requestError.message || "Unable to cancel the order.");
+    }
+  };
+
+  const handleReorder = async () => {
+    if (!order?.id) {
+      setError("Unable to find the order to reorder.");
+      return;
+    }
+
+    if (Array.isArray(siteData?.cart?.items) && siteData.cart.items.length > 0) {
+      const confirmed = window.confirm(
+        "Reorder will replace the current cart so it matches this order. Continue?",
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    try {
+      await reorderUserOrder(auth, order.id);
+      await siteData.refreshCart();
+      setNotice(`The cart now matches Order #${order.id}.`);
+    } catch (requestError) {
+      setError(requestError.message || "Unable to reorder this order.");
+    }
+  };
+
   const heading = isCancelMode
-    ? "Checking payment after cancellation"
-    : "Checking payment result";
+    ? "Checking transfer after cancellation"
+    : "Checking transfer result";
   const description = isCancelMode
-    ? "If you just cancelled on PayOS, this page refreshes the order so the latest status is shown."
-    : "If you just completed payment on PayOS, this page syncs the order and payment details again.";
+    ? "If you just cancelled on PayOS, this page checks the order again so the latest transfer result is shown."
+    : "If you just completed the transfer, this page asks the server to verify the latest payment result.";
 
   return (
     <main className={ui.page}>
@@ -210,7 +285,7 @@ export default function PaymentStatusPage({ mode = "success" }) {
       <section className={ui.panel}>
         {loading ? (
           <div className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
-            Syncing payment status...
+            Checking transfer with the server...
           </div>
         ) : null}
 
@@ -249,6 +324,8 @@ export default function PaymentStatusPage({ mode = "success" }) {
 
                 <div className="mt-5 grid gap-2 text-sm leading-7 text-stone-600">
                   {order.storeName ? <span>Store: {order.storeName}</span> : null}
+                  {order.storePhoneNumber ? <span>Store phone: {order.storePhoneNumber}</span> : null}
+                  {order.storeAddress ? <span>Store address: {order.storeAddress}</span> : null}
                   <span>Subtotal: {formatPrice(order.subtotalAmount)}</span>
                   {Number(order.discountAmount ?? 0) > 0 ? (
                     <span>Discount: {formatPrice(order.discountAmount)}</span>
@@ -274,25 +351,13 @@ export default function PaymentStatusPage({ mode = "success" }) {
                   {Number(order.promotionEligibleAmount ?? 0) > 0 ? (
                     <span>Eligible amount: {formatPrice(order.promotionEligibleAmount)}</span>
                   ) : null}
-                  {order.promotionDishIds?.length ? (
-                    <span>Promotion dish IDs: {order.promotionDishIds.join(", ")}</span>
-                  ) : null}
                   <span>Delivery type: {formatDeliveryTypeLabel(order.deliveryType)}</span>
                   {order.scheduledDeliveryAt ? (
                     <span>Scheduled for: {formatDateTime(order.scheduledDeliveryAt)}</span>
                   ) : null}
-                  {order.preparingStaffName ? (
-                    <span>Preparing staff: {order.preparingStaffName}</span>
-                  ) : null}
-                  {order.deliveringShipperName ? (
-                    <span>Delivery rider: {order.deliveringShipperName}</span>
-                  ) : null}
                   <span>Recipient: {order.deliveryFullName || "N/A"}</span>
                   <span>Phone: {order.deliveryPhoneNumber || "N/A"}</span>
                   <span>Delivery address: {order.deliveryAddress || "N/A"}</span>
-                  {order.paymentProvider ? <span>Payment provider: {order.paymentProvider}</span> : null}
-                  {order.paymentReference ? <span>Payment reference: {order.paymentReference}</span> : null}
-                  {order.invoiceAvailable ? <span>Invoice ready: Yes</span> : null}
                   {order.invoiceNumber ? <span>Invoice number: {order.invoiceNumber}</span> : null}
                   {order.invoiceIssuedAt ? (
                     <span>Invoice issued at: {formatDateTime(order.invoiceIssuedAt)}</span>
@@ -304,12 +369,33 @@ export default function PaymentStatusPage({ mode = "success" }) {
                   <span>Created at: {formatDateTime(order.createdAt)}</span>
                   <span>Updated at: {formatDateTime(order.updatedAt)}</span>
                 </div>
+
+                {order.cancellationNote ? (
+                  <div className="mt-5 rounded-[1.25rem] border border-rose-200 bg-rose-50/90 p-4 text-sm leading-7 text-rose-800">
+                    <strong className="font-semibold text-rose-900">Cancellation note:</strong>{" "}
+                    {order.cancellationNote}
+                    {order.cancelledByUserName ? (
+                      <span className="text-rose-700">
+                        {" "}
+                        by {order.cancelledByUserName}
+                        {order.cancelledAt ? ` • ${formatDateTime(order.cancelledAt)}` : ""}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
               </article>
 
               <div className="flex flex-wrap gap-3">
-                <button className={ui.secondaryButton} type="button" onClick={handleRefresh}>
-                  {refreshing ? "Refreshing..." : "Refresh payment"}
-                </button>
+                {canRefreshPayment ? (
+                  <button className={ui.secondaryButton} type="button" onClick={handleRefresh}>
+                    {refreshing ? "Checking transfer..." : "I have transferred"}
+                  </button>
+                ) : null}
+                {canCancelOrder ? (
+                  <button className={ui.secondaryButton} type="button" onClick={handleCancelOrder}>
+                    Cancel order
+                  </button>
+                ) : null}
                 {canRefreshPayment && !hasPaymentSession ? (
                   <button className={ui.primaryButton} type="button" onClick={handleCreateNewPayment}>
                     {creatingPayment ? "Creating new PayOS..." : "Create new PayOS payment"}
@@ -327,6 +413,11 @@ export default function PaymentStatusPage({ mode = "success" }) {
                 <Link className={ui.primaryButton} to={`/orders/${order.id}`}>
                   View order
                 </Link>
+                {canReorderOrder ? (
+                  <button className={ui.primaryButton} type="button" onClick={handleReorder}>
+                    Reorder
+                  </button>
+                ) : null}
                 <Link className={ui.secondaryButton} to="/orders">
                   Back to order history
                 </Link>
@@ -338,11 +429,14 @@ export default function PaymentStatusPage({ mode = "success" }) {
                 </div>
               ) : null}
 
-              <PaymentQrCard
-                order={order}
-                title="PayOS QR"
-                subtitle="The latest QR is rendered from paymentQrCode so you can resume payment even after leaving the checkout page."
-              />
+              {String(order.status ?? "").toUpperCase() !== "CANCELLED" &&
+              String(order.paymentStatus ?? "").toUpperCase() !== "CANCELLED" ? (
+                <PaymentQrCard
+                  order={order}
+                  title="PayOS QR"
+                  subtitle="The latest QR is rendered from paymentQrCode so you can resume payment even after leaving the checkout page."
+                />
+              ) : null}
             </div>
 
             <aside className={`${ui.card} h-fit`}>

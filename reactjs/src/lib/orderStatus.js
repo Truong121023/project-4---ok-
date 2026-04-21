@@ -22,11 +22,11 @@ const ORDER_STATUS_META = {
   },
   READY_FOR_SHIPPER: {
     label: "Waiting for shipper",
-    description: "A shipper has been assigned and is on the way to pick up the order.",
+    description: "A shipper has been assigned and is waiting to accept the order for delivery.",
   },
   OUT_FOR_DELIVERY: {
     label: "Out for delivery",
-    description: "The assigned shipper has confirmed pickup and is on the way to deliver it.",
+    description: "The assigned shipper accepted the order and is on the way to deliver it.",
   },
   COMPLETED: {
     label: "Delivered",
@@ -80,7 +80,7 @@ const ORDER_STAGE_META = {
   },
   DELIVERING: {
     label: "Delivery",
-    description: "The assigned shipper has picked up the order and is delivering it.",
+    description: "The assigned shipper accepted the order and is delivering it.",
   },
   COMPLETED: {
     label: "Completed",
@@ -104,7 +104,7 @@ const ORDER_ACTION_LABELS = {
   VIEW_INVOICE: "View invoice",
   ACCEPT_PREPARING: "Accept preparing",
   MARK_READY: "Assign shipper",
-  ACCEPT_DELIVERY: "Confirm pickup",
+  ACCEPT_DELIVERY: "Accept order",
   MARK_COMPLETED: "Send delivery proof",
   REFRESH_PAYMENT: "Create new PayOS payment",
 };

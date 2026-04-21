@@ -1,4 +1,4 @@
-export const sectionTabs = [
+﻿export const sectionTabs = [
   { key: "users", label: "User" },
   { key: "stores", label: "Stores" },
   { key: "events", label: "Events" },
@@ -10,7 +10,7 @@ export const sectionTabs = [
   { key: "userLevels", label: "User levels" },
   { key: "orders", label: "Orders" },
   { key: "reviews", label: "Reviews" },
-  { key: "feedbacks", label: "Feedback" },
+  { key: "feedbacks", label: "Order feedback" },
 ];
 
 export function toBooleanString(value) {
@@ -247,16 +247,12 @@ export function createEmptyDraft(sectionKey, collections) {
         code: "",
         description: "",
         scope: "ORDER",
-        discountType: "PERCENT",
-        discountTarget: "ITEMS",
         discountValue: "",
         minOrderAmount: "",
         maxDiscountAmount: "",
-        creditCost: "",
         usageLimit: "",
         startsAt: "",
         endsAt: "",
-        applicableDishIdsText: "",
         eligibleUserLevelIdsText: "",
         active: "true",
       };
@@ -408,8 +404,6 @@ export function hydrateSectionDraft(sectionKey, entity) {
         code: entity.code ?? "",
         description: entity.description ?? "",
         scope: entity.scope ?? "ORDER",
-        discountType: entity.discountType ?? "PERCENT",
-        discountTarget: entity.discountTarget ?? "ITEMS",
         discountValue:
           entity.discountValue === undefined || entity.discountValue === null
             ? ""
@@ -428,21 +422,12 @@ export function hydrateSectionDraft(sectionKey, entity) {
               ? ""
               : String(entity.maximumDiscountAmount)
             : String(entity.maxDiscountAmount),
-        creditCost:
-          entity.creditCost === undefined || entity.creditCost === null
-            ? ""
-            : String(entity.creditCost),
         usageLimit:
           entity.usageLimit === undefined || entity.usageLimit === null
             ? ""
             : String(entity.usageLimit),
         startsAt: toDateTimeInput(entity.startsAt),
         endsAt: toDateTimeInput(entity.endsAt),
-        applicableDishIdsText: Array.isArray(entity.applicableDishIds)
-          ? entity.applicableDishIds.join(", ")
-          : Array.isArray(entity.promotionDishIds)
-            ? entity.promotionDishIds.join(", ")
-            : "",
         eligibleUserLevelIdsText: Array.isArray(entity.eligibleUserLevelIds)
           ? entity.eligibleUserLevelIds.join(", ")
           : "",
@@ -622,11 +607,6 @@ export function serializeSectionDraft(sectionKey, draft) {
       {
         const minOrderAmount = toNullableNumber(draft.minOrderAmount);
         const maxDiscountAmount = toNullableNumber(draft.maxDiscountAmount);
-        const creditCost = toNullableNumber(draft.creditCost);
-        const applicableDishIds = String(draft.applicableDishIdsText ?? "")
-          .split(",")
-          .map((value) => Number(String(value).trim()))
-          .filter((value) => Number.isFinite(value));
         const eligibleUserLevelIds = String(draft.eligibleUserLevelIdsText ?? "")
           .split(",")
           .map((value) => Number(String(value).trim()))
@@ -637,19 +617,15 @@ export function serializeSectionDraft(sectionKey, draft) {
         code: draft.code.trim(),
         description: draft.description.trim(),
         scope: draft.scope,
-        discountType: draft.discountType,
-        discountTarget: draft.discountTarget || "ITEMS",
+        discountType: "PERCENT",
         discountValue: Number(draft.discountValue),
         minOrderAmount,
         minimumOrderAmount: minOrderAmount,
         maxDiscountAmount,
         maximumDiscountAmount: maxDiscountAmount,
-        creditCost,
         usageLimit: toNullableNumber(draft.usageLimit),
         startsAt: toApiDateTime(draft.startsAt),
         endsAt: toApiDateTime(draft.endsAt),
-        applicableDishIds,
-        promotionDishIds: applicableDishIds,
         eligibleUserLevelIds,
         active: fromBooleanString(draft.active),
       };
@@ -1411,37 +1387,19 @@ export function buildSectionConfigs({
           options: [
             { value: "ORDER", label: "ORDER" },
             { value: "DISH", label: "DISH" },
+            { value: "SHIP", label: "SHIP" },
           ],
-        },
-        {
-          name: "discountType",
-          label: "Discount type",
-          type: "select",
-          required: true,
-          options: [
-            { value: "PERCENT", label: "PERCENT" },
-            { value: "FIXED_AMOUNT", label: "FIXED_AMOUNT" },
-          ],
-        },
-        {
-          name: "discountTarget",
-          label: "Discount target",
-          type: "select",
-          required: true,
-          options: [
-            { value: "ITEMS", label: "ITEMS" },
-            { value: "SHIPPING", label: "SHIPPING" },
-            { value: "BOTH", label: "BOTH" },
-          ],
+          description: "ORDER applies to the whole order, DISH applies to all items, and SHIP applies to shipping only.",
         },
         {
           name: "discountValue",
-          label: "Discount value",
+          label: "Percent off",
           type: "number",
           required: true,
           min: "0",
           step: "0.01",
           placeholder: "10",
+          description: "Only percentage vouchers are supported in the simplified flow.",
         },
         {
           name: "minOrderAmount",
@@ -1458,14 +1416,6 @@ export function buildSectionConfigs({
           min: "0",
           step: "0.01",
           placeholder: "30000",
-        },
-        {
-          name: "creditCost",
-          label: "Credit cost",
-          type: "number",
-          min: "0",
-          step: "1",
-          placeholder: "50",
         },
         {
           name: "usageLimit",
@@ -1488,20 +1438,12 @@ export function buildSectionConfigs({
           required: true,
         },
         {
-          name: "applicableDishIdsText",
-          label: "Signature dish IDs",
-          type: "textarea",
-          placeholder: "10, 11, 12",
-          description:
-            "Optional. Enter SIGNATURE dishId values separated by commas. Leave blank when scope ORDER should cover all signature items across every store.",
-        },
-        {
           name: "eligibleUserLevelIdsText",
-          label: "Eligible user level IDs",
+          label: "Eligible membership level IDs",
           type: "textarea",
           placeholder: "5, 6",
           description:
-            "Optional. Limit the promotion to specific global membership levels by userLevelId.",
+            "Optional. Leave blank to allow every membership level. Enter userLevelId values separated by commas when the code should be restricted.",
         },
         {
           name: "active",
@@ -1557,7 +1499,7 @@ export function buildSectionConfigs({
       ],
     },
     feedbacks: {
-      title: "Feedback management",
+      title: "Order feedback management",
       // description:
       //   "Review customer feedback, reply, and handle cases that need intervention.",
       detailPath: (id) => `/api/admin/feedbacks/${id}`,
@@ -1566,3 +1508,4 @@ export function buildSectionConfigs({
     },
   };
 }
+

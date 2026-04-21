@@ -97,7 +97,8 @@ export default function CheckoutResultPage() {
         <h1 className={ui.bannerTitle}>Payment details ready</h1>
         <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-700">
           Your order has been created. Review the transfer details, complete the payment, then
-          track the order status from the next step.
+          choose <strong>I have transferred</strong> so the server can verify the latest payment
+          status.
         </p>
       </section>
 
@@ -216,8 +217,8 @@ export default function CheckoutResultPage() {
           <aside className={`${ui.card} h-fit`}>
             <h2 className="text-2xl font-semibold text-tea-900">Next step</h2>
             <p className="mt-2 text-sm leading-7 text-stone-600">
-              Complete the transfer, then refresh or open the order page to follow the status from
-              preparing to delivery.
+              Complete the transfer, then use <strong>I have transferred</strong> so the server can
+              verify the payment before you continue tracking the order.
             </p>
 
             <div className="mt-5 grid gap-3">
@@ -250,7 +251,7 @@ export default function CheckoutResultPage() {
 
               {primaryOrderId ? (
                 <Link className={ui.secondaryButton} to={`/payment/success?orderId=${primaryOrderId}`}>
-                  I have paid - refresh status
+                  I have transferred
                 </Link>
               ) : null}
 

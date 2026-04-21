@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import PaymentQrCard from "./PaymentQrCard";
 import SmartImage from "./SmartImage";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
@@ -8,7 +9,7 @@ import { buildAdminOrderPath, buildAdminWorkspacePath } from "../lib/adminRoutes
 import { apiRequest, getApiErrorMessage } from "../lib/api";
 import { buildEventPath } from "../lib/eventRouting";
 import { getPrimaryImageUrl } from "../lib/images";
-import { formatShortDateTimeVn, formatTimeVn } from "../lib/locale";
+import { formatTimeVn } from "../lib/locale";
 import { buildNewsPath } from "../lib/newsRouting";
 import { ui } from "../ui";
 
@@ -27,10 +28,6 @@ function RobotIcon({ className = "h-5 w-5" }) {
 
 function formatTime(value) {
   return formatTimeVn(value, "Just now");
-}
-
-function formatThreadTime(value) {
-  return formatShortDateTimeVn(value, "");
 }
 
 function createMessage(role, content, extras = {}) {
@@ -60,7 +57,9 @@ function normalizeCurrentUserStatus(value) {
 
 function buildAdminFocusTarget(reference) {
   const adminPath = String(reference?.adminApiPath ?? "").trim();
-  if (!adminPath.startsWith("/api/admin/")) return null;
+  if (!adminPath.startsWith("/api/admin/")) {
+    return null;
+  }
 
   const matchers = [
     { regex: /^\/api\/admin\/stores\/([^/]+)$/i, sectionKey: "stores" },
@@ -95,28 +94,48 @@ function buildAdminFocusTarget(reference) {
 function resolveReferenceNavigation(reference, auth) {
   const normalizedRole = String(auth.user?.role ?? "").trim().toUpperCase();
   const adminTarget = buildAdminFocusTarget(reference);
-  if (adminTarget && ["ADMIN", "MANAGER"].includes(normalizedRole)) return adminTarget;
+  if (adminTarget && ["ADMIN", "MANAGER"].includes(normalizedRole)) {
+    return adminTarget;
+  }
 
   const publicApiPath = String(reference?.publicApiPath ?? "").trim();
   if (publicApiPath) {
     const storeMatch = publicApiPath.match(/^\/api\/public\/stores\/(.+)$/i);
-    if (storeMatch) return { href: `/stores/${encodeURIComponent(reference?.slug || storeMatch[1])}` };
+    if (storeMatch) {
+      return { href: `/stores/${encodeURIComponent(reference?.slug || storeMatch[1])}` };
+    }
+
     const dishMatch = publicApiPath.match(/^\/api\/public\/dishes\/(.+)$/i);
-    if (dishMatch) return { href: `/menu/${encodeURIComponent(reference?.id ?? dishMatch[1])}` };
+    if (dishMatch) {
+      return { href: `/menu/${encodeURIComponent(reference?.id ?? dishMatch[1])}` };
+    }
+
     const eventMatch = publicApiPath.match(/^\/api\/public\/events\/(.+)$/i);
-    if (eventMatch) return { href: buildEventPath(reference?.slug || eventMatch[1]) };
+    if (eventMatch) {
+      return { href: buildEventPath(reference?.slug || eventMatch[1]) };
+    }
+
     const newsMatch = publicApiPath.match(/^\/api\/public\/news\/(.+)$/i);
-    if (newsMatch) return { href: buildNewsPath(reference?.slug || newsMatch[1]) };
+    if (newsMatch) {
+      return { href: buildNewsPath(reference?.slug || newsMatch[1]) };
+    }
   }
 
   const userApiPath = String(reference?.userApiPath ?? "").trim();
   if (userApiPath === "/api/auth/me") {
     return ["STAFF", "SHIPPER"].includes(normalizedRole) ? { href: "/employee" } : { href: "/account" };
   }
-  if (userApiPath === "/api/user/cart") return { href: "/cart" };
+  if (userApiPath === "/api/user/cart") {
+    return { href: "/cart" };
+  }
+
   const userOrderMatch = userApiPath.match(/^\/api\/user\/orders\/([^/]+)$/i);
-  if (userOrderMatch) return { href: `/orders/${encodeURIComponent(userOrderMatch[1])}` };
-  if (userApiPath === "/api/user/orders") return { href: "/orders" };
+  if (userOrderMatch) {
+    return { href: `/orders/${encodeURIComponent(userOrderMatch[1])}` };
+  }
+  if (userApiPath === "/api/user/orders") {
+    return { href: "/orders" };
+  }
   return null;
 }
 
@@ -127,66 +146,99 @@ function resolveActionNavigation(action, auth) {
   const normalizedRole = String(auth.user?.role ?? "").trim().toUpperCase();
   const adminTarget = buildAdminFocusTarget({ adminApiPath: apiPath });
 
-  if (actionType === "OPEN_CART") return { href: "/cart" };
+  if (actionType === "OPEN_CART") {
+    return { href: "/cart" };
+  }
+
   if (actionType === "OPEN_ORDERS") {
     if (adminTarget && ["ADMIN", "MANAGER"].includes(normalizedRole)) {
       return { href: buildAdminWorkspacePath({ sectionKey: "orders" }) };
     }
-    if (normalizedRole === "USER") return { href: "/orders" };
+    if (normalizedRole === "USER") {
+      return { href: "/orders" };
+    }
     if (["ADMIN", "MANAGER"].includes(normalizedRole)) {
       return { href: buildAdminWorkspacePath({ sectionKey: "orders" }) };
     }
-    if (["STAFF", "SHIPPER"].includes(normalizedRole)) return { href: "/employee" };
+    if (["STAFF", "SHIPPER"].includes(normalizedRole)) {
+      return { href: "/employee" };
+    }
     return null;
   }
+
   if (actionType === "OPEN_ORDER") {
     const userOrderMatch = apiPath.match(/^\/api\/user\/orders\/([^/]+)$/i);
     const adminOrderMatch = apiPath.match(/^\/api\/admin\/orders\/([^/]+)$/i);
     const employeeOrderMatch = apiPath.match(/^\/api\/employee\/orders\/([^/]+)$/i);
-    const orderId = String(payload?.orderId ?? userOrderMatch?.[1] ?? adminOrderMatch?.[1] ?? employeeOrderMatch?.[1] ?? "").trim();
-    if (!orderId) return null;
-    if (adminTarget && ["ADMIN", "MANAGER"].includes(normalizedRole)) return adminTarget;
-    if (["ADMIN", "MANAGER"].includes(normalizedRole)) return { href: buildAdminOrderPath(orderId) };
-    if (["STAFF", "SHIPPER"].includes(normalizedRole)) return { href: `/employee/orders/${encodeURIComponent(orderId)}` };
-    if (normalizedRole === "USER") return { href: `/orders/${encodeURIComponent(orderId)}` };
+    const orderId = String(
+      payload?.orderId ?? userOrderMatch?.[1] ?? adminOrderMatch?.[1] ?? employeeOrderMatch?.[1] ?? "",
+    ).trim();
+    if (!orderId) {
+      return null;
+    }
+    if (adminTarget && ["ADMIN", "MANAGER"].includes(normalizedRole)) {
+      return adminTarget;
+    }
+    if (["ADMIN", "MANAGER"].includes(normalizedRole)) {
+      return { href: buildAdminOrderPath(orderId) };
+    }
+    if (["STAFF", "SHIPPER"].includes(normalizedRole)) {
+      return { href: `/employee/orders/${encodeURIComponent(orderId)}` };
+    }
+    if (normalizedRole === "USER") {
+      return { href: `/orders/${encodeURIComponent(orderId)}` };
+    }
     return null;
   }
+
   if (actionType === "OPEN_ACCOUNT") {
-    if (adminTarget && ["ADMIN", "MANAGER"].includes(normalizedRole)) return adminTarget;
+    if (adminTarget && ["ADMIN", "MANAGER"].includes(normalizedRole)) {
+      return adminTarget;
+    }
     return ["STAFF", "SHIPPER"].includes(normalizedRole) ? { href: "/employee" } : { href: "/account" };
   }
+
   if (actionType === "OPEN_STORE") {
-    if (adminTarget && ["ADMIN", "MANAGER"].includes(normalizedRole)) return adminTarget;
+    if (adminTarget && ["ADMIN", "MANAGER"].includes(normalizedRole)) {
+      return adminTarget;
+    }
     const storeMatch = apiPath.match(/^\/api\/public\/stores\/(.+)$/i);
     const storeKey = String(payload?.storeSlug ?? payload?.slug ?? storeMatch?.[1] ?? "").trim();
     return storeKey ? { href: `/stores/${encodeURIComponent(storeKey)}` } : null;
   }
+
   if (actionType === "OPEN_DISH") {
-    if (adminTarget && ["ADMIN", "MANAGER"].includes(normalizedRole)) return adminTarget;
+    if (adminTarget && ["ADMIN", "MANAGER"].includes(normalizedRole)) {
+      return adminTarget;
+    }
     const dishMatch = apiPath.match(/^\/api\/public\/dishes\/(.+)$/i);
     const dishId = String(payload?.dishId ?? payload?.id ?? dishMatch?.[1] ?? "").trim();
     return dishId ? { href: `/menu/${encodeURIComponent(dishId)}` } : null;
   }
+
   if (actionType === "OPEN_EVENT") {
-    if (adminTarget && ["ADMIN", "MANAGER"].includes(normalizedRole)) return adminTarget;
+    if (adminTarget && ["ADMIN", "MANAGER"].includes(normalizedRole)) {
+      return adminTarget;
+    }
     const eventMatch = apiPath.match(/^\/api\/public\/events\/(.+)$/i);
     const eventKey = String(payload?.slug ?? payload?.eventKey ?? eventMatch?.[1] ?? "").trim();
     return eventKey ? { href: buildEventPath(eventKey) } : null;
   }
+
   if (actionType === "OPEN_NEWS") {
-    if (adminTarget && ["ADMIN", "MANAGER"].includes(normalizedRole)) return adminTarget;
+    if (adminTarget && ["ADMIN", "MANAGER"].includes(normalizedRole)) {
+      return adminTarget;
+    }
     const newsMatch = apiPath.match(/^\/api\/public\/news\/(.+)$/i);
     const newsKey = String(payload?.slug ?? newsMatch?.[1] ?? "").trim();
     return newsKey ? { href: buildNewsPath(newsKey) } : null;
   }
+
   if (actionType === "OPEN_PROMOTION") {
     return adminTarget && ["ADMIN", "MANAGER"].includes(normalizedRole) ? adminTarget : null;
   }
-  return null;
-}
 
-function getActionTone(actionType) {
-  return ["ADD_TO_CART", "OPEN_CART"].includes(actionType) ? ui.primaryButton : ui.secondaryButton;
+  return null;
 }
 
 function getCompactActionClass(actionType) {
@@ -223,7 +275,6 @@ function groupActionsByReference(actions) {
 
   for (const action of deduped) {
     const referenceKey = String(action?.referenceKey ?? "").trim();
-
     if (!referenceKey) {
       generalActions.push(action);
       continue;
@@ -241,33 +292,33 @@ function getQuickPrompts(role) {
   switch (String(role ?? "").trim().toUpperCase()) {
     case "ADMIN":
       return [
-        "Show me the latest order issues that need admin attention.",
-        "Which store is performing best right now?",
-        "Open the most relevant promotion or store record for me.",
+        "Show the order issues that need attention right now.",
+        "Which store is performing best today?",
+        "Open the most relevant order record for me.",
       ];
     case "MANAGER":
       return [
-        "What needs my attention in my store today?",
-        "Show recent orders and customer issues for my branch.",
-        "Recommend which store records I should update first.",
+        "What needs my attention in this store today?",
+        "Show recent orders that changed status.",
+        "Which customer issues should I resolve first?",
       ];
     case "STAFF":
       return [
-        "Show me the orders I should focus on next.",
-        "Which drink is mentioned most often today?",
-        "Help me find the right order screen quickly.",
+        "Show the next orders that matter for staff.",
+        "Which item is mentioned most today?",
+        "Help me open the correct order screen.",
       ];
     case "SHIPPER":
       return [
-        "Show delivery orders that likely need my attention.",
-        "Open the latest order ready for delivery.",
-        "Help me check customer delivery details quickly.",
+        "Show my latest delivery task.",
+        "Which order is ready for delivery?",
+        "Open the latest delivery order details.",
       ];
     default:
       return [
-        "Which store nearby has a good matcha latte right now?",
-        "Recommend a drink and add it to my cart.",
-        "Help me find my latest order or account status.",
+        "What is in my cart right now?",
+        "Show my payment QR for the latest unpaid order.",
+        "Recommend one drink and add it to my cart.",
       ];
   }
 }
@@ -315,75 +366,6 @@ function AIMessageContent({ content }) {
   );
 }
 
-function HistoryIcon({ className = "h-5 w-5" }) {
-  return (
-    <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d="M4 12a8 8 0 1 0 2.3-5.7M4 4v4h4M12 8v4l2.8 1.8"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.7"
-      />
-    </svg>
-  );
-}
-
-function normalizeThreadSummaryList(payload) {
-  const items = Array.isArray(payload?.items) ? payload.items : Array.isArray(payload) ? payload : [];
-  return items
-    .map((entry) => ({
-      threadId: String(entry?.threadId ?? entry?.id ?? "").trim(),
-      title: String(entry?.title ?? "").trim(),
-      messageCount: Number(entry?.messageCount ?? 0) || 0,
-      lastMessageRole: String(entry?.lastMessageRole ?? "").trim(),
-      lastMessagePreview: String(entry?.lastMessagePreview ?? "").trim(),
-      lastMessageAt: String(entry?.lastMessageAt ?? "").trim(),
-      updatedAt: String(entry?.updatedAt ?? "").trim(),
-    }))
-    .filter((entry) => entry.threadId);
-}
-
-function normalizeStoredMessage(entry) {
-  return {
-    id: `thread-message-${String(entry?.id ?? entry?.createdAt ?? Math.random())}`,
-    role: String(entry?.role ?? "assistant").trim().toLowerCase() === "user" ? "user" : "assistant",
-    content: String(entry?.content ?? "").trim(),
-    createdAt: String(entry?.createdAt ?? new Date().toISOString()),
-    references: normalizeReferenceList(entry?.references),
-    actions: normalizeActionList(entry?.actions),
-    currentUserStatus: null,
-  };
-}
-
-function normalizeThreadDetail(payload) {
-  return {
-    threadId: String(payload?.threadId ?? payload?.id ?? "").trim(),
-    title: String(payload?.title ?? "").trim(),
-    messages: Array.isArray(payload?.messages) ? payload.messages.map((entry) => normalizeStoredMessage(entry)) : [],
-  };
-}
-
-function upsertThreadSummary(threadList, nextSummary) {
-  const normalizedSummary = {
-    threadId: String(nextSummary?.threadId ?? "").trim(),
-    title: String(nextSummary?.title ?? "").trim(),
-    messageCount: Number(nextSummary?.messageCount ?? 0) || 0,
-    lastMessageRole: String(nextSummary?.lastMessageRole ?? "").trim(),
-    lastMessagePreview: String(nextSummary?.lastMessagePreview ?? "").trim(),
-    lastMessageAt: String(nextSummary?.lastMessageAt ?? "").trim(),
-    updatedAt: String(nextSummary?.updatedAt ?? nextSummary?.lastMessageAt ?? "").trim(),
-  };
-  if (!normalizedSummary.threadId) return threadList;
-
-  const withoutCurrent = threadList.filter((entry) => String(entry.threadId) !== normalizedSummary.threadId);
-  return [normalizedSummary, ...withoutCurrent].sort((left, right) => {
-    const leftTime = new Date(left.updatedAt || left.lastMessageAt || 0).getTime();
-    const rightTime = new Date(right.updatedAt || right.lastMessageAt || 0).getTime();
-    return rightTime - leftTime;
-  });
-}
-
 function ReferenceCard({ reference, auth, actions = [], onAction }) {
   const navigationTarget = resolveReferenceNavigation(reference, auth);
   const previewImage = getPrimaryImageUrl(reference?.imagePath ?? "");
@@ -420,9 +402,7 @@ function ReferenceCard({ reference, auth, actions = [], onAction }) {
           </div>
 
           <h4 className="mt-2 text-sm font-semibold text-tea-900">{reference?.title || "Reference"}</h4>
-          {reference?.subtitle ? (
-            <p className="mt-1 text-xs leading-6 text-stone-600">{reference.subtitle}</p>
-          ) : null}
+          {reference?.subtitle ? <p className="mt-1 text-xs leading-6 text-stone-600">{reference.subtitle}</p> : null}
 
           <div className="mt-3 flex flex-wrap gap-2">
             {actions.map((action) => (
@@ -455,7 +435,9 @@ function ReferenceCard({ reference, auth, actions = [], onAction }) {
 }
 
 function ActionButtons({ actions, onAction, title = "Quick actions" }) {
-  if (!actions.length) return null;
+  if (!actions.length) {
+    return null;
+  }
 
   return (
     <div className="mt-4 rounded-[1rem] border border-matcha-900/10 bg-white/70 p-3">
@@ -481,6 +463,37 @@ function ActionButtons({ actions, onAction, title = "Quick actions" }) {
   );
 }
 
+function findPaymentQrAction(actions) {
+  return (Array.isArray(actions) ? actions : []).find(
+    (action) => String(action?.actionType ?? "").trim().toUpperCase() === "SHOW_PAYMENT_QR",
+  ) ?? null;
+}
+
+function buildPaymentQrOrder(action) {
+  const payload = action?.payload && typeof action.payload === "object" ? action.payload : null;
+  if (!payload) {
+    return null;
+  }
+
+  const paymentQrCode = String(payload.paymentQrCode ?? "").trim();
+  const paymentCheckoutUrl = String(payload.paymentCheckoutUrl ?? "").trim();
+  if (!paymentQrCode && !paymentCheckoutUrl) {
+    return null;
+  }
+
+  return {
+    id: payload.orderId ?? "",
+    paymentQrCode,
+    paymentCheckoutUrl,
+    paymentProvider: String(payload.paymentProvider ?? "").trim(),
+    paymentReference: String(payload.paymentReference ?? "").trim(),
+    paymentStatus: String(payload.paymentStatus ?? "").trim(),
+    status: String(payload.status ?? "").trim(),
+    totalAmount: Number(payload.totalAmount ?? 0),
+    paymentExpiresAt: String(payload.paymentExpiresAt ?? "").trim(),
+  };
+}
+
 export default function AIChatWidget() {
   const auth = useAuth();
   const toast = useToast();
@@ -490,134 +503,94 @@ export default function AIChatWidget() {
   const [draftMessage, setDraftMessage] = useState("");
   const [messages, setMessages] = useState([]);
   const [threads, setThreads] = useState([]);
-  const [activeThreadId, setActiveThreadId] = useState("");
+  const [activeThreadId, setActiveThreadId] = useState(null);
   const [activeThreadTitle, setActiveThreadTitle] = useState("");
-  const [threadSearch, setThreadSearch] = useState("");
-  const [threadsLoading, setThreadsLoading] = useState(false);
+  const [historySearch, setHistorySearch] = useState("");
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
   const [threadLoading, setThreadLoading] = useState(false);
+  const [deletingThreadId, setDeletingThreadId] = useState("");
   const [sending, setSending] = useState(false);
-  const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
   const [error, setError] = useState("");
-  const [threadsError, setThreadsError] = useState("");
-  const [threadError, setThreadError] = useState("");
 
   useEffect(() => {
     if (!auth.isAuthenticated) {
       setDraftMessage("");
       setMessages([]);
       setThreads([]);
-      setActiveThreadId("");
+      setActiveThreadId(null);
       setActiveThreadTitle("");
-      setThreadSearch("");
-      setThreadsLoading(false);
+      setHistorySearch("");
+      setHistoryOpen(false);
+      setHistoryLoading(false);
+      setHistoryError("");
       setThreadLoading(false);
+      setDeletingThreadId("");
       setSending(false);
-      setHistoryPanelOpen(false);
       setError("");
-      setThreadsError("");
-      setThreadError("");
     }
   }, [auth.isAuthenticated]);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: "smooth",
-    });
-  }, [messages, threadLoading, sending]);
-
-  useEffect(() => {
-    if (!historyPanelOpen || typeof document === "undefined") {
-      return undefined;
-    }
-
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
-        setHistoryPanelOpen(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [historyPanelOpen]);
-
-  useEffect(() => {
     if (!auth.isAuthenticated) {
-      return;
+      return undefined;
     }
 
     let cancelled = false;
 
-    const loadInitialThreads = async () => {
-      setThreadsLoading(true);
-      setThreadsError("");
+    const loadThreads = async () => {
+      setHistoryLoading(true);
+      setHistoryError("");
 
       try {
-        const payload = await apiRequest("/api/ai/chat/threads?page=0&size=20", {
+        const response = await apiRequest("/api/ai/chat/threads?page=0&size=20", {
           token: auth.token,
           tokenType: auth.tokenType,
         });
-
-        if (cancelled) return;
-
-        const nextThreads = normalizeThreadSummaryList(payload);
-        setThreads(nextThreads);
-
-        if (!nextThreads.length) {
-          setActiveThreadId("");
-          setActiveThreadTitle("");
-          setMessages([]);
-          setThreadError("");
+        if (cancelled) {
           return;
         }
-
-        const firstThread = nextThreads[0];
-        setThreadLoading(true);
-        setThreadError("");
-
-        try {
-          const detailPayload = await apiRequest(`/api/ai/chat/threads/${encodeURIComponent(firstThread.threadId)}`, {
-            token: auth.token,
-            tokenType: auth.tokenType,
-          });
-
-          if (cancelled) return;
-
-          const nextDetail = normalizeThreadDetail(detailPayload);
-          setActiveThreadId(nextDetail.threadId || firstThread.threadId);
-          setActiveThreadTitle(nextDetail.title || firstThread.title);
-          setMessages(nextDetail.messages);
-        } catch (detailError) {
-          if (cancelled) return;
-          setThreadError(getApiErrorMessage(detailError, "Unable to load this AI conversation."));
-          setActiveThreadId(firstThread.threadId);
-          setActiveThreadTitle(firstThread.title);
-          setMessages([]);
-        } finally {
-          if (!cancelled) {
-            setThreadLoading(false);
-          }
-        }
+        const items = Array.isArray(response?.items) ? response.items : [];
+        setThreads(
+          items
+            .filter((entry) => entry && typeof entry === "object")
+            .map((entry) => ({
+              threadId: entry.threadId ?? entry.id ?? null,
+              title: String(entry.title ?? "").trim(),
+              messageCount: Number(entry.messageCount ?? 0) || 0,
+              lastMessageRole: String(entry.lastMessageRole ?? "").trim(),
+              lastMessagePreview: String(entry.lastMessagePreview ?? "").trim(),
+              lastMessageAt: String(entry.lastMessageAt ?? "").trim(),
+              updatedAt: String(entry.updatedAt ?? "").trim(),
+            }))
+            .filter((entry) => entry.threadId),
+        );
       } catch (requestError) {
-        if (!cancelled) {
-          setThreadsError(getApiErrorMessage(requestError, "Unable to load AI chat history."));
+        if (cancelled) {
+          return;
         }
+        setHistoryError(getApiErrorMessage(requestError, "Unable to load AI chat history."));
       } finally {
         if (!cancelled) {
-          setThreadsLoading(false);
+          setHistoryLoading(false);
         }
       }
     };
 
-    void loadInitialThreads();
+    void loadThreads();
 
     return () => {
       cancelled = true;
     };
-  }, [auth.isAuthenticated, auth.token, auth.tokenType, auth.user?.id]);
+  }, [auth.isAuthenticated, auth.token, auth.tokenType]);
+
+  useEffect(() => {
+    if (!scrollRef.current) {
+      return;
+    }
+    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages, sending]);
 
   const latestStatus = useMemo(() => {
     for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -633,35 +606,55 @@ export default function AIChatWidget() {
     () => getQuickPrompts(latestStatus?.role || auth.user?.role),
     [auth.user?.role, latestStatus?.role],
   );
-
   const filteredThreads = useMemo(() => {
-    const search = String(threadSearch ?? "").trim().toLowerCase();
+    const search = String(historySearch ?? "").trim().toLowerCase();
     if (!search) {
       return threads;
     }
-
-    return threads.filter((thread) => {
-      const haystack = [thread.title, thread.lastMessagePreview, thread.lastMessageRole]
-        .filter(Boolean)
+    return threads.filter((thread) =>
+      [thread.title, thread.lastMessagePreview, thread.lastMessageRole]
         .join(" ")
-        .toLowerCase();
-      return haystack.includes(search);
-    });
-  }, [threadSearch, threads]);
+        .toLowerCase()
+        .includes(search),
+    );
+  }, [historySearch, threads]);
 
   if (!auth.isAuthenticated) {
     return null;
   }
 
-  const loadThreadsOnly = async () => {
+  const handleStartNewChat = () => {
+    setMessages([]);
+    setActiveThreadId(null);
+    setActiveThreadTitle("");
+    setDraftMessage("");
+    setError("");
+  };
+
+  const refreshThreads = async () => {
     try {
-      const payload = await apiRequest("/api/ai/chat/threads?page=0&size=20", {
+      const response = await apiRequest("/api/ai/chat/threads?page=0&size=20", {
         token: auth.token,
         tokenType: auth.tokenType,
       });
-      setThreads(normalizeThreadSummaryList(payload));
-    } catch {
-      // Keep the current sidebar if a silent refresh fails.
+      const items = Array.isArray(response?.items) ? response.items : [];
+      setThreads(
+        items
+          .filter((entry) => entry && typeof entry === "object")
+          .map((entry) => ({
+            threadId: entry.threadId ?? entry.id ?? null,
+            title: String(entry.title ?? "").trim(),
+            messageCount: Number(entry.messageCount ?? 0) || 0,
+            lastMessageRole: String(entry.lastMessageRole ?? "").trim(),
+            lastMessagePreview: String(entry.lastMessagePreview ?? "").trim(),
+            lastMessageAt: String(entry.lastMessageAt ?? "").trim(),
+            updatedAt: String(entry.updatedAt ?? "").trim(),
+          }))
+          .filter((entry) => entry.threadId),
+      );
+      setHistoryError("");
+    } catch (requestError) {
+      setHistoryError(getApiErrorMessage(requestError, "Unable to load AI chat history."));
     }
   };
 
@@ -671,42 +664,93 @@ export default function AIChatWidget() {
       return;
     }
 
-    setActiveThreadId(threadId);
-    setActiveThreadTitle(String(thread?.title ?? "").trim());
     setThreadLoading(true);
-    setThreadError("");
-    setHistoryPanelOpen(false);
-
+    setError("");
     try {
-      const payload = await apiRequest(`/api/ai/chat/threads/${encodeURIComponent(threadId)}`, {
+      const response = await apiRequest(`/api/ai/chat/threads/${threadId}`, {
         token: auth.token,
         tokenType: auth.tokenType,
       });
+      const nextMessages = Array.isArray(response?.messages)
+        ? response.messages
+            .filter((entry) => entry && typeof entry === "object")
+            .map((entry) => ({
+              id: String(entry.id ?? `${entry.role ?? "message"}-${Math.random().toString(36).slice(2, 9)}`),
+              role: String(entry.role ?? "").trim().toLowerCase() === "user" ? "user" : "assistant",
+              content: String(entry.content ?? "").trim(),
+              createdAt: entry.createdAt ?? new Date().toISOString(),
+              references: normalizeReferenceList(entry.references),
+              actions: normalizeActionList(entry.actions),
+              currentUserStatus: null,
+            }))
+        : [];
 
-      const nextDetail = normalizeThreadDetail(payload);
-      setActiveThreadId(nextDetail.threadId || threadId);
-      setActiveThreadTitle(nextDetail.title || thread.title || "");
-      setMessages(nextDetail.messages);
+      setMessages(nextMessages);
+      setActiveThreadId(Number(threadId));
+      setActiveThreadTitle(String(response?.title ?? thread.title ?? "").trim());
+      setHistoryOpen(false);
     } catch (requestError) {
-      setThreadError(getApiErrorMessage(requestError, "Unable to load this AI conversation."));
-      setMessages([]);
+      const messageText = getApiErrorMessage(requestError, "Unable to open this AI chat history.");
+      setError(messageText);
+      toast.error(messageText, { title: "Chatbox AI" });
     } finally {
       setThreadLoading(false);
     }
   };
 
-  const handleStartNewThread = () => {
-    setActiveThreadId("");
-    setActiveThreadTitle("");
-    setMessages([]);
-    setThreadError("");
+  const handleDeleteThread = async (thread, event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+
+    const threadId = String(thread?.threadId ?? "").trim();
+    if (!threadId) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete "${thread?.title || "this conversation"}" from AI chat history?`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingThreadId(threadId);
+    setHistoryError("");
     setError("");
-    setHistoryPanelOpen(false);
+
+    try {
+      await apiRequest(`/api/ai/chat/threads/${threadId}`, {
+        method: "DELETE",
+        token: auth.token,
+        tokenType: auth.tokenType,
+      });
+
+      setThreads((current) => current.filter((entry) => String(entry.threadId) !== threadId));
+
+      if (String(activeThreadId ?? "") === threadId) {
+        setMessages([]);
+        setActiveThreadId(null);
+        setActiveThreadTitle("");
+        setDraftMessage("");
+      }
+
+      toast.success("AI chat history deleted.", { title: "Chatbox AI" });
+    } catch (requestError) {
+      const messageText = getApiErrorMessage(requestError, "Unable to delete this AI chat history.");
+      setHistoryError(messageText);
+      toast.error(messageText, { title: "Chatbox AI" });
+    } finally {
+      setDeletingThreadId("");
+    }
   };
 
   const handleAction = async (action) => {
     const actionType = String(action?.actionType ?? "").trim().toUpperCase();
     const payload = action?.payload && typeof action.payload === "object" ? action.payload : null;
+
+    if (actionType === "SHOW_PAYMENT_QR") {
+      return;
+    }
 
     if (actionType === "ADD_TO_CART") {
       const dishId = String(payload?.dishId ?? "").trim();
@@ -750,11 +794,6 @@ export default function AIChatWidget() {
     }
 
     const userMessage = createMessage("user", message);
-    const requestHistory = messages
-      .filter((entry) => entry?.role === "user" || entry?.role === "assistant")
-      .slice(-8)
-      .map((entry) => ({ role: entry.role, content: entry.content }));
-
     setMessages((current) => [...current, userMessage]);
     setDraftMessage("");
     setSending(true);
@@ -767,13 +806,10 @@ export default function AIChatWidget() {
         tokenType: auth.tokenType,
         body: {
           message,
-          history: requestHistory,
-          ...(activeThreadId ? { threadId: Number(activeThreadId) || activeThreadId } : {}),
+          ...(activeThreadId ? { threadId: activeThreadId } : {}),
         },
       });
 
-      const responseThreadId = String(response?.threadId ?? activeThreadId ?? "").trim();
-      const responseThreadTitle = String(response?.threadTitle ?? "").trim() || activeThreadTitle || message;
       const assistantMessage = createMessage(
         "assistant",
         String(response?.answer ?? "").trim() || "I could not generate an answer yet.",
@@ -784,21 +820,10 @@ export default function AIChatWidget() {
         },
       );
 
-      setActiveThreadId(responseThreadId);
-      setActiveThreadTitle(responseThreadTitle);
       setMessages((current) => [...current, assistantMessage]);
-      setThreads((current) =>
-        upsertThreadSummary(current, {
-          threadId: responseThreadId,
-          title: responseThreadTitle,
-          messageCount: (current.find((entry) => entry.threadId === responseThreadId)?.messageCount || 0) + 2,
-          lastMessageRole: "assistant",
-          lastMessagePreview: assistantMessage.content,
-          lastMessageAt: assistantMessage.createdAt,
-          updatedAt: assistantMessage.createdAt,
-        }),
-      );
-      void loadThreadsOnly();
+      setActiveThreadId(Number(response?.threadId ?? activeThreadId ?? 0) || null);
+      setActiveThreadTitle(String(response?.threadTitle ?? activeThreadTitle ?? message).trim());
+      await refreshThreads();
     } catch (requestError) {
       const messageText = getApiErrorMessage(requestError, "Unable to reach AI assistant.");
       setError(messageText);
@@ -824,24 +849,144 @@ export default function AIChatWidget() {
                 Chatbox AI
               </span>
               <h1 className="mt-1 text-2xl font-semibold tracking-tight text-tea-900 sm:text-3xl">
-                AI assistant
+                Focused assistant
               </h1>
-            </div>
-            <button
-              className="inline-flex items-center gap-2 rounded-full border border-matcha-900/10 bg-white/88 px-4 py-3 text-sm font-semibold text-tea-900 transition hover:-translate-y-0.5 hover:bg-white"
-              type="button"
-              onClick={() => setHistoryPanelOpen(true)}
-            >
-              <HistoryIcon className="h-5 w-5 text-matcha-700" />
-              <span>History</span>
-              {threads.length ? (
-                <span className="rounded-full bg-matcha-500/12 px-2 py-0.5 text-xs font-bold text-matcha-700">
-                  {threads.length}
-                </span>
+              {activeThreadTitle ? (
+                <p className="mt-1 text-sm text-stone-500">Current chat: {activeThreadTitle}</p>
               ) : null}
-            </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                className="inline-flex items-center gap-2 rounded-full border border-matcha-900/10 bg-white/88 px-4 py-3 text-sm font-semibold text-tea-900 transition hover:-translate-y-0.5 hover:bg-white"
+                type="button"
+                onClick={() => setHistoryOpen((current) => !current)}
+              >
+                History
+                {threads.length ? (
+                  <span className="rounded-full bg-matcha-500/12 px-2 py-0.5 text-xs font-bold text-matcha-700">
+                    {threads.length}
+                  </span>
+                ) : null}
+              </button>
+              <button
+                className="inline-flex items-center gap-2 rounded-full border border-matcha-900/10 bg-white/88 px-4 py-3 text-sm font-semibold text-tea-900 transition hover:-translate-y-0.5 hover:bg-white"
+                type="button"
+                onClick={handleStartNewChat}
+              >
+                New chat
+              </button>
+            </div>
           </div>
         </div>
+
+        {historyOpen ? (
+          <div className="rounded-[1.8rem] border border-matcha-900/10 bg-white/82 p-4 shadow-[0_10px_24px_rgba(79,70,45,0.06)] sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-stone-500">
+                  Saved conversations
+                </p>
+                <p className="mt-1 text-sm text-stone-600">
+                  History is saved for lookup, but AI replies only to the current question.
+                </p>
+              </div>
+              <button className={ui.secondaryButton} type="button" onClick={handleStartNewChat}>
+                New chat
+              </button>
+            </div>
+
+            <div className="mt-4">
+              <input
+                className={ui.input}
+                placeholder="Search AI chat history..."
+                value={historySearch}
+                onChange={(event) => setHistorySearch(event.target.value)}
+                type="text"
+              />
+            </div>
+
+            {historyError ? (
+              <div className="mt-4 rounded-[1.2rem] border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-700">
+                {historyError}
+              </div>
+            ) : null}
+
+            <div className="mt-4 grid gap-3">
+              {historyLoading ? (
+                <div className="rounded-[1.2rem] border border-dashed border-matcha-900/15 bg-[#f8f5ef]/80 px-4 py-5 text-sm text-stone-600">
+                  Loading AI chat history...
+                </div>
+              ) : filteredThreads.length ? (
+                filteredThreads.map((thread) => {
+                  const isActive = String(thread.threadId) === String(activeThreadId ?? "");
+                  const isDeleting = deletingThreadId === String(thread.threadId);
+                  return (
+                    <button
+                      key={thread.threadId}
+                      className={cn(
+                        "rounded-[1.25rem] border px-4 py-4 text-left transition",
+                        isActive
+                          ? "border-matcha-500/35 bg-matcha-500/10"
+                          : "border-matcha-900/10 bg-[#f8f5ef]/75 hover:bg-white",
+                      )}
+                      type="button"
+                      disabled={isDeleting}
+                      onClick={() => {
+                        void handleOpenThread(thread);
+                      }}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="text-sm font-semibold text-tea-900">
+                          {thread.title || "Untitled conversation"}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {thread.messageCount ? <span className={ui.pill}>{thread.messageCount}</span> : null}
+                          {isActive ? <span className={ui.pill}>Open</span> : null}
+                          <span
+                            className="inline-flex"
+                            onClick={(event) => {
+                              void handleDeleteThread(thread, event);
+                            }}
+                          >
+                            <span
+                              className={cn(
+                                "inline-flex items-center justify-center rounded-full border px-3 py-2 text-xs font-semibold transition",
+                                isDeleting
+                                  ? "cursor-wait border-stone-200 bg-stone-100 text-stone-400"
+                                  : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100",
+                              )}
+                              role="button"
+                              tabIndex={0}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  void handleDeleteThread(thread, event);
+                                }
+                              }}
+                            >
+                              {isDeleting ? "Deleting..." : "Delete"}
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+                      {thread.lastMessagePreview ? (
+                        <p className="mt-2 text-sm leading-6 text-stone-600">{thread.lastMessagePreview}</p>
+                      ) : null}
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs uppercase tracking-[0.14em] text-stone-400">
+                        {thread.lastMessageRole ? <span>{thread.lastMessageRole}</span> : null}
+                        {thread.lastMessageAt ? <span>{formatTime(thread.lastMessageAt)}</span> : null}
+                      </div>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="rounded-[1.2rem] border border-dashed border-matcha-900/15 bg-[#f8f5ef]/80 px-4 py-5 text-sm text-stone-600">
+                  No saved AI conversations yet.
+                </div>
+              )}
+            </div>
+          </div>
+        ) : null}
 
         <div className="rounded-[1.8rem] border border-matcha-900/10 bg-white/78 p-4 shadow-[0_10px_24px_rgba(79,70,45,0.06)] sm:p-5">
           <div className="flex gap-3 overflow-x-auto pb-1">
@@ -864,24 +1009,18 @@ export default function AIChatWidget() {
           </div>
         ) : null}
 
-        {threadError ? (
-          <div className="rounded-[1.2rem] border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-700">
-            {threadError}
-          </div>
-        ) : null}
-
         <div
           ref={scrollRef}
           className="grid h-[60dvh] min-h-[32rem] gap-4 overflow-y-auto rounded-[1.95rem] border border-matcha-900/10 bg-white/82 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] sm:p-6 lg:h-[64dvh]"
         >
-          {threadLoading || (threadsLoading && !messages.length) ? (
-            <div className="justify-self-start rounded-[1.3rem] border border-matcha-900/10 bg-[#f8f5ef] px-4 py-3 text-sm text-stone-600 shadow-[0_10px_24px_rgba(79,70,45,0.06)]">
-              Loading this AI conversation...
-            </div>
-          ) : messages.length ? (
+          {messages.length ? (
             messages.map((message) => {
               const isUser = message.role === "user";
-              const groupedActions = groupActionsByReference(message.actions);
+              const visibleActions = (Array.isArray(message.actions) ? message.actions : []).filter(
+                (action) => String(action?.actionType ?? "").trim().toUpperCase() !== "SHOW_PAYMENT_QR",
+              );
+              const groupedActions = groupActionsByReference(visibleActions);
+              const paymentQrOrder = buildPaymentQrOrder(findPaymentQrAction(message.actions));
 
               return (
                 <article
@@ -902,11 +1041,21 @@ export default function AIChatWidget() {
                     <span>{isUser ? "You" : "AI"}</span>
                     <span>{formatTime(message.createdAt)}</span>
                   </div>
+
                   {isUser ? (
                     <p className="mt-2 whitespace-pre-wrap font-medium">{message.content}</p>
                   ) : (
                     <AIMessageContent content={message.content} />
                   )}
+
+                  {!isUser && paymentQrOrder ? (
+                    <PaymentQrCard
+                      className="mt-4"
+                      order={paymentQrOrder}
+                      title="Payment QR"
+                      subtitle="Scan this QR with your banking app or open the payment page to complete the order."
+                    />
+                  ) : null}
 
                   {!isUser && message.references?.length ? (
                     <div className="mt-4 rounded-[1.1rem] border border-matcha-900/10 bg-white/55 p-3">
@@ -946,11 +1095,17 @@ export default function AIChatWidget() {
               <div className="max-w-xl">
                 <RobotIcon className="mx-auto h-12 w-12 text-matcha-700" />
                 <p className="mt-4 text-sm leading-7 text-stone-600 sm:text-base">
-                  Pick a suggestion or type a message to start chatting.
+                  Ask one clear question at a time. The assistant answers from your live account, cart, and order state.
                 </p>
               </div>
             </div>
           )}
+
+          {threadLoading ? (
+            <div className="justify-self-start rounded-[1.3rem] border border-matcha-900/10 bg-[#f8f5ef] px-4 py-3 text-sm text-stone-600 shadow-[0_10px_24px_rgba(79,70,45,0.06)]">
+              Opening saved conversation...
+            </div>
+          ) : null}
 
           {sending ? (
             <div className="justify-self-start rounded-[1.3rem] border border-matcha-900/10 bg-[#f8f5ef] px-4 py-3 text-sm text-stone-600 shadow-[0_10px_24px_rgba(79,70,45,0.06)]">
@@ -965,119 +1120,17 @@ export default function AIChatWidget() {
         >
           <textarea
             className={`${ui.input} min-h-[10rem] resize-y border border-matcha-900/10 bg-[#f8f5ef] px-5 py-4 text-base leading-7`}
-            placeholder="Ask about stores, dishes, promotions, or orders..."
+            placeholder="Ask about your cart, checkout, payment QR, stores, or order status..."
             value={draftMessage}
             disabled={sending}
             onChange={(event) => setDraftMessage(event.target.value)}
           />
           <div className="flex justify-end">
             <button className={`${ui.primaryButton} min-w-[10rem]`} disabled={sending} type="submit">
-              {sending ? "Sending..." : activeThreadId ? "Send reply" : "Start chat"}
+              {sending ? "Sending..." : "Send"}
             </button>
           </div>
         </form>
-      </div>
-
-      <div
-        className="pointer-events-none fixed inset-y-0 right-0 z-50 flex justify-end"
-        aria-hidden={!historyPanelOpen}
-      >
-        <aside
-          className={cn(
-            "pointer-events-auto relative flex h-[100dvh] w-[min(25.5rem,calc(100vw-0.75rem))] max-w-full flex-col overflow-hidden rounded-l-[1.9rem] border-l border-matcha-900/10 bg-[#f8f5ef] shadow-[-18px_0_50px_rgba(39,64,45,0.18)] transition-transform duration-300",
-            historyPanelOpen ? "translate-x-0" : "translate-x-full",
-          )}
-          role="dialog"
-          aria-label="Chat history"
-        >
-          <div className="shrink-0 border-b border-matcha-900/10 px-5 pb-4 pt-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <span className="text-xs font-extrabold uppercase tracking-[0.22em] text-stone-500">
-                  Chat history
-                </span>
-                <p className="mt-2 text-sm leading-7 text-stone-600">
-                  Reopen a saved thread or start a fresh AI conversation.
-                </p>
-              </div>
-              <button
-                className="inline-flex items-center justify-center rounded-full border border-matcha-900/10 bg-white/82 px-4 py-2 text-sm font-semibold text-tea-900 transition hover:-translate-y-0.5 hover:bg-white"
-                type="button"
-                onClick={() => setHistoryPanelOpen(false)}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5">
-            <div className="grid gap-4">
-              <button className={ui.primaryButton} type="button" onClick={handleStartNewThread}>
-                New chat
-              </button>
-
-              <input
-                className={ui.input}
-                placeholder="Search chat history..."
-                value={threadSearch}
-                onChange={(event) => setThreadSearch(event.target.value)}
-              />
-
-              {threadsError ? (
-                <div className="rounded-[1.1rem] border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-700">
-                  {threadsError}
-                </div>
-              ) : null}
-
-              <div className="grid gap-2">
-                {threadsLoading ? (
-                  <div className="rounded-[1.1rem] border border-dashed border-matcha-900/15 bg-white/60 px-4 py-4 text-sm text-stone-600">
-                    Loading AI chat history...
-                  </div>
-                ) : filteredThreads.length ? (
-                  filteredThreads.map((thread) => {
-                    const isActive = thread.threadId === activeThreadId;
-                    return (
-                      <button
-                        key={thread.threadId}
-                        className={cn(
-                          "rounded-[1.2rem] border px-4 py-3 text-left transition",
-                          isActive
-                            ? "border-matcha-500/25 bg-matcha-500/12"
-                            : "border-matcha-900/10 bg-white/78 hover:-translate-y-0.5 hover:bg-white",
-                        )}
-                        type="button"
-                        onClick={() => {
-                          void handleOpenThread(thread);
-                        }}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <strong className="line-clamp-2 text-sm text-tea-900">
-                            {thread.title || "Untitled conversation"}
-                          </strong>
-                          {thread.messageCount ? <span className={ui.pill}>{thread.messageCount}</span> : null}
-                        </div>
-                        {thread.lastMessagePreview ? (
-                          <p className="mt-2 line-clamp-2 text-xs leading-6 text-stone-600">
-                            {thread.lastMessagePreview}
-                          </p>
-                        ) : null}
-                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-stone-400">
-                          {thread.lastMessageRole ? <span>{thread.lastMessageRole}</span> : null}
-                          {thread.lastMessageAt ? <span>{formatThreadTime(thread.lastMessageAt)}</span> : null}
-                        </div>
-                      </button>
-                    );
-                  })
-                ) : (
-                  <div className="rounded-[1.1rem] border border-dashed border-matcha-900/15 bg-white/60 px-4 py-4 text-sm text-stone-600">
-                    No saved AI conversations yet.
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </aside>
       </div>
     </section>
   );

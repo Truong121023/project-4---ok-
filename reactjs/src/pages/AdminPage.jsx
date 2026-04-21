@@ -13,6 +13,7 @@ import {
   toIdString,
 } from "../components/admin/adminSchema";
 import { useAuth } from "../context/AuthContext";
+import { useAppRealtime } from "../context/AppRealtimeContext";
 import { useToast } from "../context/ToastContext";
 import { useToastMessage } from "../hooks/useToastMessage";
 import { apiRequest, getApiErrorMessage, uploadAdminImages } from "../lib/api";
@@ -694,6 +695,10 @@ function formatCurrency(value) {
   return formatCurrencyVnd(amount, String(value));
 }
 
+function formatFeedbackOrderHistoryTimestamp(order) {
+  return formatDateTime(order?.paidAt ?? order?.updatedAt ?? order?.createdAt);
+}
+
 function formatCompactMetric(value) {
   const amount = Number(value ?? 0);
 
@@ -1011,14 +1016,97 @@ const sectionPageMeta = {
    description: "Inspect, moderate, and remove reviews inside the current access scope.",
   },
   feedbacks: {
-    eyebrow: "Feedback Management",
-   title: "Customer feedback",
-   description: "Reply to support tickets and manage store feedback threads.",
+    eyebrow: "Order Feedback Management",
+   title: "Order feedback",
+   description: "Review completed-order feedback, reply to users, and inspect store purchase history.",
   },
 };
 
+const RECENT_ADMIN_UPDATE_WINDOW_MS = 60_000;
+
+function parseRecentAdminUpdateTimestamp(value, now = Date.now()) {
+  if (!value) {
+    return 0;
+  }
+
+  const timestamp = new Date(value).getTime();
+
+  if (!Number.isFinite(timestamp)) {
+    return 0;
+  }
+
+  return now - timestamp <= RECENT_ADMIN_UPDATE_WINDOW_MS ? timestamp : 0;
+}
+
+function pruneRecentAdminUpdates(state, now = Date.now()) {
+  if (!state || typeof state !== "object") {
+    return {};
+  }
+
+  let changed = false;
+  const nextState = {};
+
+  Object.entries(state).forEach(([sectionKey, records]) => {
+    const nextSectionRecords = Object.entries(records ?? {}).reduce((result, [recordId, timestamp]) => {
+      if (
+        Number.isFinite(timestamp) &&
+        now - Number(timestamp) <= RECENT_ADMIN_UPDATE_WINDOW_MS
+      ) {
+        result[recordId] = Number(timestamp);
+      } else {
+        changed = true;
+      }
+
+      return result;
+    }, {});
+
+    if (Object.keys(nextSectionRecords).length) {
+      nextState[sectionKey] = nextSectionRecords;
+    } else if (records && Object.keys(records).length) {
+      changed = true;
+    }
+  });
+
+  return changed ? nextState : state;
+}
+
+function upsertRecentAdminUpdate(state, sectionKey, itemId, timestamp = Date.now()) {
+  const normalizedSectionKey = String(sectionKey ?? "").trim();
+  const normalizedItemId = toIdString(itemId);
+
+  if (!normalizedSectionKey || !normalizedItemId) {
+    return state;
+  }
+
+  const nextState = pruneRecentAdminUpdates(state, timestamp);
+  const currentSectionRecords = nextState[normalizedSectionKey] ?? {};
+
+  return {
+    ...nextState,
+    [normalizedSectionKey]: {
+      ...currentSectionRecords,
+      [normalizedItemId]: timestamp,
+    },
+  };
+}
+
+function resolveRecentAdminUpdateTimestamp(recentAdminUpdates, sectionKey, item, now = Date.now()) {
+  const normalizedSectionKey = String(sectionKey ?? "").trim();
+  const normalizedItemId = toIdString(item?.id);
+  const localTimestamp = Number(
+    recentAdminUpdates?.[normalizedSectionKey]?.[normalizedItemId] ?? 0,
+  );
+  const serverTimestamp = Math.max(
+    parseRecentAdminUpdateTimestamp(item?.updatedAt, now),
+    item?.updatedAt ? 0 : parseRecentAdminUpdateTimestamp(item?.createdAt, now),
+  );
+
+  return Math.max(localTimestamp, serverTimestamp);
+}
+
 export default function AdminPage({ forcedSection = "" }) {
   const auth = useAuth();
+  const realtime = useAppRealtime();
   const toast = useToast();
   const location = useLocation();
   const navigate = useNavigate();
@@ -1063,9 +1151,11 @@ export default function AdminPage({ forcedSection = "" }) {
   const [orderScanError, setOrderScanError] = useState("");
   const [orderActionLoading, setOrderActionLoading] = useState("");
   const [managerAssignedShipperId, setManagerAssignedShipperId] = useState("");
+  const [cancelOrderNote, setCancelOrderNote] = useState("");
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [infoModalKey, setInfoModalKey] = useState("");
   const [feedbackReplyDraft, setFeedbackReplyDraft] = useState("");
+  const lastHandledRealtimeOrderVersionRef = useRef(0);
   const [aiAssistState, setAiAssistState] = useState(createEmptyAdminAiState);
   const [drafts, setDrafts] = useState({
     users: createEmptyDraft("users", emptyCollections()),
@@ -1132,6 +1222,7 @@ export default function AdminPage({ forcedSection = "" }) {
     error: "",
   });
   const attemptedRouteRecordRef = useRef("");
+  const listSectionRef = useRef(null);
   const [passwordModal, setPasswordModal] = useState({
     open: false,
     userId: "",
@@ -1144,6 +1235,7 @@ export default function AdminPage({ forcedSection = "" }) {
     loading: false,
     error: "",
   });
+  const [recentAdminUpdates, setRecentAdminUpdates] = useState({});
 
   useToastMessage(error, {
     type: "error",
@@ -1155,7 +1247,7 @@ export default function AdminPage({ forcedSection = "" }) {
   });
   useToastMessage(orderScanError, {
     type: "error",
-    title: "QR scan history",
+    title: "Order activity",
   });
 
   const isWorkspaceOnly = Boolean(forcedSection);
@@ -1165,6 +1257,75 @@ export default function AdminPage({ forcedSection = "" }) {
   const routeRecordId = toIdString(routeSearchParams.get("record"));
   const routeStoreScopeId = toIdString(routeSearchParams.get("storeId"));
   const shouldSyncRecordInUrl = !forcedSection;
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    const prunedState = pruneRecentAdminUpdates(recentAdminUpdates);
+
+    if (prunedState !== recentAdminUpdates) {
+      setRecentAdminUpdates(prunedState);
+      return undefined;
+    }
+
+    const expiryTimes = Object.values(recentAdminUpdates)
+      .flatMap((records) => Object.values(records ?? {}))
+      .map((timestamp) => Number(timestamp) + RECENT_ADMIN_UPDATE_WINDOW_MS)
+      .filter((timestamp) => Number.isFinite(timestamp));
+
+    if (!expiryTimes.length) {
+      return undefined;
+    }
+
+    const remainingExpiryTimes = expiryTimes
+      .map((timestamp) => timestamp - Date.now())
+      .filter((value) => value > 0);
+
+    if (!remainingExpiryTimes.length) {
+      return undefined;
+    }
+
+    const nextTimeoutMs = Math.max(250, Math.min(...remainingExpiryTimes));
+
+    const timeoutId = window.setTimeout(() => {
+      setRecentAdminUpdates((current) => pruneRecentAdminUpdates(current));
+    }, nextTimeoutMs);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [recentAdminUpdates]);
+
+  const markRecordRecentlyUpdated = useCallback(
+    (sectionKey, itemId) => {
+      const normalizedSectionKey = String(sectionKey ?? "").trim();
+      const normalizedItemId = toIdString(itemId);
+
+      if (!normalizedSectionKey || !normalizedItemId) {
+        return;
+      }
+
+      setRecentAdminUpdates((current) =>
+        upsertRecentAdminUpdate(current, normalizedSectionKey, normalizedItemId),
+      );
+
+      if (
+        normalizedSectionKey === activeSection &&
+        typeof window !== "undefined" &&
+        listSectionRef.current
+      ) {
+        window.requestAnimationFrame(() => {
+          listSectionRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+        });
+      }
+    },
+    [activeSection],
+  );
   useEffect(() => {
     if (!forcedSection || !routeRecordId) {
       return;
@@ -1580,6 +1741,34 @@ export default function AdminPage({ forcedSection = "" }) {
       : isAdmin && (activeSection === "users" || activeSection === "stores" || activeSection === "promotions")
       ? displayCollections[activeSection] ?? []
       : scopedDisplayCollections[activeSection] ?? [];
+  const prioritizedActiveItems = useMemo(() => {
+    if (!Array.isArray(activeItems) || activeItems.length < 2) {
+      return activeItems;
+    }
+
+    const now = Date.now();
+
+    return [...activeItems].sort((leftItem, rightItem) => {
+      const rightTimestamp = resolveRecentAdminUpdateTimestamp(
+        recentAdminUpdates,
+        activeSection,
+        rightItem,
+        now,
+      );
+      const leftTimestamp = resolveRecentAdminUpdateTimestamp(
+        recentAdminUpdates,
+        activeSection,
+        leftItem,
+        now,
+      );
+
+      if (rightTimestamp !== leftTimestamp) {
+        return rightTimestamp - leftTimestamp;
+      }
+
+      return 0;
+    });
+  }, [activeItems, activeSection, recentAdminUpdates]);
   const isDetailSection = ["reviews", "feedbacks"].includes(activeSection);
   const isFeedbackSection = activeSection === "feedbacks";
   const selectedOrderRecord =
@@ -1627,6 +1816,7 @@ export default function AdminPage({ forcedSection = "" }) {
   useEffect(() => {
     if (!selectedOrderRecord?.id) {
       setManagerAssignedShipperId("");
+      setCancelOrderNote("");
       return;
     }
 
@@ -1649,13 +1839,23 @@ export default function AdminPage({ forcedSection = "" }) {
     selectedOrderRecord?.deliveringShipperId,
     selectedOrderRecord?.id,
   ]);
+  useEffect(() => {
+    if (!selectedOrderRecord?.id) {
+      setCancelOrderNote("");
+      return;
+    }
+
+    setCancelOrderNote(
+      String(selectedOrderRecord.cancellationNote ?? "").trim(),
+    );
+  }, [selectedOrderRecord?.cancellationNote, selectedOrderRecord?.id]);
   const renderedActiveItems = useMemo(() => {
     if (!(isOrdersWorkspaceOnly && activeSection === "orders" && hasActiveEditingId)) {
-      return activeItems;
+      return prioritizedActiveItems;
     }
 
     const matchedListOrder =
-      activeItems.find((item) => String(item.id) === String(resolvedEditingId)) ?? null;
+      prioritizedActiveItems.find((item) => String(item.id) === String(resolvedEditingId)) ?? null;
 
     if (matchedListOrder) {
       return [matchedListOrder];
@@ -1666,7 +1866,14 @@ export default function AdminPage({ forcedSection = "" }) {
     }
 
     return [];
-  }, [activeItems, activeSection, hasActiveEditingId, isOrdersWorkspaceOnly, resolvedEditingId, selectedOrderRecord]);
+  }, [
+    activeSection,
+    hasActiveEditingId,
+    isOrdersWorkspaceOnly,
+    prioritizedActiveItems,
+    resolvedEditingId,
+    selectedOrderRecord,
+  ]);
   const selectedStoreImages = normalizeImagePathList(selectedStore?.imagePaths ?? selectedStore?.imagePath);
   const dashboardLabel = isManagerMode ? "Manager panel" : "Admin dashboard";
   const dashboardHeading = isManagerMode
@@ -1675,7 +1882,7 @@ export default function AdminPage({ forcedSection = "" }) {
   const workspacePageMeta = sectionPageMeta[activeSection] ?? null;
   const dashboardCopy = isManagerMode
     ? "You are managing within your assigned store scope. All data and actions are limited to that branch."
-    : "Manage full system operations: stores, staff, categories, menu items, orders, invoices, and customer feedback.";
+    : "Manage full system operations: stores, staff, categories, menu items, orders, invoices, and order feedback.";
   const storeScopeHeading = selectedStore
     ? selectedStore.name
     : isManagerMode
@@ -2557,9 +2764,9 @@ export default function AdminPage({ forcedSection = "" }) {
         return nextHistory;
       } catch (requestError) {
         if (requestError?.status === 401 || requestError?.status === 403) {
-          handleApiFailure(requestError, "Unable to load order scan history.");
+          handleApiFailure(requestError, "Unable to load order activity.");
         } else {
-          setOrderScanError(getApiErrorMessage(requestError, "Unable to load order scan history."));
+          setOrderScanError(getApiErrorMessage(requestError, "Unable to load order activity."));
         }
 
         return [];
@@ -2567,6 +2774,38 @@ export default function AdminPage({ forcedSection = "" }) {
         if (!silent) {
           setOrderScanLoading(false);
         }
+      }
+    },
+    [authorizedRequest, handleApiFailure],
+  );
+
+  const loadSelectedOrderDetail = useCallback(
+    async (targetOrderId, { silent = false } = {}) => {
+      if (!targetOrderId) {
+        return null;
+      }
+
+      try {
+        const response = await authorizedRequest(`/api/admin/orders/${targetOrderId}`);
+        const detail =
+          normalizeDetailResponse(response) ??
+          (response && typeof response === "object" && !Array.isArray(response) ? response : null);
+
+        if (!detail) {
+          return null;
+        }
+
+        setOrderDetailRecord(detail);
+        setDrafts((current) => ({
+          ...current,
+          orders: hydrateSectionDraft("orders", detail),
+        }));
+        return detail;
+      } catch (requestError) {
+        if (!silent) {
+          handleApiFailure(requestError, "Unable to reload order details.");
+        }
+        return null;
       }
     },
     [authorizedRequest, handleApiFailure],
@@ -2586,6 +2825,15 @@ export default function AdminPage({ forcedSection = "" }) {
         return;
       }
 
+      const isCancelAction = actionKey === "CANCEL_ORDER";
+      const cancellationNoteValue = String(cancelOrderNote ?? "").trim();
+
+      if (isCancelAction && !cancellationNoteValue) {
+        setNotice("");
+        setError("Enter a cancellation note before cancelling the order.");
+        return;
+      }
+
       setOrderActionLoading(actionKey);
       setNotice("");
       setError("");
@@ -2596,6 +2844,11 @@ export default function AdminPage({ forcedSection = "" }) {
         try {
           response = await authorizedRequest(actionConfig.path(selectedOrderRecord.id), {
             method: "POST",
+            body: isCancelAction
+              ? {
+                  note: cancellationNoteValue,
+                }
+              : undefined,
           });
         } catch (requestError) {
           const fallbackPayload = buildOrderStatusFallbackPayload(selectedOrderRecord, actionKey);
@@ -2630,6 +2883,7 @@ export default function AdminPage({ forcedSection = "" }) {
           }),
           loadOrderScanHistory(nextOrder.id, { silent: true }),
         ]);
+        markRecordRecentlyUpdated("orders", nextOrder.id);
       } catch (requestError) {
         handleApiFailure(requestError, "Unable to update the order workflow.");
       } finally {
@@ -2642,7 +2896,9 @@ export default function AdminPage({ forcedSection = "" }) {
       isManagerMode,
       listQueries,
       loadOrderScanHistory,
+      markRecordRecentlyUpdated,
       refreshAll,
+      cancelOrderNote,
       selectedOrderRecord,
     ],
   );
@@ -2721,6 +2977,7 @@ export default function AdminPage({ forcedSection = "" }) {
           }),
           loadOrderScanHistory(nextOrder.id, { silent: true }),
         ]);
+        markRecordRecentlyUpdated("orders", nextOrder.id);
       } catch (requestError) {
         handleApiFailure(requestError, "Unable to assign a shipper to this order right now.");
       } finally {
@@ -2734,6 +2991,7 @@ export default function AdminPage({ forcedSection = "" }) {
       listQueries,
       loadOrderScanHistory,
       managerAssignedShipperId,
+      markRecordRecentlyUpdated,
       refreshAll,
       selectedOrderRecord,
     ],
@@ -2843,6 +3101,45 @@ export default function AdminPage({ forcedSection = "" }) {
 
     void loadOrderScanHistory(selectedOrderRecord.id);
   }, [activeSection, hasActiveEditingId, isOrdersWorkspaceOnly, loadOrderScanHistory, selectedOrderRecord?.id]);
+
+  useEffect(() => {
+    if (!realtime.orderEventVersion || activeSection !== "orders") {
+      return;
+    }
+
+    if (lastHandledRealtimeOrderVersionRef.current === realtime.orderEventVersion) {
+      return;
+    }
+
+    lastHandledRealtimeOrderVersionRef.current = realtime.orderEventVersion;
+
+    void refreshAll({
+      refreshLookups: false,
+      refreshLists: true,
+      nextQueries: listQueries,
+    });
+
+    const eventOrderId = String(realtime.lastOrderEvent?.orderId ?? "").trim();
+    if (!selectedOrderRecord?.id || (eventOrderId && eventOrderId !== String(selectedOrderRecord.id))) {
+      return;
+    }
+
+    void loadSelectedOrderDetail(selectedOrderRecord.id, { silent: true });
+
+    if (!isOrdersWorkspaceOnly) {
+      void loadOrderScanHistory(selectedOrderRecord.id, { silent: true });
+    }
+  }, [
+    activeSection,
+    isOrdersWorkspaceOnly,
+    listQueries,
+    loadOrderScanHistory,
+    loadSelectedOrderDetail,
+    realtime.lastOrderEvent?.orderId,
+    realtime.orderEventVersion,
+    refreshAll,
+    selectedOrderRecord?.id,
+  ]);
 
   useEffect(() => {
     if (!isManagerMode) {
@@ -3302,6 +3599,7 @@ export default function AdminPage({ forcedSection = "" }) {
         refreshLists: true,
         nextQueries: listQueries,
       });
+      markRecordRecentlyUpdated("feedbacks", reviewDetail.id);
       setNotice(response?.message ?? "Feedback reply saved.");
     } catch (requestError) {
       handleApiFailure(requestError, "Unable to save the feedback reply.");
@@ -3335,6 +3633,7 @@ export default function AdminPage({ forcedSection = "" }) {
         refreshLists: true,
         nextQueries: listQueries,
       });
+      markRecordRecentlyUpdated("feedbacks", reviewDetail.id);
       setNotice(response?.message ?? "Feedback reply deleted.");
     } catch (requestError) {
       handleApiFailure(requestError, "Unable to delete the feedback reply.");
@@ -3663,6 +3962,7 @@ export default function AdminPage({ forcedSection = "" }) {
         refreshLists: true,
         nextQueries: listQueries,
       });
+      markRecordRecentlyUpdated("users", passwordModal.userId);
     } catch (requestError) {
       setPasswordModal((current) => ({
         ...current,
@@ -3784,6 +4084,7 @@ export default function AdminPage({ forcedSection = "" }) {
         refreshLists: true,
         nextQueries: listQueries,
       });
+      markRecordRecentlyUpdated(sectionKey, item.id);
     } catch (requestError) {
       handleApiFailure(requestError, "Unable to update activation.");
     } finally {
@@ -3844,17 +4145,6 @@ export default function AdminPage({ forcedSection = "" }) {
         !activeDraft.deliveringShipperId
       ) {
         throw new Error("READY_FOR_SHIPPER status requires a delivery shipper ID.");
-      }
-
-      if (
-        activeSection === "promotions" &&
-        activeDraft.scope === "DISH" &&
-        !String(activeDraft.applicableDishIdsText ?? "")
-          .split(",")
-          .map((value) => value.trim())
-          .filter(Boolean).length
-      ) {
-        throw new Error("A DISH-scoped promotion requires at least one valid dishId.");
       }
 
       let payload = serializeSectionDraft(activeSection, activeDraft);
@@ -3930,6 +4220,10 @@ export default function AdminPage({ forcedSection = "" }) {
         refreshLists: true,
         nextQueries: listQueries,
       });
+
+      if (targetRecordId) {
+        markRecordRecentlyUpdated(activeSection, targetRecordId);
+      }
 
       if (targetRecordId && persistedDetail) {
         syncLoadedSectionRecord(activeSection, targetRecordId, persistedDetail);
@@ -4019,14 +4313,31 @@ export default function AdminPage({ forcedSection = "" }) {
     );
 
   const renderEntityCard = (sectionKey, item) => {
+    const recentUpdateTimestamp = resolveRecentAdminUpdateTimestamp(
+      recentAdminUpdates,
+      sectionKey,
+      item,
+    );
+    const isRecentlyUpdated = Boolean(recentUpdateTimestamp);
+    const recentUpdateLabel = isRecentlyUpdated ? "* Updated within the last minute" : "";
+
     if (sectionKey === "users") {
       return (
         <article
           key={item.id}
-          className="rounded-[1.75rem] border border-matcha-900/10 bg-white/70 p-5 shadow-[0_18px_44px_rgba(79,70,45,0.08)]"
+          className={`rounded-[1.75rem] border p-5 shadow-[0_18px_44px_rgba(79,70,45,0.08)] transition-all ${
+            isRecentlyUpdated
+              ? "border-matcha-500/35 bg-[linear-gradient(180deg,rgba(242,247,235,0.98),rgba(255,255,255,0.96))] ring-1 ring-matcha-400/20"
+              : "border-matcha-900/10 bg-white/70"
+          }`}
         >
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
+              {isRecentlyUpdated ? (
+                <span className="inline-flex items-center gap-2 rounded-full border border-matcha-500/25 bg-matcha-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-matcha-800">
+                  {recentUpdateLabel}
+                </span>
+              ) : null}
               <h3 className="text-xl font-semibold text-tea-900">{item.fullName ?? "No name yet"}</h3>
               <p className="mt-2 text-sm text-stone-600">{item.email ?? "No email yet"}</p>
               {renderPills([
@@ -4201,12 +4512,12 @@ export default function AdminPage({ forcedSection = "" }) {
       title = item.name ?? item.code ?? "Promotion";
       summary = item.description ?? "";
       highlightedCode = String(item.code ?? "").trim();
+      const eligibleMembershipLevels = Array.isArray(item.eligibleUserLevelIds)
+        ? item.eligibleUserLevelIds
+        : [];
       details = [
         `Scope: ${item.scope ?? "ORDER"}`,
-        `Discount type: ${item.discountType ?? "Not set"}`,
-        item.discountType === "PERCENT"
-          ? `Discount value: ${item.discountValue ?? 0}%`
-          : `Discount value: ${formatCurrency(item.discountValue)}`,
+        `Percent off: ${item.discountValue ?? 0}%`,
         item.minOrderAmount ?? item.minimumOrderAmount
           ? `Minimum order: ${formatCurrency(
               item.minOrderAmount ?? item.minimumOrderAmount,
@@ -4228,28 +4539,21 @@ export default function AdminPage({ forcedSection = "" }) {
         item.usageLimit !== undefined && item.usageLimit !== null
           ? `Usage limit: ${item.usageLimit}`
           : "",
-        item.discountTarget ? `Discount target: ${item.discountTarget}` : "",
-        item.scope ? "Applies to signature items across all stores" : "",
-        item.minStoreBillAmount !== undefined && item.minStoreBillAmount !== null
-          ? `Minimum store bill: ${formatCurrency(item.minStoreBillAmount)}`
-          : "",
-        Array.isArray(item.applicableDishIds) && item.applicableDishIds.length
-          ? `Applicable signature dish IDs: ${item.applicableDishIds.join(", ")}`
-          : Array.isArray(item.promotionDishIds) && item.promotionDishIds.length
-            ? `Promotion dish IDs: ${item.promotionDishIds.join(", ")}`
-          : item.scope === "DISH"
-            ? "Applicable signature dish IDs: none yet"
-          : "",
-        Array.isArray(item.eligibleUserLevelIds) && item.eligibleUserLevelIds.length
-          ? `Eligible user level IDs: ${item.eligibleUserLevelIds.join(", ")}`
-          : "",
+        item.scope === "SHIP"
+          ? "Applies to shipping fee only"
+          : item.scope === "ORDER"
+            ? "Applies to the whole order"
+            : "Applies to all dishes in the order",
+        eligibleMembershipLevels.length
+          ? `Eligible membership level IDs: ${eligibleMembershipLevels.join(", ")}`
+          : "Eligible membership levels: all",
         item.startsAt ? `Starts at: ${formatDateTime(item.startsAt)}` : "",
         item.endsAt ? `Ends at: ${formatDateTime(item.endsAt)}` : "",
       ];
       pills = [
         item.active ? "Active" : "Inactive",
         item.scope ?? "",
-        item.discountType ?? "",
+        `${item.discountValue ?? 0}% off`,
       ];
     } else if (sectionKey === "userLevels") {
       title = item.name ?? item.code ?? "User level";
@@ -4339,28 +4643,34 @@ export default function AdminPage({ forcedSection = "" }) {
         imagePaths.length ? `${imagePaths.length} target images` : "",
       ];
     } else if (sectionKey === "feedbacks") {
-      title = item.subject || item.relatedStoreName || "Feedback";
+      title = item.relatedOrderId ? `Order #${item.relatedOrderId} feedback` : item.relatedStoreName || "Order feedback";
       summary = item.message ?? "";
       details = [
         item.userName ? `User: ${item.userName}` : item.userEmail ? `User: ${item.userEmail}` : "",
-        item.category ? `Category: ${item.category}` : "",
+        item.relatedOrderId ? `Order: #${item.relatedOrderId}` : "",
+        item.relatedOrderStatus ? `Order status: ${getOrderStatusMeta(item.relatedOrderStatus).label}` : "",
+        item.relatedOrderPaymentStatus ? `Payment: ${getPaymentStatusMeta(item.relatedOrderPaymentStatus).label}` : "",
         item.relatedStoreName ? `Store: ${item.relatedStoreName}` : "",
         item.relatedStoreAddress ? `Address: ${item.relatedStoreAddress}` : "",
         hasFeedbackReply(item) ? `Reply sent: ${formatDateTime(item.repliedAt)}` : "",
       ];
       pills = [
         feedbackReplyFieldsPresent(item) ? (hasFeedbackReply(item) ? "Replied" : "Awaiting reply") : "",
-        item.category ?? "",
+        item.relatedOrderId ? `Order #${item.relatedOrderId}` : "",
         item.repliedByUserRole ? `reply by ${item.repliedByUserRole}` : "",
-        item.relatedStoreSlug ? `slug: ${item.relatedStoreSlug}` : "",
-        item.relatedStoreId ? `storeId: ${item.relatedStoreId}` : "",
+        item.relatedOrderPaymentStatus ? getPaymentStatusMeta(item.relatedOrderPaymentStatus).label : "",
+        item.relatedStoreName ? item.relatedStoreName : "",
       ];
     }
 
     return (
       <article
         key={item.id}
-        className="min-w-0 overflow-hidden rounded-[1.75rem] border border-matcha-900/10 bg-white/70 p-5 shadow-[0_18px_44px_rgba(79,70,45,0.08)]"
+        className={`min-w-0 overflow-hidden rounded-[1.75rem] border p-5 shadow-[0_18px_44px_rgba(79,70,45,0.08)] transition-all ${
+          isRecentlyUpdated
+            ? "border-matcha-500/35 bg-[linear-gradient(180deg,rgba(242,247,235,0.98),rgba(255,255,255,0.96))] ring-1 ring-matcha-400/20"
+            : "border-matcha-900/10 bg-white/70"
+        }`}
       >
         <div className="flex flex-col gap-4 sm:flex-row">
           {imageUrl ? (
@@ -4378,6 +4688,11 @@ export default function AdminPage({ forcedSection = "" }) {
           <div className="min-w-0 flex-1 overflow-hidden">
             <div className="flex min-w-0 flex-wrap items-start justify-between gap-4">
               <div className="min-w-0 flex-1 overflow-hidden">
+                {isRecentlyUpdated ? (
+                  <span className="inline-flex items-center gap-2 rounded-full border border-matcha-500/25 bg-matcha-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-matcha-800">
+                    {recentUpdateLabel}
+                  </span>
+                ) : null}
                 <h3 className="max-w-full truncate text-xl font-semibold text-tea-900">{title}</h3>
                 {summary ? (
                   <p
@@ -4498,6 +4813,10 @@ export default function AdminPage({ forcedSection = "" }) {
       isManagerMode &&
       normalizedSelectedPaymentStatus === "PAID" &&
       ["PREPARING", "READY_FOR_SHIPPER"].includes(normalizedSelectedOrderStatus);
+    const showCancellationNoteInput =
+      isManagerMode &&
+      actionableOrderActions.includes("CANCEL_ORDER") &&
+      normalizedSelectedOrderStatus !== "CANCELLED";
     const hasWorkflowActions = actionableOrderActions.length > 0 || canAssignShipper;
     const hasViewerActions =
       hasWorkflowActions || Boolean(canViewSelectedOrderInvoice && selectedOrderInvoicePreviewUrl);
@@ -4514,7 +4833,7 @@ export default function AdminPage({ forcedSection = "" }) {
                 {selectedOrderRecord ? `Order #${selectedOrderRecord.id}` : "Choose an order"}
               </h2>
               <p className="mt-2 text-sm leading-7 text-stone-600">
-                Review available order actions, invoice links, and QR scan history in one place.
+                Review available order actions, invoice links, and order activity history in one place.
               </p>
             </div>
 
@@ -4543,18 +4862,18 @@ export default function AdminPage({ forcedSection = "" }) {
 
           <div className="mt-5 rounded-[1.5rem] border border-matcha-900/10 bg-white/70 p-4">
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">
-              QR confirmation stays on mobile
+              Shipper acceptance stays on the task flow
             </p>
             <p className="mt-2 text-sm leading-7 text-stone-600">
-              Use the order list on the left for website review, and use the mobile app for
-              scan-based pickup confirmation.
+              Managers assign the shipper here. The shipper then opens the task and taps Accept
+              order before delivery begins.
             </p>
           </div>
 
           {!selectedOrderRecord ? (
             <div className="mt-6 rounded-[1.75rem] border border-dashed border-matcha-900/15 bg-white/45 p-8 text-sm leading-7 text-stone-600">
               Choose an order on the left to inspect its server-driven actions, invoice details,
-              and scan history.
+              and order activity history.
             </div>
           ) : (
             <div className="mt-6 grid gap-4">
@@ -4629,6 +4948,24 @@ export default function AdminPage({ forcedSection = "" }) {
                   {selectedOrderRecord.statusSummary ? (
                     <div className="rounded-[1.15rem] border border-matcha-900/10 bg-matcha-500/10 px-4 py-3 text-sm leading-7 text-stone-700">
                       {selectedOrderRecord.statusSummary}
+                    </div>
+                  ) : null}
+
+                  {selectedOrderRecord.cancellationNote ? (
+                    <div className="rounded-[1.15rem] border border-rose-200 bg-rose-50/90 px-4 py-3 text-sm leading-7 text-rose-800">
+                      <strong className="font-semibold text-rose-900">Cancellation note:</strong>{" "}
+                      {selectedOrderRecord.cancellationNote}
+                      {selectedOrderRecord.cancelledByUserName ? (
+                        <>
+                          {" "}
+                          <span className="text-rose-700">
+                            by {selectedOrderRecord.cancelledByUserName}
+                            {selectedOrderRecord.cancelledAt
+                              ? ` • ${formatDateTime(selectedOrderRecord.cancelledAt)}`
+                              : ""}
+                          </span>
+                        </>
+                      ) : null}
                     </div>
                   ) : null}
 
@@ -4723,7 +5060,7 @@ export default function AdminPage({ forcedSection = "" }) {
                           </div>
                           {selectedOrderRecord.deliveringShipperName ? (
                             <span className={ui.pill}>
-                              Dang gan: {selectedOrderRecord.deliveringShipperName}
+                              Assigned: {selectedOrderRecord.deliveringShipperName}
                             </span>
                           ) : null}
                         </div>
@@ -4768,13 +5105,37 @@ export default function AdminPage({ forcedSection = "" }) {
                       </div>
                     ) : null}
 
+                    {showCancellationNoteInput ? (
+                      <div className="mt-5 rounded-[1.25rem] border border-rose-200 bg-rose-50/70 p-4">
+                        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-rose-700">
+                          Cancellation note
+                        </p>
+                        <p className="mt-2 text-sm leading-7 text-stone-600">
+                          This note will be sent back to the customer and saved on the order.
+                        </p>
+                        <textarea
+                          className={`${ui.input} mt-4 min-h-[112px]`}
+                          value={cancelOrderNote}
+                          onChange={(event) => setCancelOrderNote(event.target.value)}
+                          maxLength={500}
+                          placeholder="Explain clearly why the store is cancelling this order."
+                        />
+                        <p className="mt-2 text-xs text-stone-500">
+                          {String(cancelOrderNote ?? "").trim().length}/500 characters
+                        </p>
+                      </div>
+                    ) : null}
+
                     {hasViewerActions ? (
                       <div className="mt-5 flex flex-wrap gap-3">
                         {actionableOrderActions.map((actionKey) => (
                           <button
                             key={actionKey}
                             className={ui.primaryButton}
-                            disabled={orderActionLoading === actionKey}
+                            disabled={
+                              orderActionLoading === actionKey ||
+                              (actionKey === "CANCEL_ORDER" && !String(cancelOrderNote ?? "").trim())
+                            }
                             type="button"
                             onClick={() => void handleOrderWorkflowAction(actionKey)}
                           >
@@ -4875,7 +5236,7 @@ export default function AdminPage({ forcedSection = "" }) {
               <div className="rounded-[1.5rem] border border-matcha-900/10 bg-white/72 p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">
-                    QR scan history
+                    Order activity
                   </p>
                   <button
                     className={ui.secondaryButton}
@@ -4883,13 +5244,13 @@ export default function AdminPage({ forcedSection = "" }) {
                     type="button"
                     onClick={() => void loadOrderScanHistory(selectedOrderRecord.id)}
                   >
-                    {orderScanLoading ? "Refreshing..." : "Refresh scan history"}
+                    {orderScanLoading ? "Refreshing..." : "Refresh activity"}
                   </button>
                 </div>
 
                 {orderScanLoading ? (
                   <div className="mt-4 rounded-[1.25rem] border border-dashed border-matcha-900/15 bg-white/55 p-4 text-sm leading-7 text-stone-600">
-                    Loading QR scan history...
+                    Loading order activity...
                   </div>
                 ) : orderScanHistory.length ? (
                   <div className="mt-4 grid gap-3">
@@ -4922,7 +5283,7 @@ export default function AdminPage({ forcedSection = "" }) {
                   </div>
                 ) : (
                   <div className="mt-4 rounded-[1.25rem] border border-dashed border-matcha-900/15 bg-white/55 p-4 text-sm leading-7 text-stone-600">
-                    There is no QR scan history for this order yet.
+                    There is no order activity for this order yet.
                   </div>
                 )}
               </div>
@@ -5236,8 +5597,8 @@ export default function AdminPage({ forcedSection = "" }) {
                       Each module automatically aligns with the currently selected store scope.
                     </span>
                     <span>
-                      When you select an order, the order workspace shows invoice actions and QR
-                      scan history for this same scope.
+                      When you select an order, the order workspace shows invoice actions and
+                      order activity for this same scope.
                     </span>
                   </>
                 )}
@@ -5704,7 +6065,7 @@ export default function AdminPage({ forcedSection = "" }) {
               : "xl:grid-cols-[1.08fr_0.92fr]"
           }`}
         >
-          <div className="grid min-w-0 content-start self-start gap-4">
+          <div ref={listSectionRef} className="grid min-w-0 content-start self-start gap-4">
             <div className="rounded-[1.75rem] border border-matcha-900/10 bg-white/60 p-4">
               <div>
                 {!isWorkspaceOnly ? (
@@ -5863,11 +6224,11 @@ export default function AdminPage({ forcedSection = "" }) {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-sm font-semibold uppercase tracking-[0.2em] text-tea-700">
-                      {isFeedbackSection ? "Feedback" : "Review"}
+                      {isFeedbackSection ? "Order feedback" : "Review"}
                     </p>
                     <h2 className="mt-2 text-2xl font-semibold text-tea-900">
                       {isFeedbackSection
-                        ? "View feedback, manage reply, and delete"
+                        ? "Review order feedback, purchase history, and reply"
                         : "View details and delete reviews"}
                     </h2>
                   </div>
@@ -5885,7 +6246,7 @@ export default function AdminPage({ forcedSection = "" }) {
 
                 <div className="mt-5 rounded-[1.5rem] border border-matcha-900/10 bg-matcha-500/10 px-4 py-4 text-sm leading-7 text-stone-700">
                   {isFeedbackSection
-                    ? "Feedback is submitted by users. ADMIN and MANAGER can open the detail, write or update the reply, remove the reply, and delete the whole feedback when needed inside the store scope the backend allows."
+                    ? "Order feedback is only submitted after a paid order has been completed. ADMIN and MANAGER can inspect the feedback, review the customer's purchase history for this store, reply to the user, or delete the feedback when needed."
                     : "Reviews are created by users and shown as soon as the backend approves them. Here, `ADMIN` and `MANAGER` can open details and delete reviews when needed."}
                 </div>
 
@@ -5894,11 +6255,18 @@ export default function AdminPage({ forcedSection = "" }) {
                     {isFeedbackSection ? (
                       <>
                         <div className="grid gap-2 text-sm leading-7 text-stone-600">
-                          <span>Subject: {reviewDetail.subject ?? "Not available"}</span>
+                          <span>
+                            Order: {reviewDetail.relatedOrderId ? `#${reviewDetail.relatedOrderId}` : "Not available"}
+                          </span>
                           <span>
                             User: {reviewDetail.userName ?? reviewDetail.userEmail ?? "Not available"}
                           </span>
-                          <span>Category: {reviewDetail.category ?? "Not available"}</span>
+                          <span>
+                            Order status: {reviewDetail.relatedOrderStatus ? getOrderStatusMeta(reviewDetail.relatedOrderStatus).label : "Not available"}
+                          </span>
+                          <span>
+                            Payment status: {reviewDetail.relatedOrderPaymentStatus ? getPaymentStatusMeta(reviewDetail.relatedOrderPaymentStatus).label : "Not available"}
+                          </span>
                           <span>Store: {reviewDetail.relatedStoreName ?? "Not available"}</span>
                           <span>Address: {reviewDetail.relatedStoreAddress ?? "Not available"}</span>
                           <span>Created at: {formatDateTime(reviewDetail.createdAt)}</span>
@@ -5919,8 +6287,65 @@ export default function AdminPage({ forcedSection = "" }) {
                         </div>
 
                         <div className="grid gap-3 rounded-[1.5rem] border border-matcha-900/10 bg-white/70 p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                Customer purchase history at this store
+                              </p>
+                              <p className="mt-1 text-sm text-stone-600">
+                                Completed paid orders from this customer at {reviewDetail.relatedStoreName ?? "the selected store"}.
+                              </p>
+                            </div>
+                            <span className={ui.pill}>
+                              {reviewDetail.customerStoreOrderHistory?.length ?? 0} orders
+                            </span>
+                          </div>
+
+                          {reviewDetail.customerStoreOrderHistory?.length ? (
+                            <div className="grid gap-3">
+                              {reviewDetail.customerStoreOrderHistory.map((order) => (
+                                <div
+                                  key={order.orderId}
+                                  className={`rounded-[1.25rem] border p-4 text-sm leading-7 ${
+                                    String(order.orderId ?? "") === String(reviewDetail.relatedOrderId ?? "")
+                                      ? "border-matcha-500/40 bg-matcha-500/10"
+                                      : "border-matcha-900/10 bg-white/80"
+                                  }`}
+                                >
+                                  <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <div className="font-semibold text-tea-900">Order #{order.orderId}</div>
+                                    <div className="flex flex-wrap gap-2">
+                                      <span className={ui.pill}>
+                                        {getOrderStatusMeta(order.status).label}
+                                      </span>
+                                      <span className={ui.pill}>
+                                        {getPaymentStatusMeta(order.paymentStatus).label}
+                                      </span>
+                                      {String(order.orderId ?? "") === String(reviewDetail.relatedOrderId ?? "") ? (
+                                        <span className={ui.pill}>This feedback</span>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                  <div className="mt-2 grid gap-1 text-stone-600">
+                                    <span>Total: {formatCurrency(order.totalAmount)}</span>
+                                    <span>Activity time: {formatFeedbackOrderHistoryTimestamp(order)}</span>
+                                    {order.paymentReference ? (
+                                      <span>Payment reference: {order.paymentReference}</span>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="rounded-[1.25rem] border border-dashed border-matcha-900/15 bg-white/45 p-4 text-sm leading-7 text-stone-600">
+                              No completed paid purchase history is available for this store yet.
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="grid gap-3 rounded-[1.5rem] border border-matcha-900/10 bg-white/70 p-4">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className={ui.pill}>Admin reply</span>
+                            <span className={ui.pill}>Store reply</span>
                             {hasFeedbackReply(reviewDetail) ? (
                               <span className={ui.pill}>Visible to user</span>
                             ) : (
@@ -5945,16 +6370,11 @@ export default function AdminPage({ forcedSection = "" }) {
                             <textarea
                               className={ui.input}
                               rows={5}
-                              placeholder="Thank you for sharing this feedback. We have recorded it and will handle it in the next shift."
+                              placeholder="Thank you for your order feedback. We have shared it with the store team and will follow up here if needed."
                               value={feedbackReplyDraft}
                               onChange={(event) => setFeedbackReplyDraft(event.target.value)}
                             />
                           </label>
-
-                          <p className="text-xs leading-6 text-stone-500">
-                            `PUT /api/admin/feedbacks/{reviewDetail.id}/reply` creates or updates the
-                            reply, and `DELETE /api/admin/feedbacks/{reviewDetail.id}/reply` removes it.
-                          </p>
                         </div>
 
                         <div className="flex flex-wrap gap-3">

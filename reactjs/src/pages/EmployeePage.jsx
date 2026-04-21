@@ -1,9 +1,10 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useRef } from "react";
 import InvoicePreviewModal from "../components/InvoicePreviewModal";
-import OrderQrCard from "../components/OrderQrCard";
 import OrderStatusTracker from "../components/OrderStatusTracker";
 import { useAuth } from "../context/AuthContext";
+import { useAppRealtime } from "../context/AppRealtimeContext";
 import { useToastMessage } from "../hooks/useToastMessage";
 import { getApiErrorMessage, resolveApiUrl } from "../lib/api";
 import {
@@ -84,8 +85,8 @@ function getLegacyEmployeeOrderAction(order, role, currentUserId) {
   if (normalizedRole === "SHIPPER") {
     if (normalizedStatus === "READY_FOR_SHIPPER") {
       return {
-        label: "Confirm pickup",
-        successMessage: "Pickup confirmed.",
+        label: "Accept order",
+        successMessage: "Order accepted for delivery.",
         run: acceptEmployeeDelivery,
       };
     }
@@ -96,7 +97,7 @@ function getLegacyEmployeeOrderAction(order, role, currentUserId) {
 
 const EMPLOYEE_ORDER_ACTION_CONFIG = {
   ACCEPT_DELIVERY: {
-    successMessage: "Pickup confirmed.",
+    successMessage: "Order accepted for delivery.",
     run: acceptEmployeeDelivery,
   },
 };
@@ -161,6 +162,7 @@ function applyDeliveryProofToOrder(order, proof) {
 
 export default function EmployeePage() {
   const auth = useAuth();
+  const realtime = useAppRealtime();
   const navigate = useNavigate();
   const { orderId } = useParams();
   const employeeRole = normalizeRole(auth.user?.role);
@@ -188,6 +190,8 @@ export default function EmployeePage() {
   const [notifications, setNotifications] = useState([]);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const lastHandledOrderRealtimeVersionRef = useRef(0);
+  const lastHandledNotificationRealtimeVersionRef = useRef(0);
   const [notificationsError, setNotificationsError] = useState("");
   const [notificationNotice, setNotificationNotice] = useState("");
   const [deliveryProofFile, setDeliveryProofFile] = useState(null);
@@ -229,14 +233,16 @@ export default function EmployeePage() {
     [auth, searchQuery, taskMode],
   );
 
-  const loadOrderDetail = useCallback(async () => {
+  const loadOrderDetail = useCallback(async ({ silent = false } = {}) => {
     if (!orderId) {
       setOrderDetail(null);
       setDetailError("");
       return;
     }
 
-    setDetailLoading(true);
+    if (!silent) {
+      setDetailLoading(true);
+    }
     setDetailError("");
 
     try {
@@ -245,7 +251,9 @@ export default function EmployeePage() {
     } catch (requestError) {
       setDetailError(getApiErrorMessage(requestError, "Unable to load task details."));
     } finally {
-      setDetailLoading(false);
+      if (!silent) {
+        setDetailLoading(false);
+      }
     }
   }, [auth, orderId]);
 
@@ -295,15 +303,43 @@ export default function EmployeePage() {
   }, [loadNotifications]);
 
   useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      void loadOrders({ silent: true });
-      void loadNotifications({ silent: true });
-    }, 30000);
+    if (!realtime.orderEventVersion) {
+      return;
+    }
 
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [loadNotifications, loadOrders]);
+    if (lastHandledOrderRealtimeVersionRef.current === realtime.orderEventVersion) {
+      return;
+    }
+
+    lastHandledOrderRealtimeVersionRef.current = realtime.orderEventVersion;
+
+    void loadOrders({ silent: true });
+
+    const eventOrderId = String(realtime.lastOrderEvent?.orderId ?? "").trim();
+    if (!orderId || !eventOrderId || eventOrderId === String(orderId)) {
+      void loadOrderDetail({ silent: true });
+    }
+  }, [
+    loadOrderDetail,
+    loadOrders,
+    orderId,
+    realtime.lastOrderEvent?.orderId,
+    realtime.orderEventVersion,
+  ]);
+
+  useEffect(() => {
+    if (!realtime.notificationEventVersion) {
+      return;
+    }
+
+    if (lastHandledNotificationRealtimeVersionRef.current === realtime.notificationEventVersion) {
+      return;
+    }
+
+    lastHandledNotificationRealtimeVersionRef.current = realtime.notificationEventVersion;
+
+    void loadNotifications({ silent: true });
+  }, [loadNotifications, realtime.notificationEventVersion]);
 
   const stats = useMemo(() => {
     const availableCount = ordersFeed.items.filter((order) =>
@@ -606,7 +642,7 @@ export default function EmployeePage() {
               </div>
             ) : (
               <div className="mt-4 rounded-[1.2rem] border border-dashed border-matcha-900/15 bg-white/60 p-4 text-sm text-stone-600">
-                Chua co task notification nao.
+                No task notifications yet.
               </div>
             )}
           </article>
@@ -618,7 +654,7 @@ export default function EmployeePage() {
                 <h2 className="text-2xl font-semibold text-tea-900">Employee orders</h2>
                 <p className="mt-3 text-sm leading-7 text-stone-600">
                   {employeeRole === "SHIPPER"
-                    ? "Confirm pickup in READY_FOR_SHIPPER, then upload proof to move the order to Completed."
+                    ? "Accept the order in READY_FOR_SHIPPER, then upload delivery proof to move it to Completed."
                     : "In-store preparation is now handled by the manager. Staff no longer receive PREPARING tasks here."}
                 </p>
               </div>
@@ -649,7 +685,7 @@ export default function EmployeePage() {
 
               <div className="flex items-end">
                 <button className={ui.primaryButton} type="submit">
-                  Loc task
+                  Search
                 </button>
               </div>
             </form>
@@ -665,16 +701,6 @@ export default function EmployeePage() {
                 {ordersError}
               </div>
             ) : null}
-
-            <div className="mt-4">
-              <div className="rounded-[1.2rem] border border-matcha-900/10 bg-[#f8f5ef] p-4">
-                <p className="text-sm font-semibold text-tea-900">QR pickup stays on mobile</p>
-                <p className="mt-2 text-sm leading-7 text-stone-600">
-                  Use the Kamatcha mobile app to scan the invoice QR and confirm pickup. On the
-                  website, open tasks from notifications or choose an order from the list below.
-                </p>
-              </div>
-            </div>
 
             {ordersLoading ? (
               <div className="mt-4 rounded-[1.2rem] border border-dashed border-matcha-900/15 bg-white/60 p-4 text-sm text-stone-600">
@@ -878,12 +904,6 @@ export default function EmployeePage() {
                     );
                   })()}
                 </div>
-
-                <OrderQrCard
-                  order={orderDetail}
-                  title="Order QR"
-                  subtitle="The manager confirms the order and assigns the shipper from the admin area. The shipper scans this code to confirm pickup and submit delivery proof."
-                />
 
                 {canUploadDeliveryProof ? (
                   <div className="rounded-[1.2rem] border border-matcha-900/10 bg-white/72 p-4">

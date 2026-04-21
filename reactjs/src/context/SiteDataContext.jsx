@@ -39,6 +39,7 @@ import {
 } from "../lib/siteApi";
 import { getCartAvailabilityDecision, getCartSuccessMessage } from "../lib/cartAvailability";
 import { useAuth } from "./AuthContext";
+import { useAppRealtime } from "./AppRealtimeContext";
 
 const SiteDataContext = createContext(null);
 const GUEST_CART_STORAGE_KEY = "kamatcha.guest-cart";
@@ -309,6 +310,7 @@ async function hydrateFeedbackDetails(auth, feedbackItems) {
 
 export function SiteDataProvider({ children }) {
   const auth = useAuth();
+  const realtime = useAppRealtime();
   const [favorites, setFavorites] = useState([]);
   const [myReviews, setMyReviews] = useState([]);
   const [feedbacks, setFeedbacks] = useState([]);
@@ -480,15 +482,22 @@ export function SiteDataProvider({ children }) {
     }
 
     void refreshNotifications();
-
-    const intervalId = window.setInterval(() => {
-      void refreshNotifications({ silent: true });
-    }, 60000);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
   }, [auth.initializing, canUseNotificationCenter, auth.token, auth.tokenType, auth.user?.id]);
+
+  useEffect(() => {
+    if (auth.initializing || !canUseNotificationCenter || !realtime.notificationEventVersion) {
+      return;
+    }
+
+    void refreshNotifications({ silent: true });
+  }, [
+    auth.initializing,
+    canUseNotificationCenter,
+    realtime.notificationEventVersion,
+    auth.token,
+    auth.tokenType,
+    auth.user?.id,
+  ]);
 
   const isFavorite = (targetType, targetId) =>
     favoriteKeySet.has(buildTargetKey(targetType, targetId));
@@ -570,16 +579,14 @@ export function SiteDataProvider({ children }) {
     }
   };
 
-  const saveFeedback = async ({ category, relatedStoreId, subject, message }) => {
+  const saveFeedback = async ({ relatedOrderId, message }) => {
     if (!canUseUserFeatures) {
       return { ok: false, message: "Only USER accounts can send feedback." };
     }
 
     try {
       const savedFeedback = await createUserFeedback(auth, {
-        category,
-        relatedStoreId,
-        subject,
+        relatedOrderId,
         message,
       });
 

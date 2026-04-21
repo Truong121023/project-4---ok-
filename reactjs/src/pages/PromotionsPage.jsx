@@ -2,11 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getApiErrorMessage } from "../lib/api";
-import {
-  fetchPublicHome,
-  fetchUserVoucherCatalog,
-  redeemUserVoucher,
-} from "../lib/siteApi";
+import { fetchPublicHome, fetchUserVoucherCatalog } from "../lib/siteApi";
 import { formatCurrencyVnd, formatDateTimeVn } from "../lib/locale";
 import { ui } from "../ui";
 
@@ -15,94 +11,104 @@ function formatCurrency(value) {
 }
 
 function formatPromotionValue(promotion) {
-  if (String(promotion?.discountType ?? "").toUpperCase() === "PERCENT") {
-    return `${Number(promotion?.discountValue ?? 0).toLocaleString("vi-VN")}%`;
-  }
-
-  return formatCurrency(promotion?.discountValue ?? 0);
-}
-
-function formatDiscountTarget(promotion) {
-  const normalized = String(promotion?.discountTarget ?? "ITEMS").toUpperCase();
-
-  if (normalized === "SHIPPING") {
-    return "Shipping fee";
-  }
-
-  if (normalized === "BOTH") {
-    return "Items + shipping";
-  }
-
-  return "Signature items";
+  return `${Number(promotion?.discountValue ?? 0).toLocaleString("en-US")}%`;
 }
 
 function formatDateTime(value) {
   return formatDateTimeVn(value, "No schedule");
 }
 
-function PromotionCard({
-  promotion,
-  canRedeem = false,
-  canUseVoucher = false,
-  redeeming = false,
-  onRedeem,
-}) {
+function formatScopeLabel(scope) {
+  switch (String(scope ?? "").toUpperCase()) {
+    case "SHIP":
+      return "Shipping";
+    case "DISH":
+      return "Dishes";
+    case "ORDER":
+    default:
+      return "Order";
+  }
+}
+
+function formatScopeSummary(scope) {
+  switch (String(scope ?? "").toUpperCase()) {
+    case "SHIP":
+      return "Applies to the shipping fee only.";
+    case "DISH":
+      return "Applies to all dishes in the checkout.";
+    case "ORDER":
+    default:
+      return "Applies to the whole order.";
+  }
+}
+
+function isMembershipGated(promotion) {
+  return Array.isArray(promotion?.eligibleUserLevelIds) && promotion.eligibleUserLevelIds.length > 0;
+}
+
+function PromotionCard({ promotion, onCopyCode }) {
   return (
-    <article className="rounded-[1.5rem] border border-matcha-900/10 bg-white/70 p-5">
+    <article className="rounded-[1.6rem] border border-matcha-900/10 bg-white/75 p-5 shadow-[0_18px_40px_rgba(79,70,45,0.08)]">
       <div className="flex flex-wrap items-center gap-2">
-        <span className={ui.pill}>{promotion.scope || "PROMOTION"}</span>
-        <span className={ui.pill}>{formatDiscountTarget(promotion)}</span>
-        {promotion.creditCost > 0 ? (
-          <span className={ui.pill}>{promotion.creditCost} credit</span>
-        ) : (
-          <span className={ui.pill}>Direct code</span>
-        )}
-        {promotion.availableRedemptions > 0 ? (
-          <span className={ui.pill}>{promotion.availableRedemptions} redeemed</span>
-        ) : null}
+        <span className={ui.pill}>{formatScopeLabel(promotion.scope)}</span>
+        <span className={ui.pill}>{formatPromotionValue(promotion)}</span>
+        <span className={ui.pill}>
+          {isMembershipGated(promotion) ? "Membership checked at checkout" : "Open to all memberships"}
+        </span>
       </div>
 
-      <h2 className="mt-4 text-2xl font-semibold text-tea-900">
-        {promotion.name || promotion.code}
-      </h2>
-      <p className="mt-2 text-base font-semibold text-matcha-700">
-        {formatPromotionValue(promotion)}
-      </p>
-      <p className="mt-3 text-sm leading-7 text-stone-600">
-        {promotion.description || "Promotion details will be applied during checkout."}
-      </p>
+      <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-semibold text-tea-900">{promotion.name || promotion.code}</h2>
+          <p className="mt-2 text-sm leading-7 text-stone-600">
+            {promotion.description || "The final rule check happens automatically during checkout."}
+          </p>
+        </div>
+        <div className="rounded-[1.2rem] border border-matcha-900/10 bg-[#fbf6ed] px-4 py-3">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">Code</p>
+          <strong className="mt-2 block text-lg font-bold text-tea-900">{promotion.code || "N/A"}</strong>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <article className="rounded-[1.1rem] border border-matcha-900/10 bg-white/70 p-4">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">Rule</p>
+          <p className="mt-2 text-sm font-semibold text-tea-900">{formatScopeSummary(promotion.scope)}</p>
+        </article>
+        <article className="rounded-[1.1rem] border border-matcha-900/10 bg-white/70 p-4">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">Discount</p>
+          <p className="mt-2 text-sm font-semibold text-tea-900">
+            {formatPromotionValue(promotion)}
+            {Number(promotion.maxDiscountAmount ?? 0) > 0
+              ? ` up to ${formatCurrency(promotion.maxDiscountAmount)}`
+              : ""}
+          </p>
+        </article>
+      </div>
 
       <div className="mt-4 grid gap-2 text-sm text-stone-600">
-        <span>Code: {promotion.code || "N/A"}</span>
-        {promotion.minOrderAmount > 0 ? (
+        {Number(promotion.minOrderAmount ?? 0) > 0 ? (
           <span>Minimum order: {formatCurrency(promotion.minOrderAmount)}</span>
-        ) : null}
-        {promotion.maxDiscountAmount > 0 ? (
-          <span>Maximum discount: {formatCurrency(promotion.maxDiscountAmount)}</span>
-        ) : null}
+        ) : (
+          <span>Minimum order: none</span>
+        )}
         <span>
-          Active: {formatDateTime(promotion.startsAt)} - {formatDateTime(promotion.endsAt)}
+          Membership rule:{" "}
+          {isMembershipGated(promotion)
+            ? `restricted to level IDs ${promotion.eligibleUserLevelIds.join(", ")}`
+            : "all membership levels are eligible"}
         </span>
-        <span>Signature scope: valid across all stores, not store-specific.</span>
+        <span>
+          Active window: {formatDateTime(promotion.startsAt)} - {formatDateTime(promotion.endsAt)}
+        </span>
       </div>
 
       <div className="mt-5 flex flex-wrap gap-3">
-        {canRedeem ? (
-          <button
-            className={ui.primaryButton}
-            type="button"
-            disabled={redeeming}
-            onClick={() => onRedeem?.(promotion)}
-          >
-            {redeeming ? "Redeeming..." : `Redeem for ${promotion.creditCost} credit`}
-          </button>
-        ) : null}
-
-        {canUseVoucher ? (
-          <Link
-            className={ui.secondaryButton}
-            to={`/cart?promotion=${encodeURIComponent(promotion.code)}`}
-          >
+        <button className={ui.secondaryButton} type="button" onClick={() => onCopyCode(promotion.code)}>
+          Copy code
+        </button>
+        {promotion.code ? (
+          <Link className={ui.primaryButton} to={`/checkout?promotion=${encodeURIComponent(promotion.code)}`}>
             Use at checkout
           </Link>
         ) : null}
@@ -117,7 +123,6 @@ export default function PromotionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [redeemingPromotionId, setRedeemingPromotionId] = useState("");
   const [promotions, setPromotions] = useState([]);
 
   useEffect(() => {
@@ -154,42 +159,38 @@ export default function PromotionsPage() {
     };
   }, [auth, isUser]);
 
-  const redeemedVouchers = useMemo(
-    () => promotions.filter((promotion) => Number(promotion.availableRedemptions ?? 0) > 0),
-    [promotions],
-  );
-  const creditExchangeVouchers = useMemo(
-    () =>
-      promotions.filter(
-        (promotion) =>
-          Number(promotion.creditCost ?? 0) > 0 && Number(promotion.availableRedemptions ?? 0) <= 0,
-      ),
-    [promotions],
-  );
-  const directPromotions = useMemo(
-    () => promotions.filter((promotion) => Number(promotion.creditCost ?? 0) <= 0),
-    [promotions],
-  );
+  const stats = useMemo(() => {
+    const membershipFilteredCount = promotions.filter(isMembershipGated).length;
+    const shippingCount = promotions.filter(
+      (promotion) => String(promotion.scope ?? "").toUpperCase() === "SHIP",
+    ).length;
+    const dishCount = promotions.filter(
+      (promotion) => String(promotion.scope ?? "").toUpperCase() === "DISH",
+    ).length;
+    const orderCount = promotions.filter(
+      (promotion) => String(promotion.scope ?? "").toUpperCase() === "ORDER",
+    ).length;
 
-  const handleRedeemVoucher = async (promotion) => {
-    if (!promotion?.id) {
+    return {
+      total: promotions.length,
+      membershipFilteredCount,
+      shippingCount,
+      dishCount,
+      orderCount,
+    };
+  }, [promotions]);
+
+  const handleCopyCode = async (code) => {
+    if (!code) {
       return;
     }
 
-    setRedeemingPromotionId(String(promotion.id));
-    setError("");
-    setNotice("");
-
     try {
-      const response = await redeemUserVoucher(auth, promotion.id);
-      await auth.refreshMe();
-      const nextPromotions = await fetchUserVoucherCatalog(auth);
-      setPromotions(nextPromotions);
-      setNotice(response.message || `Redeemed voucher ${response.promotionCode}.`);
-    } catch (requestError) {
-      setError(getApiErrorMessage(requestError, "Unable to redeem this voucher."));
-    } finally {
-      setRedeemingPromotionId("");
+      await navigator.clipboard.writeText(code);
+      setNotice(`Copied ${code}.`);
+      setError("");
+    } catch {
+      setError(`Unable to copy ${code} right now.`);
     }
   };
 
@@ -197,55 +198,37 @@ export default function PromotionsPage() {
     <main className={ui.page}>
       <section className={ui.panel}>
         <p className={ui.eyebrow}>Promotions</p>
-        <h1 className={ui.bannerTitle}>Campaigns, voucher codes, and credit exchange</h1>
+        <h1 className={ui.bannerTitle}>Simple voucher rules for checkout</h1>
         <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-700">
-          Browse active promotions, redeem credit-based vouchers, and jump straight into checkout
-          with an eligible code.
+          Each code now follows one clear rule: <strong>ORDER</strong>, <strong>DISH</strong>, or{" "}
+          <strong>SHIP</strong>. The server checks the minimum order amount, maximum discount, and
+          membership eligibility automatically when you apply the code.
         </p>
 
-        {isUser ? (
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <article className="rounded-[1.4rem] border border-matcha-900/10 bg-white/72 p-4">
-              <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-stone-500">
-                Credit balance
-              </p>
-              <strong className="mt-3 block text-2xl font-semibold text-tea-900">
-                {Number(auth.user?.creditPoints ?? 0).toLocaleString("vi-VN")}
-              </strong>
-              <p className="mt-2 text-sm leading-6 text-stone-600">Available for voucher redemption.</p>
-            </article>
-
-            <article className="rounded-[1.4rem] border border-matcha-900/10 bg-white/72 p-4">
-              <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-stone-500">
-                Membership points
-              </p>
-              <strong className="mt-3 block text-2xl font-semibold text-tea-900">
-                {Number(auth.user?.membershipPoints ?? 0).toLocaleString("vi-VN")}
-              </strong>
-              <p className="mt-2 text-sm leading-6 text-stone-600">Used to determine your current tier.</p>
-            </article>
-
-            <article className="rounded-[1.4rem] border border-matcha-900/10 bg-white/72 p-4">
-              <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-stone-500">
-                Redeemed vouchers
-              </p>
-              <strong className="mt-3 block text-2xl font-semibold text-tea-900">
-                {redeemedVouchers.length.toLocaleString("vi-VN")}
-              </strong>
-              <p className="mt-2 text-sm leading-6 text-stone-600">Ready to apply at checkout.</p>
-            </article>
-
-            <article className="rounded-[1.4rem] border border-matcha-900/10 bg-white/72 p-4">
-              <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-stone-500">
-                Credit exchange
-              </p>
-              <strong className="mt-3 block text-2xl font-semibold text-tea-900">
-                {creditExchangeVouchers.length.toLocaleString("vi-VN")}
-              </strong>
-              <p className="mt-2 text-sm leading-6 text-stone-600">Voucher options available for redemption.</p>
-            </article>
-          </div>
-        ) : null}
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <article className="rounded-[1.4rem] border border-matcha-900/10 bg-white/72 p-4">
+            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-stone-500">Active codes</p>
+            <strong className="mt-3 block text-2xl font-semibold text-tea-900">{stats.total}</strong>
+          </article>
+          <article className="rounded-[1.4rem] border border-matcha-900/10 bg-white/72 p-4">
+            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-stone-500">Order scope</p>
+            <strong className="mt-3 block text-2xl font-semibold text-tea-900">{stats.orderCount}</strong>
+          </article>
+          <article className="rounded-[1.4rem] border border-matcha-900/10 bg-white/72 p-4">
+            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-stone-500">Dish scope</p>
+            <strong className="mt-3 block text-2xl font-semibold text-tea-900">{stats.dishCount}</strong>
+          </article>
+          <article className="rounded-[1.4rem] border border-matcha-900/10 bg-white/72 p-4">
+            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-stone-500">Shipping scope</p>
+            <strong className="mt-3 block text-2xl font-semibold text-tea-900">{stats.shippingCount}</strong>
+          </article>
+          <article className="rounded-[1.4rem] border border-matcha-900/10 bg-white/72 p-4">
+            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-stone-500">Membership-gated</p>
+            <strong className="mt-3 block text-2xl font-semibold text-tea-900">
+              {stats.membershipFilteredCount}
+            </strong>
+          </article>
+        </div>
 
         {notice ? (
           <div className="mt-6 rounded-[1.3rem] border border-matcha-500/20 bg-matcha-500/10 px-4 py-3 text-sm text-matcha-700">
@@ -268,87 +251,33 @@ export default function PromotionsPage() {
         </section>
       ) : null}
 
-      {!loading && isUser ? (
-        <>
-          <section className={ui.panel}>
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <p className={ui.eyebrow}>Ready to use</p>
-                <h2 className={ui.sectionTitle}>Redeemed vouchers in your account</h2>
-              </div>
-            </div>
-
-            <div className="mt-6 grid gap-4 lg:grid-cols-2">
-              {redeemedVouchers.length ? (
-                redeemedVouchers.map((promotion) => (
-                  <PromotionCard
-                    key={promotion.id || promotion.code}
-                    promotion={promotion}
-                    canUseVoucher
-                  />
-                ))
-              ) : (
-                <article className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600 lg:col-span-2">
-                  You have not redeemed any credit-based voucher yet.
-                </article>
-              )}
-            </div>
-          </section>
-
-          <section className={ui.panel}>
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <p className={ui.eyebrow}>Credit exchange</p>
-                <h2 className={ui.sectionTitle}>Redeem vouchers with credit points</h2>
-              </div>
-
-              <Link className={ui.secondaryButton} to="/account/levels">
-                View membership
-              </Link>
-            </div>
-
-            <div className="mt-6 grid gap-4 lg:grid-cols-2">
-              {creditExchangeVouchers.length ? (
-                creditExchangeVouchers.map((promotion) => (
-                  <PromotionCard
-                    key={promotion.id || promotion.code}
-                    promotion={promotion}
-                    canRedeem
-                    redeeming={redeemingPromotionId === String(promotion.id)}
-                    onRedeem={handleRedeemVoucher}
-                  />
-                ))
-              ) : (
-                <article className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600 lg:col-span-2">
-                  No credit-based vouchers are currently available for your account.
-                </article>
-              )}
-            </div>
-          </section>
-        </>
-      ) : null}
-
       {!loading ? (
         <section className={ui.panel}>
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className={ui.eyebrow}>Promotion codes</p>
-              <h2 className={ui.sectionTitle}>Direct campaigns currently available</h2>
+              <p className={ui.eyebrow}>Available codes</p>
+              <h2 className={ui.sectionTitle}>Use the right code at checkout</h2>
             </div>
+
+            {isUser ? (
+              <Link className={ui.secondaryButton} to="/checkout">
+                Open checkout
+              </Link>
+            ) : null}
           </div>
 
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
-            {directPromotions.length ? (
-              directPromotions.map((promotion) => (
+            {promotions.length ? (
+              promotions.map((promotion) => (
                 <PromotionCard
                   key={promotion.id || promotion.code}
                   promotion={promotion}
-                  canUseVoucher={Boolean(promotion.code)}
+                  onCopyCode={handleCopyCode}
                 />
               ))
             ) : (
               <article className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600 lg:col-span-2">
-                No direct promotion code is available right now.
+                No promotion code is available right now.
               </article>
             )}
           </div>

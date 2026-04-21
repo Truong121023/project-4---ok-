@@ -36,7 +36,7 @@ function formatRemainingTime(milliseconds) {
 export default function PaymentQrCard({
   order,
   title = "PayOS QR",
-  subtitle = "Scan this QR in your banking app or open PayOS from the payment button.",
+  subtitle = "Scan this QR in your banking app or open the payment page.",
   className = "",
 }) {
   const [qrImageUrl, setQrImageUrl] = useState("");
@@ -160,7 +160,7 @@ export default function PaymentQrCard({
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-stone-500">{title}</p>
           <p className="mt-3 text-base font-semibold text-tea-900">
-            Use the backend-provided PayOS QR payload directly.
+            Complete this payment with the latest QR session.
           </p>
           <p className="mt-2 text-sm leading-7 text-stone-600">{subtitle}</p>
 
@@ -181,8 +181,7 @@ export default function PaymentQrCard({
           </div>
 
           <div className="mt-4 rounded-[1.2rem] border border-dashed border-matcha-900/15 bg-white/70 px-4 py-3 text-sm leading-7 text-stone-600">
-            The QR is rendered from <code>paymentQrCode</code>. The payment button should continue
-            opening <code>paymentCheckoutUrl</code>.
+            Use your banking app to scan the QR. If scanning is not convenient, open the payment page instead.
           </div>
         </div>
       </div>

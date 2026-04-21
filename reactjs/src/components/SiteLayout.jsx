@@ -271,7 +271,7 @@ export default function SiteLayout() {
           { to: "/orders", label: "Order history" },
           { to: "/account/addresses", label: "Addresses" },
           { to: "/account/reviews", label: "Reviews" },
-          { to: "/account/feedbacks", label: "Feedback" },
+          { to: "/account/feedbacks", label: "Order feedback" },
         ]
       : []),
   ];

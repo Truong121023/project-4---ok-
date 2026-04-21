@@ -276,14 +276,17 @@ function mapPromotionCard(promotion) {
     code: pickText(promotion?.code),
     name: pickText(promotion?.name, promotion?.code),
     description: pickText(promotion?.description),
-    scope: pickText(promotion?.scope),
-    discountType: pickText(promotion?.discountType),
+    scope: pickText(promotion?.scope, "ORDER"),
+    discountType: pickText(promotion?.discountType, "PERCENT"),
     discountTarget: pickText(promotion?.discountTarget, "ITEMS"),
     discountValue: toNumber(promotion?.discountValue, 0),
     minOrderAmount: toNumber(promotion?.minOrderAmount, 0),
     maxDiscountAmount: toNumber(promotion?.maxDiscountAmount, 0),
     creditCost: toNullableNumber(promotion?.creditCost),
     applicableDishIds: ensureArray(promotion?.applicableDishIds).map((dishId) => toId(dishId)),
+    eligibleUserLevelIds: ensureArray(promotion?.eligibleUserLevelIds).map((levelId) =>
+      toId(levelId),
+    ),
     storeNames: ensureArray(promotion?.storeNames).map((storeName) => pickText(storeName)).filter(Boolean),
     startsAt: pickText(promotion?.startsAt),
     endsAt: pickText(promotion?.endsAt),
@@ -503,6 +506,16 @@ function mapCustomerFeedback(feedback) {
     repliedByUserId: toId(feedback?.repliedByUserId),
     repliedByUserName: pickText(feedback?.repliedByUserName),
     repliedByUserRole: pickText(feedback?.repliedByUserRole),
+    customerStoreOrderHistory: ensureArray(feedback?.customerStoreOrderHistory).map((order) => ({
+      orderId: toId(pickValue(order?.orderId, order?.id)),
+      status: pickText(order?.status),
+      paymentStatus: pickText(order?.paymentStatus),
+      paymentReference: pickText(order?.paymentReference),
+      totalAmount: toNumber(order?.totalAmount, 0),
+      paidAt: pickText(order?.paidAt),
+      createdAt: pickText(order?.createdAt),
+      updatedAt: pickText(order?.updatedAt),
+    })),
     createdAt: pickText(feedback?.createdAt),
     updatedAt: pickText(feedback?.updatedAt),
   };
@@ -785,6 +798,8 @@ function mapOrder(payload, includeNestedOrders = true) {
     storeId: toId(payload?.storeId),
     storeSlug: pickText(payload?.storeSlug),
     storeName: pickText(payload?.storeName),
+    storeAddress: pickText(payload?.storeAddress),
+    storePhoneNumber: pickText(payload?.storePhoneNumber, payload?.storePhone),
     status: pickText(payload?.status),
     paymentStatus: pickText(payload?.paymentStatus),
     paymentProvider: pickText(payload?.paymentProvider),
@@ -836,6 +851,20 @@ function mapOrder(payload, includeNestedOrders = true) {
       payload?.confirmedByUser?.role,
     ),
     confirmedAt: pickText(payload?.confirmedAt),
+    cancelledByUserId: toId(
+      pickValue(payload?.cancelledByUserId, payload?.cancelledByUser?.id),
+    ),
+    cancelledByUserName: pickText(
+      payload?.cancelledByUserName,
+      payload?.cancelledByUser?.fullName,
+      payload?.cancelledByUser?.name,
+    ),
+    cancelledByUserRole: pickText(
+      payload?.cancelledByUserRole,
+      payload?.cancelledByUser?.role,
+    ),
+    cancelledAt: pickText(payload?.cancelledAt),
+    cancellationNote: pickText(payload?.cancellationNote),
     preparingStaffId: toId(pickValue(payload?.preparingStaffId, payload?.preparingStaff?.id)),
     preparingStaffName: pickText(
       payload?.preparingStaffName,
@@ -858,6 +887,12 @@ function mapOrder(payload, includeNestedOrders = true) {
     deliveryProofCapturedAt: pickText(payload?.deliveryProofCapturedAt),
     deliveryProofUploadedAt: pickText(payload?.deliveryProofUploadedAt),
     deliveryProofNote: pickText(payload?.deliveryProofNote),
+    feedbackId: toId(payload?.feedbackId),
+    feedbackSubmitted: Boolean(payload?.feedbackSubmitted),
+    feedbackCreatedAt: pickText(payload?.feedbackCreatedAt),
+    feedbackUpdatedAt: pickText(payload?.feedbackUpdatedAt),
+    feedbackMessage: pickText(payload?.feedbackMessage),
+    feedbackReplyMessage: pickText(payload?.feedbackReplyMessage),
     items: fallbackItems,
     orders: includeNestedOrders ? ensureArray(payload?.orders).map((order) => mapOrder(order, false)) : [],
     createdAt: pickText(payload?.createdAt),
@@ -1427,9 +1462,7 @@ export async function createUserFeedback(auth, payload) {
   const response = await apiRequest("/api/user/feedbacks", {
     method: "POST",
     body: {
-      category: payload?.category,
-      relatedStoreId: toRequestNumber(payload?.relatedStoreId),
-      subject: payload?.subject,
+      relatedOrderId: toRequestNumber(payload?.relatedOrderId),
       message: payload?.message,
     },
     ...authOptions(auth),
@@ -1565,6 +1598,24 @@ export async function refreshUserOrderPayment(auth, orderId) {
   });
 
   return mapOrder(payload);
+}
+
+export async function cancelUserOrder(auth, orderId) {
+  const payload = await apiRequest(`/api/user/orders/${orderId}/cancel`, {
+    method: "POST",
+    ...authOptions(auth),
+  });
+
+  return mapOrder(payload);
+}
+
+export async function reorderUserOrder(auth, orderId) {
+  const payload = await apiRequest(`/api/user/orders/${orderId}/reorder`, {
+    method: "POST",
+    ...authOptions(auth),
+  });
+
+  return mapCart(payload);
 }
 
 export async function fetchOperationalOrders(auth, query = {}) {

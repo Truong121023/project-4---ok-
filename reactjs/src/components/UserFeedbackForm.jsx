@@ -1,48 +1,42 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { feedbackCategoryOptions, normalizeFeedbackCategory } from "../lib/feedbackCategories";
 import { ui } from "../ui";
 
 export default function UserFeedbackForm({
-  title = "Send feedback",
+  title = "Leave order feedback",
   canSubmit,
   loginPath = "/login",
-  storeOptions = [],
+  orderOptions = [],
   onSubmit,
 }) {
-  const [category, setCategory] = useState(feedbackCategoryOptions[0]?.value ?? "GENERAL");
-  const [relatedStoreId, setRelatedStoreId] = useState("");
-  const [subject, setSubject] = useState("");
+  const [relatedOrderId, setRelatedOrderId] = useState("");
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const normalizedStoreOptions = useMemo(
+  const normalizedOrderOptions = useMemo(
     () =>
-      Array.isArray(storeOptions)
-        ? storeOptions.filter((option) => option?.value && option?.label)
+      Array.isArray(orderOptions)
+        ? orderOptions.filter((option) => option?.value && option?.label)
         : [],
-    [storeOptions],
+    [orderOptions],
   );
 
   useEffect(() => {
-    setCategory((current) => normalizeFeedbackCategory(current));
     setNotice("");
     setSubmitting(false);
   }, []);
 
   useEffect(() => {
-    if (relatedStoreId || !normalizedStoreOptions.length) {
+    if (relatedOrderId || !normalizedOrderOptions.length) {
       return;
     }
 
-    setRelatedStoreId(normalizedStoreOptions[0].value);
-  }, [normalizedStoreOptions, relatedStoreId]);
+    setRelatedOrderId(normalizedOrderOptions[0].value);
+  }, [normalizedOrderOptions, relatedOrderId]);
 
   const resetForm = () => {
-    setCategory(feedbackCategoryOptions[0]?.value ?? "GENERAL");
-    setRelatedStoreId(normalizedStoreOptions[0]?.value ?? "");
-    setSubject("");
+    setRelatedOrderId(normalizedOrderOptions[0]?.value ?? "");
     setMessage("");
   };
 
@@ -50,15 +44,14 @@ export default function UserFeedbackForm({
     event.preventDefault();
 
     if (!canSubmit) {
-      setNotice("Please sign in with a USER account to send feedback.");
+      setNotice("Please sign in with a USER account to leave feedback.");
       return;
     }
 
-    const trimmedSubject = subject.trim();
     const trimmedMessage = message.trim();
 
-    if (!category || !relatedStoreId || !trimmedSubject || !trimmedMessage) {
-      setNotice("Please fill in the category, store, subject, and message.");
+    if (!relatedOrderId || !trimmedMessage) {
+      setNotice("Please choose a completed order and write your feedback.");
       return;
     }
 
@@ -66,9 +59,7 @@ export default function UserFeedbackForm({
 
     try {
       const result = await onSubmit({
-        category,
-        relatedStoreId,
-        subject: trimmedSubject,
+        relatedOrderId,
         message: trimmedMessage,
       });
 
@@ -89,68 +80,44 @@ export default function UserFeedbackForm({
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">Feedback</span>
+          <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+            Order feedback
+          </span>
           <h3 className="mt-2 text-xl font-semibold text-tea-900">{title}</h3>
         </div>
       </div>
 
       <p className="text-sm leading-7 text-stone-600">
-        Share feedback about the service, products, or your overall experience. Every message is
-        stored under your current account.
+        Feedback can only be submitted for orders that were completed successfully. Each order can
+        receive one feedback entry.
       </p>
 
-      <div className="grid gap-2 sm:grid-cols-2">
-        <label className="grid gap-2">
-          <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">Feedback category</span>
-          <select
-            className={ui.input}
-            value={category}
-            onChange={(event) => setCategory(event.target.value)}
-          >
-            {feedbackCategoryOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="grid gap-2">
-          <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">Related store</span>
-          <select
-            className={ui.input}
-            value={relatedStoreId}
-            onChange={(event) => setRelatedStoreId(event.target.value)}
-            disabled={!normalizedStoreOptions.length}
-          >
-            <option value="">
-              {!normalizedStoreOptions.length ? "Loading stores..." : "Select a store"}
-            </option>
-            {normalizedStoreOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
       <label className="grid gap-2">
-        <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">Subject</span>
-        <input
+        <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+          Completed order
+        </span>
+        <select
           className={ui.input}
-          type="text"
-          placeholder="Write a short summary of the issue"
-          value={subject}
-          onChange={(event) => setSubject(event.target.value)}
-        />
+          value={relatedOrderId}
+          onChange={(event) => setRelatedOrderId(event.target.value)}
+          disabled={!normalizedOrderOptions.length}
+        >
+          <option value="">
+            {!normalizedOrderOptions.length ? "No eligible orders yet" : "Choose an order"}
+          </option>
+          {normalizedOrderOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
       </label>
 
       <label className="grid gap-2">
         <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">Message</span>
         <textarea
           className={`${ui.input} min-h-32 resize-y`}
-          placeholder="Describe your feedback in more detail"
+          placeholder="Tell the store how the order experience went."
           value={message}
           onChange={(event) => setMessage(event.target.value)}
         />
@@ -162,7 +129,7 @@ export default function UserFeedbackForm({
         <button
           className={ui.primaryButton}
           type="submit"
-          disabled={submitting || !normalizedStoreOptions.length}
+          disabled={submitting || !normalizedOrderOptions.length}
         >
           {submitting ? "Sending..." : "Send feedback"}
         </button>

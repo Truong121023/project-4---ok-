@@ -1,6 +1,10 @@
+import { apiRequest } from "./api";
+
 const GEOCODER_SEARCH_URL =
   import.meta.env.VITE_GEOCODER_URL ?? "https://nominatim.openstreetmap.org/search";
 const GEOCODER_CACHE = new Map();
+const ADDRESS_LOOKUP_SUGGESTIONS_PATH = "/api/public/address-suggestions";
+const ADDRESS_LOOKUP_RESOLVE_PATH = "/api/public/address-resolve";
 
 function foldText(value) {
   return String(value ?? "")
@@ -13,6 +17,29 @@ function foldText(value) {
 function toCoordinate(value) {
   const normalized = Number(value);
   return Number.isFinite(normalized) ? normalized : null;
+}
+
+function buildQueryString(params = {}) {
+  const searchParams = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || String(value).trim() === "") {
+      return;
+    }
+
+    searchParams.set(key, String(value).trim());
+  });
+
+  const normalized = searchParams.toString();
+  return normalized ? `?${normalized}` : "";
+}
+
+export function createAddressLookupSessionToken() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `address-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function titleCase(value) {
@@ -198,10 +225,10 @@ async function geocodeCandidate(candidate, normalizedAddress) {
   const cached = GEOCODER_CACHE.get(cacheKey);
 
   if (cached) {
-    return {
-      ...cached,
+    return cached.map((entry) => ({
+      ...entry,
       normalizedAddress,
-    };
+    }));
   }
 
   const searchParams = new URLSearchParams({
@@ -230,27 +257,139 @@ async function geocodeCandidate(candidate, normalizedAddress) {
   }
 
   const payload = await response.json();
-  const match = Array.isArray(payload)
-    ? payload.find((item) => toCoordinate(item?.lat) !== null && toCoordinate(item?.lon) !== null)
-    : null;
+  const resolved = Array.isArray(payload)
+    ? payload
+      .map((item) => {
+        const latitude = toCoordinate(item?.lat);
+        const longitude = toCoordinate(item?.lon);
 
-  if (!match) {
-    throw new Error("No matching address was found.");
-  }
+        if (latitude === null || longitude === null) {
+          return null;
+        }
 
-  const resolved = {
-    latitude: Number(match.lat),
-    longitude: Number(match.lon),
-    label: String(match.display_name ?? candidate),
-    normalizedAddress,
-    resolvedQuery: candidate,
-  };
+        return {
+          latitude,
+          longitude,
+          label: String(item?.display_name ?? candidate),
+          secondaryLabel: "",
+          placeId: "",
+          resolvedQuery: candidate,
+          source: "nominatim",
+        };
+      })
+      .filter(Boolean)
+    : [];
 
   GEOCODER_CACHE.set(cacheKey, resolved);
-  return resolved;
+  return resolved.map((entry) => ({
+    ...entry,
+    normalizedAddress,
+  }));
 }
 
-export async function geocodeAddress(address) {
+async function fetchBackendAddressSuggestions(address, limit = 5, sessionToken = "") {
+  const payload = await apiRequest(
+    `${ADDRESS_LOOKUP_SUGGESTIONS_PATH}${buildQueryString({
+      input: address,
+      limit,
+      sessionToken,
+    })}`,
+  );
+
+  if (!Array.isArray(payload)) {
+    return [];
+  }
+
+  return payload
+    .map((item) => ({
+      placeId: String(item?.placeId ?? "").trim(),
+      label: String(item?.label ?? "").trim(),
+      secondaryLabel: String(item?.secondaryLabel ?? "").trim(),
+      sessionToken: String(item?.sessionToken ?? sessionToken ?? "").trim(),
+      latitude: toCoordinate(item?.latitude),
+      longitude: toCoordinate(item?.longitude),
+      normalizedAddress: String(item?.normalizedAddress ?? item?.label ?? "").trim(),
+      source: String(item?.source ?? "mapbox_geocoding").trim() || "mapbox_geocoding",
+    }))
+    .filter((item) => item.label);
+}
+
+async function resolveBackendAddress({
+  address = "",
+  placeId = "",
+  sessionToken = "",
+} = {}) {
+  const payload = await apiRequest(
+    `${ADDRESS_LOOKUP_RESOLVE_PATH}${buildQueryString({
+      input: address,
+      placeId,
+      sessionToken,
+    })}`,
+  );
+
+  return {
+    placeId: String(payload?.placeId ?? placeId ?? "").trim(),
+    label: String(payload?.label ?? payload?.normalizedAddress ?? address ?? "").trim(),
+    secondaryLabel: "",
+    normalizedAddress: String(payload?.normalizedAddress ?? payload?.label ?? address ?? "").trim(),
+    latitude: toCoordinate(payload?.latitude),
+    longitude: toCoordinate(payload?.longitude),
+    source: String(payload?.source ?? "mapbox_geocoding").trim() || "mapbox_geocoding",
+  };
+}
+
+export async function searchAddressSuggestions(address, limit = 5, sessionToken = "") {
+  const normalizedAddress = normalizeVietnameseAddress(address);
+
+  if (!normalizedAddress) {
+    return [];
+  }
+
+  let backendError = null;
+  try {
+    const backendSuggestions = await fetchBackendAddressSuggestions(
+      normalizedAddress,
+      limit,
+      sessionToken,
+    );
+    if (backendSuggestions.length) {
+      return backendSuggestions;
+    }
+  } catch (error) {
+    backendError = error;
+  }
+
+  const suggestions = [];
+  const seen = new Set();
+  let lastError = backendError;
+
+  for (const candidate of buildAddressSearchCandidates(normalizedAddress)) {
+    try {
+      const matches = await geocodeCandidate(candidate, normalizedAddress);
+      for (const match of matches) {
+        const key = `${match.latitude.toFixed(6)}:${match.longitude.toFixed(6)}`;
+        if (seen.has(key)) {
+          continue;
+        }
+        seen.add(key);
+        suggestions.push(match);
+        if (suggestions.length >= limit) {
+          return suggestions;
+        }
+      }
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+
+  return suggestions;
+}
+
+export async function geocodeAddress(address, { placeId = "", sessionToken = "" } = {}) {
   const rawAddress = String(address ?? "").trim();
   const normalizedAddress = normalizeVietnameseAddress(rawAddress);
 
@@ -259,9 +398,26 @@ export async function geocodeAddress(address) {
   }
 
   let lastError = null;
+
+  try {
+    const backendMatch = await resolveBackendAddress({
+      address: normalizedAddress,
+      placeId,
+      sessionToken,
+    });
+    if (backendMatch.latitude !== null && backendMatch.longitude !== null) {
+      return backendMatch;
+    }
+  } catch (error) {
+    lastError = error;
+  }
+
   for (const candidate of buildAddressSearchCandidates(normalizedAddress)) {
     try {
-      return await geocodeCandidate(candidate, normalizedAddress);
+      const matches = await geocodeCandidate(candidate, normalizedAddress);
+      if (matches.length) {
+        return matches[0];
+      }
     } catch (error) {
       lastError = error;
     }

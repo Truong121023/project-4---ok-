@@ -12,7 +12,6 @@ import {
   isAdminNavigationEntryActive,
 } from "../lib/adminNavigation";
 import { buildEventPath } from "../lib/eventRouting";
-import { getFeedbackCategoryLabel } from "../lib/feedbackCategories";
 import { formatCurrencyVnd, formatDateTimeVn } from "../lib/locale";
 import { formatDeliveryTypeLabel, getOrderStatusMeta, getPaymentStatusMeta } from "../lib/orderStatus";
 import {
@@ -24,7 +23,7 @@ import {
   fetchUserOrders,
   normalizeTargetType,
 } from "../lib/siteApi";
-import { geocodeAddress } from "../lib/locationLookup";
+import { geocodeAddress, searchAddressSuggestions } from "../lib/locationLookup";
 import { buildStorePath } from "../lib/storeRouting";
 import { ui } from "../ui";
 
@@ -186,10 +185,7 @@ function hydrateFeedbackStoreTarget(item, storeReferenceMap) {
 }
 
 function feedbackLink(feedback) {
-  return buildStorePath({
-    slug: feedback?.relatedStoreSlug,
-    id: feedback?.relatedStoreId,
-  });
+  return feedback?.relatedOrderId ? `/orders/${feedback.relatedOrderId}` : "/orders";
 }
 
 function hasFeedbackReply(feedback) {
@@ -355,6 +351,10 @@ export default function AccountPage() {
   const [deliveryAddressLoading, setDeliveryAddressLoading] = useState(false);
   const [deliveryAddressNotice, setDeliveryAddressNotice] = useState("");
   const [deliveryAddressError, setDeliveryAddressError] = useState("");
+  const [deliveryAddressSuggestions, setDeliveryAddressSuggestions] = useState([]);
+  const [deliveryAddressSuggestionsLoading, setDeliveryAddressSuggestionsLoading] = useState(false);
+  const [deliveryAddressSuggestionError, setDeliveryAddressSuggestionError] = useState("");
+  const [deliveryAddressSuggestionApplyingId, setDeliveryAddressSuggestionApplyingId] = useState("");
   const [recentOrders, setRecentOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState("");
@@ -424,6 +424,46 @@ export default function AccountPage() {
 
     return "overview";
   }, [location.pathname]);
+
+  useEffect(() => {
+    const query = String(deliveryAddressDraft.deliveryAddress ?? "").trim();
+
+    if (!isUser || activeAccountSection !== "addresses" || query.length < 4) {
+      setDeliveryAddressSuggestions([]);
+      setDeliveryAddressSuggestionsLoading(false);
+      setDeliveryAddressSuggestionError("");
+      return undefined;
+    }
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(async () => {
+      setDeliveryAddressSuggestionsLoading(true);
+      setDeliveryAddressSuggestionError("");
+
+      try {
+        const nextSuggestions = await searchAddressSuggestions(query, 5);
+        if (!cancelled) {
+          setDeliveryAddressSuggestions(nextSuggestions);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setDeliveryAddressSuggestions([]);
+          setDeliveryAddressSuggestionError(
+            getApiErrorMessage(error, "Unable to load address suggestions right now."),
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setDeliveryAddressSuggestionsLoading(false);
+        }
+      }
+    }, 320);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [activeAccountSection, deliveryAddressDraft.deliveryAddress, isUser]);
   const currentStoreName = String(auth.user?.workingStoreName ?? "").trim();
   const currentStoreId = String(auth.user?.workingStoreId ?? "").trim();
 
@@ -533,7 +573,7 @@ export default function AccountPage() {
       setOrdersError("");
 
       try {
-        const response = await fetchUserOrders(auth, { page: 0, size: 5 });
+        const response = await fetchUserOrders(auth, { page: 0, size: 100 });
 
         if (!cancelled) {
           setRecentOrders(response.items ?? []);
@@ -661,17 +701,6 @@ export default function AccountPage() {
     [deliveryAddresses],
   );
 
-  const storeOptions = useMemo(
-    () =>
-      Object.entries(storeReferenceMap)
-        .map(([id, store]) => ({
-          value: String(id),
-          label: store.name || `Store #${id}`,
-        }))
-        .sort((left, right) => left.label.localeCompare(right.label, "vi")),
-    [storeReferenceMap],
-  );
-
   const hydratedFeedbacks = useMemo(
     () =>
       [...feedbacks]
@@ -683,6 +712,24 @@ export default function AccountPage() {
         }),
     [feedbacks, storeReferenceMap],
   );
+  const feedbackOrderOptions = useMemo(() => {
+    const submittedOrderIds = new Set(
+      hydratedFeedbacks
+        .map((feedback) => String(feedback?.relatedOrderId ?? "").trim())
+        .filter(Boolean),
+    );
+
+    return [...recentOrders]
+      .filter((order) => String(order?.status ?? "").toUpperCase() === "COMPLETED")
+      .filter((order) => String(order?.paymentStatus ?? "").toUpperCase() === "PAID")
+      .filter((order) => !submittedOrderIds.has(String(order?.id ?? "").trim()))
+      .map((order) => ({
+        value: String(order.id),
+        label: `Order #${order.id} | ${order.storeName} | ${formatDateTime(
+          order.updatedAt || order.createdAt,
+        )}`,
+      }));
+  }, [hydratedFeedbacks, recentOrders]);
 
   const featuredLevel = useMemo(() => memberLevels[0] ?? null, [memberLevels]);
   const membershipPoints = Number(
@@ -706,6 +753,9 @@ export default function AccountPage() {
   const resetDeliveryAddressForm = () => {
     setEditingDeliveryAddressId("");
     setDeliveryAddressDraft(createDeliveryAddressDraft(auth.user));
+    setDeliveryAddressSuggestions([]);
+    setDeliveryAddressSuggestionError("");
+    setDeliveryAddressSuggestionApplyingId("");
   };
 
   const handleRemoveFavorite = async (favoriteItem) => {
@@ -730,6 +780,9 @@ export default function AccountPage() {
   };
 
   const handleDeliveryAddressChange = (field, value) => {
+    if (field === "deliveryAddress") {
+      setDeliveryAddressSuggestionError("");
+    }
     setDeliveryAddressDraft((current) => {
       if (field !== "deliveryAddress") {
         return {
@@ -750,6 +803,66 @@ export default function AccountPage() {
         normalizedAddress: preserveMappedCoordinates ? normalizedSnapshot : "",
       };
     });
+  };
+
+  const handleApplyDeliveryAddressSuggestion = async (suggestion) => {
+    const nextAddress = String(suggestion?.label ?? "").trim();
+    const suggestionKey = String(
+      suggestion?.placeId ??
+      suggestion?.label ??
+      `${suggestion?.secondaryLabel ?? ""}-${suggestion?.sessionToken ?? ""}`,
+    ).trim();
+
+    if (!nextAddress) {
+      return;
+    }
+
+    setDeliveryAddressSuggestionApplyingId(suggestionKey);
+    setDeliveryAddressSuggestionError("");
+    setDeliveryAddressNotice("");
+    setDeliveryAddressError("");
+
+    try {
+      const resolvedAddress = await geocodeAddress(nextAddress, {
+        placeId: suggestion?.placeId,
+        sessionToken: suggestion?.sessionToken,
+      });
+      const latitude = toNullableCoordinate(resolvedAddress?.latitude);
+      const longitude = toNullableCoordinate(resolvedAddress?.longitude);
+      const normalizedAddress =
+        String(resolvedAddress?.normalizedAddress ?? nextAddress).trim() || nextAddress;
+
+      if (latitude === null || longitude === null) {
+        throw new Error("The selected address did not return valid coordinates.");
+      }
+
+      setDeliveryAddressDraft((current) => ({
+        ...current,
+        deliveryAddress: normalizedAddress,
+        latitude,
+        longitude,
+        normalizedAddress,
+      }));
+      setDeliveryAddressSuggestions([]);
+      setDeliveryAddressSuggestionError("");
+      setDeliveryAddressError("");
+    } catch (error) {
+      setDeliveryAddressDraft((current) => ({
+        ...current,
+        deliveryAddress: nextAddress,
+        latitude: null,
+        longitude: null,
+        normalizedAddress: "",
+      }));
+      setDeliveryAddressSuggestionError(
+        getApiErrorMessage(
+          error,
+          "We could not validate that suggestion yet. Please try a different address.",
+        ),
+      );
+    } finally {
+      setDeliveryAddressSuggestionApplyingId("");
+    }
   };
 
   const handleSubmitDeliveryAddress = async () => {
@@ -826,6 +939,8 @@ export default function AccountPage() {
   const handleEditDeliveryAddress = (address) => {
     setDeliveryAddressNotice("");
     setDeliveryAddressError("");
+    setDeliveryAddressSuggestions([]);
+    setDeliveryAddressSuggestionError("");
     setEditingDeliveryAddressId(String(address.id));
     setDeliveryAddressDraft({
       fullName: address.fullName ?? "",
@@ -1243,185 +1358,186 @@ export default function AccountPage() {
           </section>
 
           <section className="grid gap-5">
+
+          <div className="grid gap-5 rounded-[1.75rem] border border-matcha-900/10 bg-white/55 p-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className={ui.eyebrow}>Security</p>
+                <h2 className="text-2xl font-semibold text-tea-900">Reset password</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-7 text-stone-600">
+                  Request an OTP to your current account email, then enter the OTP and your new
+                  password here. The verification code will be sent to <strong>{auth.user?.email ?? "your email"}</strong>.
+                </p>
+              </div>
+
+              <button
+                className={ui.secondaryButton}
+                type="button"
+                onClick={handleRequestPasswordResetOtp}
+              >
+                {passwordOtpSending ? "Sending OTP..." : "Send OTP"}
+              </button>
+            </div>
+
+            {passwordResetNotice ? (
+              <div className="rounded-2xl bg-matcha-500/12 px-4 py-3 text-sm text-matcha-700">
+                {passwordResetNotice}
+              </div>
+            ) : null}
+
+            {passwordResetError ? (
+              <div className="rounded-2xl bg-red-100/80 px-4 py-3 text-sm text-red-700">
+                {passwordResetError}
+              </div>
+            ) : null}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="grid gap-2">
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  Account email
+                </span>
+                <input className={ui.input} type="email" value={auth.user?.email ?? ""} disabled />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  OTP expires at
+                </span>
+                <input
+                  className={ui.input}
+                  type="text"
+                  value={passwordOtpExpiresAt || "Request OTP to receive an expiry time"}
+                  disabled
+                />
+              </label>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <label className="grid gap-2">
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  OTP
+                </span>
+                <input
+                  className={ui.input}
+                  type="text"
+                  value={passwordResetForm.otp}
+                  onChange={(event) => handlePasswordResetFormChange("otp", event.target.value)}
+                  placeholder="Enter the OTP code"
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  New password
+                </span>
+                <input
+                  className={ui.input}
+                  type="password"
+                  value={passwordResetForm.newPassword}
+                  onChange={(event) =>
+                    handlePasswordResetFormChange("newPassword", event.target.value)
+                  }
+                  placeholder="Enter a new password"
+                  autoComplete="new-password"
+                />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  Confirm password
+                </span>
+                <input
+                  className={ui.input}
+                  type="password"
+                  value={passwordResetForm.confirmPassword}
+                  onChange={(event) =>
+                    handlePasswordResetFormChange("confirmPassword", event.target.value)
+                  }
+                  placeholder="Re-enter the new password"
+                  autoComplete="new-password"
+                />
+              </label>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                className={ui.primaryButton}
+                type="button"
+                onClick={handleResetPasswordInProfile}
+              >
+                {passwordResetLoading ? "Resetting..." : "Reset password in profile"}
+              </button>
+            </div>
+          </div>
+
+          {isUser ? (
             <div className="grid gap-5 rounded-[1.75rem] border border-matcha-900/10 bg-white/55 p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className={ui.eyebrow}>Security</p>
-                  <h2 className="text-2xl font-semibold text-tea-900">Reset password</h2>
-                  <p className="mt-2 max-w-2xl text-sm leading-7 text-stone-600">
-                    Request an OTP to your current account email, then enter the OTP and your new
-                    password here. The verification code will be sent to <strong>{auth.user?.email ?? "your email"}</strong>.
-                  </p>
+                  <p className={ui.eyebrow}>Membership</p>
+                  <h2 className="text-2xl font-semibold text-tea-900">Current level snapshot</h2>
                 </div>
 
-                <button
-                  className={ui.secondaryButton}
-                  type="button"
-                  onClick={handleRequestPasswordResetOtp}
-                >
-                  {passwordOtpSending ? "Sending OTP..." : "Send OTP"}
-                </button>
+                <Link className={ui.secondaryButton} to="/account/levels">
+                  Open membership
+                </Link>
               </div>
 
-              {passwordResetNotice ? (
-                <div className="rounded-2xl bg-matcha-500/12 px-4 py-3 text-sm text-matcha-700">
-                  {passwordResetNotice}
-                </div>
-              ) : null}
-
-              {passwordResetError ? (
+              {memberLevelsError ? (
                 <div className="rounded-2xl bg-red-100/80 px-4 py-3 text-sm text-red-700">
-                  {passwordResetError}
+                  {memberLevelsError}
                 </div>
               ) : null}
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="grid gap-2">
-                  <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                    Account email
-                  </span>
-                  <input className={ui.input} type="email" value={auth.user?.email ?? ""} disabled />
-                </label>
-
-                <label className="grid gap-2">
-                  <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                    OTP expires at
-                  </span>
-                  <input
-                    className={ui.input}
-                    type="text"
-                    value={passwordOtpExpiresAt || "Request OTP to receive an expiry time"}
-                    disabled
-                  />
-                </label>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-3">
-                <label className="grid gap-2">
-                  <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                    OTP
-                  </span>
-                  <input
-                    className={ui.input}
-                    type="text"
-                    value={passwordResetForm.otp}
-                    onChange={(event) => handlePasswordResetFormChange("otp", event.target.value)}
-                    placeholder="Enter the OTP code"
-                  />
-                </label>
-
-                <label className="grid gap-2">
-                  <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                    New password
-                  </span>
-                  <input
-                    className={ui.input}
-                    type="password"
-                    value={passwordResetForm.newPassword}
-                    onChange={(event) =>
-                      handlePasswordResetFormChange("newPassword", event.target.value)
-                    }
-                    placeholder="Enter a new password"
-                    autoComplete="new-password"
-                  />
-                </label>
-
-                <label className="grid gap-2">
-                  <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                    Confirm password
-                  </span>
-                  <input
-                    className={ui.input}
-                    type="password"
-                    value={passwordResetForm.confirmPassword}
-                    onChange={(event) =>
-                      handlePasswordResetFormChange("confirmPassword", event.target.value)
-                    }
-                    placeholder="Re-enter the new password"
-                    autoComplete="new-password"
-                  />
-                </label>
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                <button
-                  className={ui.primaryButton}
-                  type="button"
-                  onClick={handleResetPasswordInProfile}
-                >
-                  {passwordResetLoading ? "Resetting..." : "Reset password in profile"}
-                </button>
-              </div>
-            </div>
-
-            {isUser ? (
-              <div className="grid gap-5 rounded-[1.75rem] border border-matcha-900/10 bg-white/55 p-5">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <p className={ui.eyebrow}>Membership</p>
-                    <h2 className="text-2xl font-semibold text-tea-900">Current level snapshot</h2>
-                  </div>
-
-                  <Link className={ui.secondaryButton} to="/account/levels">
-                    Open membership
-                  </Link>
+              {memberLevelsLoading ? (
+                <div className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
+                  Loading membership levels...
                 </div>
+              ) : featuredLevel ? (
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <article className="rounded-3xl border border-matcha-900/10 bg-white/65 p-5">
+                    <p className="text-sm text-stone-600">Current tier</p>
+                    <strong className="mt-2 block text-2xl text-tea-900">
+                      {featuredLevel.levelName || featuredLevel.levelCode || "Member"}
+                    </strong>
+                    <p className="mt-2 text-sm font-semibold text-matcha-700">
+                      {featuredLevel.levelCode || "ACTIVE"}
+                    </p>
+                  </article>
 
-                {memberLevelsError ? (
-                  <div className="rounded-2xl bg-red-100/80 px-4 py-3 text-sm text-red-700">
-                    {memberLevelsError}
-                  </div>
-                ) : null}
+                  <article className="rounded-3xl border border-matcha-900/10 bg-white/65 p-5">
+                    <p className="text-sm text-stone-600">Membership points</p>
+                    <strong className="mt-2 block text-2xl text-tea-900">
+                      {formatCount(membershipPoints)}
+                    </strong>
+                    <p className="mt-2 text-sm text-stone-600">
+                      1,000 VND paid = 1 membership point.
+                    </p>
+                  </article>
 
-                {memberLevelsLoading ? (
-                  <div className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
-                    Loading membership levels...
-                  </div>
-                ) : featuredLevel ? (
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    <article className="rounded-3xl border border-matcha-900/10 bg-white/65 p-5">
-                      <p className="text-sm text-stone-600">Current tier</p>
-                      <strong className="mt-2 block text-2xl text-tea-900">
-                        {featuredLevel.levelName || featuredLevel.levelCode || "Member"}
-                      </strong>
-                      <p className="mt-2 text-sm font-semibold text-matcha-700">
-                        {featuredLevel.levelCode || "ACTIVE"}
-                      </p>
-                    </article>
-
-                    <article className="rounded-3xl border border-matcha-900/10 bg-white/65 p-5">
-                      <p className="text-sm text-stone-600">Membership points</p>
-                      <strong className="mt-2 block text-2xl text-tea-900">
-                        {formatCount(membershipPoints)}
-                      </strong>
-                      <p className="mt-2 text-sm text-stone-600">
-                        1,000 VND paid = 1 membership point.
-                      </p>
-                    </article>
-
-                    <article className="rounded-3xl border border-matcha-900/10 bg-white/65 p-5">
-                      <p className="text-sm text-stone-600">Next tier</p>
-                      <strong className="mt-2 block text-2xl text-tea-900">
-                        {featuredLevel.nextLevelName || "Top tier reached"}
-                      </strong>
-                      <p className="mt-2 text-sm text-stone-600">
-                        {featuredLevel.nextLevelName
-                          ? `${formatCount(
-                              Math.max(0, nextMembershipThreshold - membershipPoints),
-                            )} more points needed.`
-                          : "You have reached the highest active tier."}
-                      </p>
-                    </article>
-                  </div>
-                ) : (
-                  <div className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
-                    No membership tier data is available yet.
-                  </div>
-                )}
-              </div>
-            ) : null}
-          </section>
+                  <article className="rounded-3xl border border-matcha-900/10 bg-white/65 p-5">
+                    <p className="text-sm text-stone-600">Next tier</p>
+                    <strong className="mt-2 block text-2xl text-tea-900">
+                      {featuredLevel.nextLevelName || "Top tier reached"}
+                    </strong>
+                    <p className="mt-2 text-sm text-stone-600">
+                      {featuredLevel.nextLevelName
+                        ? `${formatCount(
+                            Math.max(0, nextMembershipThreshold - membershipPoints),
+                          )} more points needed.`
+                        : "You have reached the highest active tier."}
+                    </p>
+                  </article>
+                </div>
+              ) : (
+                <div className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
+                  No membership tier data is available yet.
+                </div>
+              )}
+            </div>
+          ) : null}
         </section>
+      </section>
       ) : null}
 
       {isUser && activeAccountSection === "levels" ? (
@@ -1804,7 +1920,7 @@ export default function AccountPage() {
                   type="text"
                   value={deliveryAddressDraft.fullName}
                   onChange={(event) => handleDeliveryAddressChange("fullName", event.target.value)}
-                  placeholder="Nguyen Quang Truong"
+                  placeholder="Quang Truong Nguyen"
                 />
               </label>
 
@@ -1829,9 +1945,69 @@ export default function AccountPage() {
                   className={`${ui.input} min-h-[8rem] resize-y`}
                   value={deliveryAddressDraft.deliveryAddress}
                   onChange={(event) => handleDeliveryAddressChange("deliveryAddress", event.target.value)}
-                  placeholder="12 Nguyen Hue, Quan 1, TP HCM"
+                  placeholder="12 Nguyen Hue, District 1, Ho Chi Minh City"
                 />
               </label>
+
+              {deliveryAddressDraft.deliveryAddress.trim().length >= 4 ? (
+                <div className="grid gap-3 rounded-[1.25rem] border border-matcha-900/10 bg-matcha-50/50 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                      Address suggestions
+                    </p>
+                    {deliveryAddressSuggestionsLoading ? (
+                      <span className="text-xs font-semibold text-matcha-700">
+                        Looking up suggestions...
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {deliveryAddressSuggestionError ? (
+                    <p className="text-sm leading-6 text-red-700">{deliveryAddressSuggestionError}</p>
+                  ) : null}
+
+                  {!deliveryAddressSuggestionError && !deliveryAddressSuggestionsLoading && !deliveryAddressSuggestions.length ? (
+                    <p className="text-sm leading-6 text-stone-600">
+                      Keep typing the street, ward, district, or city to see matching addresses.
+                    </p>
+                  ) : null}
+
+                  {deliveryAddressSuggestions.length ? (
+                    <div className="grid gap-2">
+                      {deliveryAddressSuggestions.map((suggestion) => (
+                        <button
+                          key={`${suggestion.placeId || suggestion.label}-${suggestion.sessionToken || suggestion.secondaryLabel || ""}`}
+                          className="rounded-2xl border border-matcha-900/10 bg-white px-4 py-3 text-left transition hover:border-matcha-400 hover:bg-matcha-50"
+                          type="button"
+                          disabled={
+                            deliveryAddressSuggestionApplyingId ===
+                            String(
+                              suggestion?.placeId ??
+                              suggestion?.label ??
+                              `${suggestion?.secondaryLabel ?? ""}-${suggestion?.sessionToken ?? ""}`,
+                            ).trim()
+                          }
+                          onClick={() => void handleApplyDeliveryAddressSuggestion(suggestion)}
+                        >
+                          <span className="block text-sm font-semibold text-tea-900">
+                            {suggestion.label}
+                          </span>
+                          <span className="mt-1 block text-xs text-stone-500">
+                            {deliveryAddressSuggestionApplyingId ===
+                            String(
+                              suggestion?.placeId ??
+                              suggestion?.label ??
+                              `${suggestion?.secondaryLabel ?? ""}-${suggestion?.sessionToken ?? ""}`,
+                            ).trim()
+                              ? "Resolving this address..."
+                              : suggestion.secondaryLabel || "Tap to use this address"}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
 
               <label className="flex items-center gap-3 rounded-[1.25rem] border border-matcha-900/10 bg-white/70 px-4 py-3 text-sm text-tea-900">
                 <input
@@ -2066,21 +2242,20 @@ export default function AccountPage() {
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className={ui.eyebrow}>My feedback</p>
-              <h2 className={ui.sectionTitle}>Feedback history</h2>
+              <h2 className={ui.sectionTitle}>Order feedback history</h2>
               <p className="mt-4 max-w-3xl text-sm leading-7 text-stone-700">
-                Send feedback about service, products, or your experience and review it all in one
-                place.
+                Leave feedback only for completed orders and keep every store reply in one place.
               </p>
             </div>
 
-            <span className={ui.pill}>{hydratedFeedbacks.length} feedback items</span>
+              <span className={ui.pill}>{hydratedFeedbacks.length} order feedback items</span>
           </div>
 
           <div className="mt-6 grid gap-6 xl:grid-cols-[0.98fr_1.02fr]">
             <UserFeedbackForm
-              title="Send new feedback"
+              title="Leave feedback for a completed order"
               canSubmit={auth.hasRole("USER")}
-              storeOptions={storeOptions}
+              orderOptions={feedbackOrderOptions}
               onSubmit={handleSubmitFeedback}
             />
 
@@ -2118,7 +2293,9 @@ export default function AccountPage() {
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className={ui.pill}>{getFeedbackCategoryLabel(item.category)}</span>
+                          {item.relatedOrderId ? (
+                            <span className={ui.pill}>Order #{item.relatedOrderId}</span>
+                          ) : null}
                           <span className={ui.pill}>
                             {formatDateTime(item.updatedAt || item.createdAt)}
                           </span>
@@ -2128,10 +2305,12 @@ export default function AccountPage() {
                         </div>
 
                         <h3 className="mt-3 text-xl font-semibold text-tea-900">
-                          {item.subject || "Untitled feedback"}
+                          {item.relatedStoreName
+                            ? `${item.relatedStoreName} order feedback`
+                            : item.subject || "Order feedback"}
                         </h3>
                         <p className="mt-2 text-sm text-matcha-700">
-                          {item.relatedStoreName || "Related store"}
+                          {item.relatedStoreName || "Store not available"}
                         </p>
                         {item.relatedStoreAddress ? (
                           <p className="mt-1 text-sm text-stone-500">{item.relatedStoreAddress}</p>
@@ -2170,7 +2349,7 @@ export default function AccountPage() {
 
                     <div className="mt-4 flex flex-wrap gap-3">
                       <Link className={ui.primaryButton} to={feedbackLink(item)}>
-                        View store
+                        View order
                       </Link>
 
                       <button
@@ -2188,7 +2367,7 @@ export default function AccountPage() {
 
               {!userDataLoading && !feedbackLoading && !hydratedFeedbacks.length ? (
                 <div className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
-                  You have not sent any feedback yet.
+                  No order feedback has been submitted yet.
                 </div>
               ) : null}
             </div>

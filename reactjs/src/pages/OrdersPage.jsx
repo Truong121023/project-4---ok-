@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import InvoicePreviewModal from "../components/InvoicePreviewModal";
 import OrderStatusTracker from "../components/OrderStatusTracker";
@@ -7,6 +7,8 @@ import QuickAddToCartButton from "../components/QuickAddToCartButton";
 import QuickFavoriteButton from "../components/QuickFavoriteButton";
 import SmartImage from "../components/SmartImage";
 import { useAuth } from "../context/AuthContext";
+import { useAppRealtime } from "../context/AppRealtimeContext";
+import { useSiteData } from "../context/SiteDataContext";
 import { useToastMessage } from "../hooks/useToastMessage";
 import {
   canRetryPayment,
@@ -22,9 +24,11 @@ import {
   getOrderInvoicePreviewHref,
 } from "../lib/orderWorkflow";
 import {
+  cancelUserOrder,
   fetchUserOrderDetail,
   fetchUserOrders,
   refreshUserOrderPayment,
+  reorderUserOrder,
 } from "../lib/siteApi";
 import {
   clearPendingPaymentOrder,
@@ -47,6 +51,17 @@ function formatDateTime(value) {
   return formatDateTimeVn(value);
 }
 
+function buildTransferCheckMessage(order) {
+  const paymentStatus = String(order?.paymentStatus ?? "").toUpperCase();
+  if (paymentStatus === "PAID") {
+    return "The server confirmed your transfer successfully.";
+  }
+  if (paymentStatus === "CANCELLED" || paymentStatus === "FAILED") {
+    return "The transfer has not been confirmed for this payment session.";
+  }
+  return "The server is still checking your transfer.";
+}
+
 function isCancelledOrder(order) {
   const status = String(order?.status ?? "").toUpperCase();
   const paymentStatus = String(order?.paymentStatus ?? "").toUpperCase();
@@ -54,8 +69,26 @@ function isCancelledOrder(order) {
   return status === "CANCELLED" || paymentStatus === "CANCELLED";
 }
 
+function canLeaveOrderFeedback(order) {
+  return (
+    String(order?.status ?? "").toUpperCase() === "COMPLETED" &&
+    String(order?.paymentStatus ?? "").toUpperCase() === "PAID" &&
+    !order?.feedbackSubmitted
+  );
+}
+
+function canUserCancelOrder(order) {
+  return Array.isArray(order?.allowedActions) && order.allowedActions.includes("CANCEL_ORDER");
+}
+
+function canReorderOrder(order) {
+  return Array.isArray(order?.allowedActions) && order.allowedActions.includes("REORDER_ORDER");
+}
+
 export default function OrdersPage() {
   const auth = useAuth();
+  const realtime = useAppRealtime();
+  const siteData = useSiteData();
   const navigate = useNavigate();
   const { orderId } = useParams();
   const [loading, setLoading] = useState(true);
@@ -66,10 +99,12 @@ export default function OrdersPage() {
   const [paymentMessage, setPaymentMessage] = useState("");
   const [refreshingPaymentId, setRefreshingPaymentId] = useState("");
   const [recreatingPaymentId, setRecreatingPaymentId] = useState("");
+  const [actingOrderId, setActingOrderId] = useState("");
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [orders, setOrders] = useState([]);
   const [orderDetail, setOrderDetail] = useState(null);
   const paidProfileRefreshRef = useRef("");
+  const lastHandledOrderRealtimeVersionRef = useRef(0);
   const orderDetailInvoicePreviewUrl = getOrderInvoicePreviewHref(orderDetail);
   const canRefreshDetailPayment = canRefreshOrderPayment(orderDetail);
   const canViewDetailInvoice = canViewOrderInvoice(orderDetail);
@@ -102,35 +137,11 @@ export default function OrdersPage() {
     orderDetail?.updatedAt,
   ]);
 
-  useEffect(() => {
-    const normalizedPaymentStatus = String(orderDetail?.paymentStatus ?? "").toUpperCase();
-    const refreshKey = orderDetail?.id
-      ? `${orderDetail.id}:${orderDetail.paidAt ?? orderDetail.updatedAt ?? normalizedPaymentStatus}`
-      : "";
-
-    if (!auth.hasRole("USER") || normalizedPaymentStatus !== "PAID" || !refreshKey) {
-      return;
-    }
-
-    if (paidProfileRefreshRef.current === refreshKey) {
-      return;
-    }
-
-    paidProfileRefreshRef.current = refreshKey;
-    void auth.refreshMe().catch(() => {});
-  }, [
-    auth,
-    orderDetail?.id,
-    orderDetail?.paidAt,
-    orderDetail?.paymentStatus,
-    orderDetail?.updatedAt,
-  ]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadOrders() {
-      setLoading(true);
+  const loadOrders = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!silent) {
+        setLoading(true);
+      }
       setError("");
 
       try {
@@ -138,62 +149,89 @@ export default function OrdersPage() {
           page: 0,
           size: 20,
         });
-
-        if (!cancelled) {
-          setOrders(response.items);
-        }
+        setOrders(response.items);
+        return response.items;
       } catch (requestError) {
-        if (!cancelled) {
-          setError(requestError.message || "Unable to load order history.");
+        const message = requestError.message || "Unable to load order history.";
+        setError(message);
+        if (!silent) {
+          throw requestError;
         }
+        return [];
       } finally {
-        if (!cancelled) {
+        if (!silent) {
           setLoading(false);
         }
       }
-    }
+    },
+    [auth],
+  );
 
-    void loadOrders();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [auth]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadOrderDetail() {
+  const loadOrderDetail = useCallback(
+    async ({ silent = false } = {}) => {
       if (!orderId) {
         setOrderDetail(null);
-        return;
+        return null;
       }
 
-      setDetailLoading(true);
+      if (!silent) {
+        setDetailLoading(true);
+      }
+      setError("");
 
       try {
         const response = await fetchUserOrderDetail(auth, orderId);
-
-        if (!cancelled) {
-          setOrderDetail(response);
-        }
+        setOrderDetail(response);
+        return response;
       } catch (requestError) {
-        if (!cancelled) {
-          setError(requestError.message || "Unable to load order details.");
+        const message = requestError.message || "Unable to load order details.";
+        setError(message);
+        if (!silent) {
+          throw requestError;
         }
+        return null;
       } finally {
-        if (!cancelled) {
+        if (!silent) {
           setDetailLoading(false);
         }
       }
+    },
+    [auth, orderId],
+  );
+
+  useEffect(() => {
+    void loadOrders();
+  }, [loadOrders]);
+
+  useEffect(() => {
+    void loadOrderDetail();
+  }, [loadOrderDetail]);
+
+  useEffect(() => {
+    if (!realtime.orderEventVersion || !auth.hasRole("USER")) {
+      return;
     }
 
-    void loadOrderDetail();
+    if (lastHandledOrderRealtimeVersionRef.current === realtime.orderEventVersion) {
+      return;
+    }
 
-    return () => {
-      cancelled = true;
-    };
-  }, [auth, orderId]);
+    lastHandledOrderRealtimeVersionRef.current = realtime.orderEventVersion;
+
+    void loadOrders({ silent: true });
+
+    const eventOrderId = String(realtime.lastOrderEvent?.orderId ?? "").trim();
+    if (!orderId || !eventOrderId || eventOrderId === String(orderId)) {
+      void loadOrderDetail({ silent: true });
+    }
+  }, [
+    auth,
+    loadOrderDetail,
+    loadOrders,
+    orderId,
+    realtime.lastOrderEvent?.orderId,
+    realtime.orderEventVersion,
+  ]);
 
   const orderStats = useMemo(() => {
     const totalAmount = orders.reduce(
@@ -287,7 +325,7 @@ export default function OrdersPage() {
 
   const handleRefreshPayment = async (targetOrderId = orderDetail?.id) => {
     if (!targetOrderId) {
-      setPaymentMessage("Unable to find the order to refresh payment status.");
+      setPaymentMessage("Unable to find the order to check your transfer.");
       return;
     }
 
@@ -298,15 +336,9 @@ export default function OrdersPage() {
     try {
       const refreshedOrder = await refreshUserOrderPayment(auth, targetOrderId);
       const latestOrder = await syncOrderPaymentState(targetOrderId, refreshedOrder);
-      setPaymentMessage(
-        latestOrder.paymentStatus === "PAID"
-          ? "The order has been paid successfully."
-          : latestOrder.paymentStatus === "CANCELLED"
-            ? "The payment was cancelled."
-          : "The latest payment status has been refreshed.",
-      );
+      setPaymentMessage(buildTransferCheckMessage(latestOrder));
     } catch (requestError) {
-      setError(requestError.message || "Unable to refresh payment status.");
+      setError(requestError.message || "Unable to check the transfer status.");
     } finally {
       setRefreshingPaymentId("");
     }
@@ -343,6 +375,329 @@ export default function OrdersPage() {
     } finally {
       setRecreatingPaymentId("");
     }
+  };
+
+  const handleCancelOrder = async (targetOrderId) => {
+    if (!targetOrderId) {
+      setError("Unable to find the order to cancel.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Cancel this unpaid order and stop the current payment session?",
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setActingOrderId(String(targetOrderId));
+    setError("");
+    setPaymentMessage("");
+
+    try {
+      const cancelledOrder = await cancelUserOrder(auth, targetOrderId);
+      setOrderDetail(cancelledOrder);
+      syncPendingPaymentStorage(cancelledOrder);
+      await loadOrders({ silent: true });
+      setPaymentMessage("The unpaid order has been cancelled.");
+    } catch (requestError) {
+      setError(requestError.message || "Unable to cancel the order.");
+    } finally {
+      setActingOrderId("");
+    }
+  };
+
+  const handleReorder = async (targetOrderId) => {
+    if (!targetOrderId) {
+      setError("Unable to find the order to reorder.");
+      return;
+    }
+
+    if (Array.isArray(siteData?.cart?.items) && siteData.cart.items.length > 0) {
+      const confirmed = window.confirm(
+        "Reorder will replace the current cart so it matches this order. Continue?",
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    setActingOrderId(String(targetOrderId));
+    setError("");
+    setPaymentMessage("");
+
+    try {
+      await reorderUserOrder(auth, targetOrderId);
+      await siteData.refreshCart();
+      setPaymentMessage(`The cart now matches Order #${targetOrderId}.`);
+      navigate("/cart");
+    } catch (requestError) {
+      setError(requestError.message || "Unable to reorder this order.");
+    } finally {
+      setActingOrderId("");
+    }
+  };
+
+  const renderOrderDetailContent = (detailOrder) => {
+    const canRefreshSelectedPayment = canRefreshOrderPayment(detailOrder);
+    const canViewSelectedInvoice = canViewOrderInvoice(detailOrder);
+    const selectedInvoicePreviewUrl = getOrderInvoicePreviewHref(detailOrder);
+    const selectedOrderHasUsablePaymentSession = hasUsablePaymentSession(detailOrder);
+    const isCancelled =
+      String(detailOrder?.status ?? "").toUpperCase() === "CANCELLED" ||
+      String(detailOrder?.paymentStatus ?? "").toUpperCase() === "CANCELLED";
+
+    return (
+      <div className="grid gap-4">
+        <OrderStatusTracker order={detailOrder} />
+
+        <div className="grid gap-2 text-sm leading-7 text-stone-600">
+          <span>Status: {getOrderStatusMeta(detailOrder.status).label}</span>
+          <span>Payment: {detailOrder.paymentStatus || "N/A"}</span>
+          {detailOrder.storeName ? <span>Store: {detailOrder.storeName}</span> : null}
+          {detailOrder.storePhoneNumber ? (
+            <span>Store phone: {detailOrder.storePhoneNumber}</span>
+          ) : null}
+          {detailOrder.storeAddress ? <span>Store address: {detailOrder.storeAddress}</span> : null}
+          {detailOrder.invoiceNumber ? <span>Invoice number: {detailOrder.invoiceNumber}</span> : null}
+          {detailOrder.invoiceIssuedAt ? (
+            <span>Invoice issued at: {formatDateTime(detailOrder.invoiceIssuedAt)}</span>
+          ) : null}
+          <span>Subtotal: {formatPrice(detailOrder.subtotalAmount)}</span>
+          {Number(detailOrder.discountAmount ?? 0) > 0 ? (
+            <span>Discount: {formatPrice(detailOrder.discountAmount)}</span>
+          ) : null}
+          {detailOrder.shippingFeeAmount !== undefined &&
+          detailOrder.shippingFeeAmount !== null ? (
+            <span>Shipping fee: {formatPrice(detailOrder.shippingFeeAmount)}</span>
+          ) : null}
+          {Number(detailOrder.creditPointsAwarded ?? 0) > 0 ? (
+            <span>Credit earned: {formatCompactNumber(detailOrder.creditPointsAwarded)} pts</span>
+          ) : null}
+          {detailOrder.shippingDistanceKm !== undefined &&
+          detailOrder.shippingDistanceKm !== null ? (
+            <span>Shipping distance: {formatShippingDistance(detailOrder.shippingDistanceKm)}</span>
+          ) : null}
+          {detailOrder.shippingFeeBreakdown?.length ? (
+            <span>
+              Shipping breakdown: {formatShippingBreakdown(detailOrder.shippingFeeBreakdown)}
+            </span>
+          ) : null}
+          <span>Total: {formatPrice(detailOrder.totalAmount)}</span>
+          {detailOrder.promotionCode ? <span>Promotion code: {detailOrder.promotionCode}</span> : null}
+          {detailOrder.promotionScope ? <span>Promotion scope: {detailOrder.promotionScope}</span> : null}
+          {Number(detailOrder.promotionEligibleAmount ?? 0) > 0 ? (
+            <span>Eligible amount: {formatPrice(detailOrder.promotionEligibleAmount)}</span>
+          ) : null}
+          <span>Delivery type: {formatDeliveryTypeLabel(detailOrder.deliveryType)}</span>
+          {detailOrder.scheduledDeliveryAt ? (
+            <span>Scheduled for: {formatDateTime(detailOrder.scheduledDeliveryAt)}</span>
+          ) : null}
+          {detailOrder.deliveryFullName ? (
+            <span>
+              Deliver to: {detailOrder.deliveryFullName} - {detailOrder.deliveryPhoneNumber}
+            </span>
+          ) : null}
+          {detailOrder.deliveryAddress ? <span>Delivery address: {detailOrder.deliveryAddress}</span> : null}
+          {detailOrder.paymentExpiresAt ? (
+            <span>Payment expires at: {formatDateTime(detailOrder.paymentExpiresAt)}</span>
+          ) : null}
+          {detailOrder.paidAt ? <span>Paid at: {formatDateTime(detailOrder.paidAt)}</span> : null}
+          {String(detailOrder.status ?? "").toUpperCase() === "COMPLETED" &&
+          String(detailOrder.paymentStatus ?? "").toUpperCase() === "PAID" ? (
+            <span>
+              Feedback status: {detailOrder.feedbackSubmitted ? "Submitted" : "Ready to send"}
+            </span>
+          ) : null}
+          <span>Created at: {formatDateTime(detailOrder.createdAt)}</span>
+          <span>Updated at: {formatDateTime(detailOrder.updatedAt)}</span>
+        </div>
+
+        {detailOrder.cancellationNote ? (
+          <div className="rounded-[1.35rem] border border-rose-200 bg-rose-50/90 p-4 text-sm leading-7 text-rose-800">
+            <strong className="font-semibold text-rose-900">Cancellation note:</strong>{" "}
+            {detailOrder.cancellationNote}
+            {detailOrder.cancelledByUserName ? (
+              <span className="text-rose-700">
+                {" "}by {detailOrder.cancelledByUserName}
+                {detailOrder.cancelledAt ? ` • ${formatDateTime(detailOrder.cancelledAt)}` : ""}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+
+        {detailOrder.feedbackSubmitted ? (
+          <div className="rounded-[1.35rem] border border-matcha-900/10 bg-matcha-500/10 p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={ui.pill}>Order feedback</span>
+              {detailOrder.feedbackUpdatedAt ? (
+                <span className={ui.pill}>{formatDateTime(detailOrder.feedbackUpdatedAt)}</span>
+              ) : null}
+            </div>
+            <p className="mt-3 text-sm leading-7 text-stone-700">
+              {detailOrder.feedbackMessage || "Feedback content is not available."}
+            </p>
+            {detailOrder.feedbackReplyMessage ? (
+              <div className="mt-3 rounded-[1.1rem] border border-matcha-900/10 bg-white/70 p-3 text-sm leading-7 text-stone-700">
+                {detailOrder.feedbackReplyMessage}
+              </div>
+            ) : null}
+          </div>
+        ) : canLeaveOrderFeedback(detailOrder) ? (
+          <div className="rounded-[1.35rem] border border-dashed border-matcha-900/15 bg-white/50 p-4 text-sm leading-7 text-stone-600">
+            This completed order can receive feedback now.
+          </div>
+        ) : null}
+
+        <div className="flex flex-wrap gap-3">
+          {canRefreshSelectedPayment ? (
+            <button
+              className={ui.secondaryButton}
+              type="button"
+              disabled={refreshingPaymentId === String(detailOrder.id)}
+              onClick={() => handleRefreshPayment(detailOrder.id)}
+            >
+              {refreshingPaymentId === String(detailOrder.id)
+                ? "Checking transfer..."
+                : "I have transferred"}
+            </button>
+          ) : null}
+
+          {canUserCancelOrder(detailOrder) ? (
+            <button
+              className={ui.secondaryButton}
+              type="button"
+              disabled={actingOrderId === String(detailOrder.id)}
+              onClick={() => handleCancelOrder(detailOrder.id)}
+            >
+              {actingOrderId === String(detailOrder.id) ? "Cancelling..." : "Cancel order"}
+            </button>
+          ) : null}
+
+          {canRefreshSelectedPayment && !selectedOrderHasUsablePaymentSession ? (
+            <button
+              className={ui.primaryButton}
+              type="button"
+              disabled={recreatingPaymentId === String(detailOrder.id)}
+              onClick={() => handleRecreatePayment(detailOrder.id)}
+            >
+              {recreatingPaymentId === String(detailOrder.id)
+                ? "Creating new PayOS..."
+                : "Create new PayOS payment"}
+            </button>
+          ) : null}
+
+          {detailOrder.paymentCheckoutUrl && selectedOrderHasUsablePaymentSession ? (
+            <a
+              className={ui.primaryButton}
+              href={detailOrder.paymentCheckoutUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Pay now
+            </a>
+          ) : null}
+
+          {canViewSelectedInvoice && selectedInvoicePreviewUrl ? (
+            <button
+              className={ui.secondaryButton}
+              type="button"
+              onClick={() => setInvoiceModalOpen(true)}
+            >
+              Open invoice
+            </button>
+          ) : null}
+
+          {canReorderOrder(detailOrder) ? (
+            <button
+              className={ui.primaryButton}
+              type="button"
+              disabled={actingOrderId === String(detailOrder.id)}
+              onClick={() => handleReorder(detailOrder.id)}
+            >
+              {actingOrderId === String(detailOrder.id) ? "Reordering..." : "Reorder"}
+            </button>
+          ) : null}
+
+          {canLeaveOrderFeedback(detailOrder) || detailOrder.feedbackSubmitted ? (
+            <Link className={ui.secondaryButton} to="/account/feedbacks">
+              {detailOrder.feedbackSubmitted ? "Open feedback history" : "Leave feedback"}
+            </Link>
+          ) : null}
+        </div>
+
+        {canRefreshSelectedPayment && !selectedOrderHasUsablePaymentSession ? (
+          <div className="rounded-[1.2rem] border border-amber-200 bg-amber-50/90 p-4 text-sm leading-7 text-amber-900">
+            The current PayOS session is no longer usable. Use{" "}
+            <strong>Create new PayOS payment</strong> to generate a fresh payment session.
+          </div>
+        ) : null}
+
+        {!isCancelled ? (
+          <PaymentQrCard
+            order={detailOrder}
+            title="PayOS QR"
+            subtitle="Scan the latest PayOS QR directly from paymentQrCode, or continue checkout with the payment button."
+          />
+        ) : null}
+
+        <div className="grid gap-3">
+          {detailOrder.items.map((item) => (
+            <article
+              key={item.id}
+              className="grid gap-3 rounded-[1.2rem] border border-matcha-900/10 bg-white/72 p-4 sm:grid-cols-[88px_1fr]"
+            >
+              <div className="overflow-hidden rounded-[1rem] border border-matcha-900/10 bg-stone-100">
+                <SmartImage
+                  className="h-20 w-full object-cover"
+                  src={item.imagePaths?.[0]}
+                  alt={item.dishName}
+                  loading="lazy"
+                  fallbackClassName="grid h-20 w-full place-items-center bg-stone-100 text-xs text-stone-500"
+                />
+              </div>
+
+              <div>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-tea-900">{item.dishName}</p>
+                    <p className="mt-1 text-sm text-stone-600">{item.storeName}</p>
+                  </div>
+                  <strong className="text-matcha-700">{formatPrice(item.totalPrice)}</strong>
+                </div>
+
+                <div className="mt-2 grid gap-1 text-sm text-stone-600">
+                  <span>Quantity: {item.quantity}</span>
+                  <span>Unit price: {formatPrice(item.unitPrice)}</span>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <QuickAddToCartButton
+                    className={ui.primaryButton}
+                    dishId={item.dishId}
+                    storeId={item.storeId}
+                    quantity={1}
+                    blocked={!item.dishId || !item.storeId}
+                    blockedMessage="This item is not ready to be added to the cart again yet."
+                    onResult={(message) => setCartMessage(message)}
+                  />
+                  <QuickFavoriteButton
+                    targetType="dish"
+                    targetId={item.dishId}
+                    activeLabel="Saved"
+                    inactiveLabel="Save item"
+                    onResult={(message) => setFavoriteMessage(message)}
+                  />
+                  <Link className={ui.secondaryButton} to={`/menu/${item.dishId}?store=${item.storeId}`}>
+                    View item
+                  </Link>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -394,63 +749,36 @@ export default function OrdersPage() {
       ) : null}
 
       {!loading ? (
-        <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+        <section className="grid gap-5">
           <div className="grid gap-5">
             {orders.map((order) => (
               <article key={order.id} className={ui.card}>
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <h2 className="text-2xl font-semibold text-tea-900">Order #{order.id}</h2>
-                    <p className="mt-2 text-sm font-semibold text-matcha-700">
-                      {getOrderStatusMeta(order.status).label}
-                    </p>
-                  </div>
-
-                  <div className="text-right">
-                    <strong className="text-xl font-bold text-matcha-700">
-                      {formatPrice(order.totalAmount)}
-                    </strong>
-                    <p className="mt-2 text-sm text-stone-500">{formatDateTime(order.createdAt)}</p>
-                  </div>
-                </div>
-
-                <div className="mt-5">
-                  <OrderStatusTracker compact order={order} />
-                </div>
-
-                <div className="mt-4 grid gap-2 text-sm text-stone-600">
-                  {order.storeName ? <span>Store: {order.storeName}</span> : null}
-                  <span>{formatCompactNumber(order.items.length)} line items</span>
-                  <span>
-                    {formatCompactNumber(
-                      order.items.reduce((sum, item) => sum + Number(item.quantity ?? 0), 0),
-                    )}{" "}
-                    products
-                  </span>
-                  <span>Delivery type: {formatDeliveryTypeLabel(order.deliveryType)}</span>
-                  {order.shippingFeeAmount !== undefined && order.shippingFeeAmount !== null ? (
-                    <span>Shipping fee: {formatPrice(order.shippingFeeAmount)}</span>
-                  ) : null}
-                  {Number(order.creditPointsAwarded ?? 0) > 0 ? (
-                    <span>Credit earned: {formatCompactNumber(order.creditPointsAwarded)} pts</span>
-                  ) : null}
-                  {order.scheduledDeliveryAt ? (
-                    <span>Scheduled for: {formatDateTime(order.scheduledDeliveryAt)}</span>
-                  ) : null}
-                  {order.promotionScope ? <span>Promotion scope: {order.promotionScope}</span> : null}
-                  {order.deliveryFullName ? <span>Recipient: {order.deliveryFullName}</span> : null}
-                  {order.invoiceNumber ? <span>Invoice: {order.invoiceNumber}</span> : null}
-                </div>
-
-                <div className="mt-5 flex flex-wrap gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h2 className="text-2xl font-semibold text-tea-900">Order #{order.id}</h2>
                   <button
-                    className={ui.primaryButton}
+                    className={String(orderId ?? "") === String(order.id) ? ui.secondaryButton : ui.primaryButton}
                     type="button"
-                    onClick={() => navigate(`/orders/${order.id}`)}
+                    onClick={() =>
+                      navigate(
+                        String(orderId ?? "") === String(order.id) ? "/orders" : `/orders/${order.id}`,
+                      )
+                    }
                   >
-                    View details
+                    {String(orderId ?? "") === String(order.id) ? "Hide details" : "Open details"}
                   </button>
                 </div>
+
+                {String(orderId ?? "") === String(order.id) ? (
+                  <div className="mt-5 border-t border-matcha-900/10 pt-5">
+                    {detailLoading && String(orderDetail?.id ?? "") !== String(order.id) ? (
+                      <div className="rounded-[1.5rem] border border-dashed border-matcha-900/15 bg-white/50 p-6 text-sm text-stone-600">
+                        Loading details...
+                      </div>
+                    ) : String(orderDetail?.id ?? "") === String(order.id) ? (
+                      renderOrderDetailContent(orderDetail)
+                    ) : null}
+                  </div>
+                ) : null}
               </article>
             ))}
 
@@ -461,7 +789,7 @@ export default function OrdersPage() {
             ) : null}
           </div>
 
-          <aside className={`${ui.card} h-fit`}>
+          <aside className="hidden">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.2em] text-tea-700">
@@ -486,13 +814,15 @@ export default function OrdersPage() {
                 <div className="grid gap-2 text-sm leading-7 text-stone-600">
                   <span>Status: {getOrderStatusMeta(orderDetail.status).label}</span>
                   <span>Payment: {orderDetail.paymentStatus || "N/A"}</span>
-                  {orderDetail.paymentProvider ? (
-                    <span>Payment provider: {orderDetail.paymentProvider}</span>
+                  {orderDetail.storeName ? (
+                    <span>Store: {orderDetail.storeName}</span>
                   ) : null}
-                  {orderDetail.paymentReference ? (
-                    <span>Payment reference: {orderDetail.paymentReference}</span>
+                  {orderDetail.storePhoneNumber ? (
+                    <span>Store phone: {orderDetail.storePhoneNumber}</span>
                   ) : null}
-                  {orderDetail.invoiceAvailable ? <span>Invoice ready: Yes</span> : null}
+                  {orderDetail.storeAddress ? (
+                    <span>Store address: {orderDetail.storeAddress}</span>
+                  ) : null}
                   {orderDetail.invoiceNumber ? (
                     <span>Invoice number: {orderDetail.invoiceNumber}</span>
                   ) : null}
@@ -531,18 +861,9 @@ export default function OrdersPage() {
                   {Number(orderDetail.promotionEligibleAmount ?? 0) > 0 ? (
                     <span>Eligible amount: {formatPrice(orderDetail.promotionEligibleAmount)}</span>
                   ) : null}
-                  {orderDetail.promotionDishIds?.length ? (
-                    <span>Promotion dish IDs: {orderDetail.promotionDishIds.join(", ")}</span>
-                  ) : null}
                   <span>Delivery type: {formatDeliveryTypeLabel(orderDetail.deliveryType)}</span>
                   {orderDetail.scheduledDeliveryAt ? (
                     <span>Scheduled for: {formatDateTime(orderDetail.scheduledDeliveryAt)}</span>
-                  ) : null}
-                  {orderDetail.preparingStaffName ? (
-                    <span>Preparing staff: {orderDetail.preparingStaffName}</span>
-                  ) : null}
-                  {orderDetail.deliveringShipperName ? (
-                    <span>Delivery rider: {orderDetail.deliveringShipperName}</span>
                   ) : null}
                   {orderDetail.deliveryFullName ? (
                     <span>
@@ -558,21 +879,66 @@ export default function OrdersPage() {
                   {orderDetail.paidAt ? (
                     <span>Paid at: {formatDateTime(orderDetail.paidAt)}</span>
                   ) : null}
+                  {String(orderDetail.status ?? "").toUpperCase() === "COMPLETED" &&
+                  String(orderDetail.paymentStatus ?? "").toUpperCase() === "PAID" ? (
+                    <span>
+                      Feedback status: {orderDetail.feedbackSubmitted ? "Submitted" : "Ready to send"}
+                    </span>
+                  ) : null}
                   <span>Created at: {formatDateTime(orderDetail.createdAt)}</span>
                   <span>Updated at: {formatDateTime(orderDetail.updatedAt)}</span>
                 </div>
 
+                {orderDetail.cancellationNote ? (
+                  <div className="rounded-[1.35rem] border border-rose-200 bg-rose-50/90 p-4 text-sm leading-7 text-rose-800">
+                    <strong className="font-semibold text-rose-900">Cancellation note:</strong>{" "}
+                    {orderDetail.cancellationNote}
+                    {orderDetail.cancelledByUserName ? (
+                      <span className="text-rose-700">
+                        {" "}
+                        by {orderDetail.cancelledByUserName}
+                        {orderDetail.cancelledAt ? ` • ${formatDateTime(orderDetail.cancelledAt)}` : ""}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {orderDetail.feedbackSubmitted ? (
+                  <div className="rounded-[1.35rem] border border-matcha-900/10 bg-matcha-500/10 p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={ui.pill}>Order feedback</span>
+                      {orderDetail.feedbackUpdatedAt ? (
+                        <span className={ui.pill}>{formatDateTime(orderDetail.feedbackUpdatedAt)}</span>
+                      ) : null}
+                    </div>
+                    <p className="mt-3 text-sm leading-7 text-stone-700">
+                      {orderDetail.feedbackMessage || "Feedback content is not available."}
+                    </p>
+                    {orderDetail.feedbackReplyMessage ? (
+                      <div className="mt-3 rounded-[1.1rem] border border-matcha-900/10 bg-white/70 p-3 text-sm leading-7 text-stone-700">
+                        {orderDetail.feedbackReplyMessage}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : canLeaveOrderFeedback(orderDetail) ? (
+                  <div className="rounded-[1.35rem] border border-dashed border-matcha-900/15 bg-white/50 p-4 text-sm leading-7 text-stone-600">
+                    This completed order can receive feedback now.
+                  </div>
+                ) : null}
+
                 <div className="flex flex-wrap gap-3">
-                  <button
-                    className={ui.secondaryButton}
-                    type="button"
-                    disabled={refreshingPaymentId === String(orderDetail.id)}
-                    onClick={() => handleRefreshPayment(orderDetail.id)}
-                  >
-                    {refreshingPaymentId === String(orderDetail.id)
-                      ? "Refreshing..."
-                      : "Refresh payment"}
-                  </button>
+                  {canRefreshDetailPayment ? (
+                    <button
+                      className={ui.secondaryButton}
+                      type="button"
+                      disabled={refreshingPaymentId === String(orderDetail.id)}
+                      onClick={() => handleRefreshPayment(orderDetail.id)}
+                    >
+                      {refreshingPaymentId === String(orderDetail.id)
+                        ? "Checking transfer..."
+                        : "I have transferred"}
+                    </button>
+                  ) : null}
 
                   {canRefreshDetailPayment &&
                   !orderDetailHasUsablePaymentSession ? (
@@ -607,6 +973,11 @@ export default function OrdersPage() {
                     >
                       Open invoice
                     </button>
+                  ) : null}
+                  {canLeaveOrderFeedback(orderDetail) || orderDetail.feedbackSubmitted ? (
+                    <Link className={ui.secondaryButton} to="/account/feedbacks">
+                      {orderDetail.feedbackSubmitted ? "Open feedback history" : "Leave feedback"}
+                    </Link>
                   ) : null}
                 </div>
 

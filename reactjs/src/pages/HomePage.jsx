@@ -38,17 +38,17 @@ function formatPromotionValue(promotion) {
 }
 
 function formatPromotionTarget(promotion) {
-  const normalized = String(promotion?.discountTarget ?? "ITEMS").toUpperCase();
+  const normalized = String(promotion?.scope ?? "ORDER").toUpperCase();
 
-  if (normalized === "SHIPPING") {
-    return "Shipping fee";
+  if (normalized === "SHIP") {
+    return "Shipping";
   }
 
-  if (normalized === "BOTH") {
-    return "Items + shipping";
+  if (normalized === "DISH") {
+    return "Dishes";
   }
 
-  return "Signature items";
+  return "Order";
 }
 
 function statusLabel(store) {
@@ -591,8 +591,9 @@ export default function HomePage() {
                   {spotlightPromotion ? (
                     <span className={ui.pill}>{formatPromotionTarget(spotlightPromotion)}</span>
                   ) : null}
-                  {spotlightPromotion?.creditCost > 0 ? (
-                    <span className={ui.pill}>{spotlightPromotion.creditCost} credit</span>
+                  {Array.isArray(spotlightPromotion?.eligibleUserLevelIds) &&
+                  spotlightPromotion.eligibleUserLevelIds.length ? (
+                    <span className={ui.pill}>Membership checked at checkout</span>
                   ) : null}
                 </div>
 

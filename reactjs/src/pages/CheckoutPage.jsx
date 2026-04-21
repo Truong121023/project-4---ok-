@@ -6,7 +6,7 @@ import { useSiteData } from "../context/SiteDataContext";
 import { geocodeAddress } from "../lib/locationLookup";
 import { formatCurrencyVnd, formatNumberVi } from "../lib/locale";
 import { savePendingPaymentOrder } from "../lib/paymentSession";
-import { fetchUserVoucherCatalog, redeemUserVoucher } from "../lib/siteApi";
+import { fetchUserVoucherCatalog } from "../lib/siteApi";
 import {
   calculateCartShippingEstimate,
   formatShippingBreakdown,
@@ -69,7 +69,6 @@ export default function CheckoutPage() {
   const [voucherLoading, setVoucherLoading] = useState(false);
   const [voucherError, setVoucherError] = useState("");
   const [voucherNotice, setVoucherNotice] = useState("");
-  const [redeemingVoucherId, setRedeemingVoucherId] = useState("");
   const [notice, setNotice] = useState("");
   const [checkoutSubmitting, setCheckoutSubmitting] = useState(false);
 
@@ -310,15 +309,8 @@ export default function CheckoutPage() {
   const previewDiscountAmount = Number(pricingSummary?.discountAmount ?? 0);
   const previewTotalAmount = Number(pricingSummary?.totalAmount ?? cartSubtotal);
   const showDiscountBreakdown = Boolean(normalizedPromotionCode) || previewDiscountAmount > 0;
-  const ownedVouchers = voucherCatalog.filter(
-    (voucher) => Number(voucher.availableRedemptions ?? 0) > 0,
-  );
-  const readyToUseVouchers = voucherCatalog.filter(
-    (voucher) => Number(voucher.creditCost ?? 0) <= 0,
-  );
-  const redeemableCreditVouchers = voucherCatalog.filter(
-    (voucher) =>
-      Number(voucher.creditCost ?? 0) > 0 && Number(voucher.availableRedemptions ?? 0) <= 0,
+  const availableVoucherCodes = voucherCatalog.filter((voucher) =>
+    String(voucher.code ?? "").trim(),
   );
 
   const handleApplyPromotionCode = (nextCode) => {
@@ -342,27 +334,6 @@ export default function CheckoutPage() {
       nextSearchParams.delete("voucher");
     }
     setSearchParams(nextSearchParams, { replace: true });
-  };
-
-  const handleRedeemVoucher = async (voucher) => {
-    if (!voucher?.id) {
-      return;
-    }
-
-    setRedeemingVoucherId(String(voucher.id));
-    setVoucherError("");
-
-    try {
-      const response = await redeemUserVoucher(auth, voucher.id);
-      await auth.refreshMe();
-      setVoucherCatalog(await fetchUserVoucherCatalog(auth));
-      handleApplyPromotionCode(response.promotionCode);
-      setVoucherNotice(response.message || `Redeemed voucher ${response.promotionCode}.`);
-    } catch (requestError) {
-      setVoucherError(requestError.message || "Unable to redeem this voucher.");
-    } finally {
-      setRedeemingVoucherId("");
-    }
   };
 
   const handleCheckout = async () => {
@@ -683,8 +654,8 @@ export default function CheckoutPage() {
               <p className="font-semibold text-tea-900">Quick tip</p>
               <p className="mt-1">
                 Try <strong className="text-matcha-700">KAMATCHASHIP</strong> on any delivery order.
-                Older voucher codes may require credit redemption first or only work with signature
-                items.
+                Voucher rules are now simple: ORDER, DISH, or SHIP. The server checks the minimum
+                order amount, maximum discount, and membership eligibility automatically.
               </p>
               {normalizedPromotionCode ? (
                 <p className="mt-2 text-matcha-700">
@@ -698,15 +669,15 @@ export default function CheckoutPage() {
             </div>
 
             {voucherLoading ? <span className="text-sm text-stone-600">Loading vouchers...</span> : null}
-            {readyToUseVouchers.length ? (
+            {availableVoucherCodes.length ? (
               <div className="grid gap-3">
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                  Ready to use now
+                  Available codes
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {readyToUseVouchers.slice(0, 4).map((voucher) => (
+                  {availableVoucherCodes.slice(0, 6).map((voucher) => (
                     <button
-                      key={`${voucher.id}-${voucher.code}-ready`}
+                      key={`${voucher.id}-${voucher.code}-available`}
                       className={ui.secondaryButton}
                       type="button"
                       onClick={() => handleApplyPromotionCode(voucher.code)}
@@ -717,46 +688,12 @@ export default function CheckoutPage() {
                 </div>
               </div>
             ) : null}
-            {ownedVouchers.length ? (
-              <div className="grid gap-3">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                  Redeemed credit vouchers
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {ownedVouchers.map((voucher) => (
-                    <button
-                      key={`${voucher.id}-${voucher.code}`}
-                      className={ui.secondaryButton}
-                      type="button"
-                      onClick={() => handleApplyPromotionCode(voucher.code)}
-                    >
-                      {voucher.code} x{voucher.availableRedemptions}
-                    </button>
-                  ))}
-                </div>
+            {availableVoucherCodes.length ? (
+              <div className="rounded-[1rem] border border-matcha-900/10 bg-white/90 px-4 py-3 text-sm leading-7 text-stone-600">
+                Pick a code and the server will validate the scope, minimum order amount, maximum
+                discount, and membership rule before confirming the final total.
               </div>
             ) : null}
-            {redeemableCreditVouchers.slice(0, 2).map((voucher) => (
-              <div
-                key={voucher.id || voucher.code}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-[1rem] border border-matcha-900/10 bg-white/90 px-4 py-3"
-              >
-                <div className="grid gap-1">
-                  <strong className="text-sm text-tea-900">{voucher.name || voucher.code}</strong>
-                  <span className="text-sm text-stone-600">
-                    Redeem with {Number(voucher.creditCost ?? 0).toLocaleString("vi-VN")} credits
-                  </span>
-                </div>
-                <button
-                  className={ui.primaryButton}
-                  type="button"
-                  disabled={redeemingVoucherId === String(voucher.id)}
-                  onClick={() => handleRedeemVoucher(voucher)}
-                >
-                  {redeemingVoucherId === String(voucher.id) ? "Redeeming..." : "Redeem"}
-                </button>
-              </div>
-            ))}
           </div>
 
           <div className="mt-4 rounded-[1rem] border border-matcha-900/10 bg-white/72 p-4 text-sm leading-7 text-stone-600">

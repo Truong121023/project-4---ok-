@@ -81,7 +81,7 @@ const primaryLinkMeta = [
   },
   {
     key: "feedbacks",
-    label: "Feedback",
+    label: "Order feedback",
     adminHref: ADMIN_SECTION_ROUTE_MAP.feedbacks,
     managerHref: ADMIN_SECTION_ROUTE_MAP.feedbacks,
     sectionKey: "feedbacks",

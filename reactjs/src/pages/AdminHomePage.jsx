@@ -914,7 +914,7 @@ export default function AdminHomePage() {
                 </div>
                 <div className="flex justify-end lg:justify-start">
                   <Link className={ui.secondaryButton} to={buildAdminWorkspacePath({ sectionKey: "feedbacks" })}>
-                    Customer feedback
+                    Order feedback
                   </Link>
                 </div>
               </div>
