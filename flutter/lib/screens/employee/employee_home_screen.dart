@@ -167,7 +167,7 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
                 const SizedBox(height: 24),
                 SectionHeader(
                   title: employeePrimaryQueueLabel(widget.kind),
-                  subtitle: 'Card lon, nut lon, thao tac trong vai giay.',
+                  subtitle: 'Large cards, clear actions, and quick task handling.',
                 ),
                 const SizedBox(height: 12),
                 if (pending.isEmpty)

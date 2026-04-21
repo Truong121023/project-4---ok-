@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../app/app.dart';
 import '../app/app_controller.dart';
@@ -9,6 +10,7 @@ import '../core/models/models.dart';
 import '../core/services/api_service.dart';
 import '../core/utils/formatters.dart';
 import '../widgets/app_widgets.dart';
+import '../widgets/payment_widgets.dart';
 import 'admin/admin_resource_detail_screen.dart';
 import 'admin/admin_resource_list_screen.dart';
 import 'admin/admin_support.dart';
@@ -69,9 +71,12 @@ class _AiChatScreenState extends State<AiChatScreen> {
   String _activeThreadTitle = '';
   int? _boundUserId;
   bool _threadsLoading = false;
+  // ignore: unused_field
   bool _threadLoading = false;
+  int? _deletingThreadId;
   bool _sending = false;
   String? _threadsError;
+  // ignore: unused_field
   String? _threadError;
   String? _error;
 
@@ -101,7 +106,6 @@ class _AiChatScreenState extends State<AiChatScreen> {
     super.dispose();
   }
 
-<<<<<<< HEAD
   void _resetState() {
     setState(() {
       _messages = const [];
@@ -110,47 +114,13 @@ class _AiChatScreenState extends State<AiChatScreen> {
       _activeThreadTitle = '';
       _threadsLoading = false;
       _threadLoading = false;
+      _deletingThreadId = null;
       _sending = false;
       _threadsError = null;
       _threadError = null;
       _error = null;
       _composerController.clear();
     });
-=======
-  List<String> _quickPromptsForRole(String role) {
-    switch (role.toUpperCase()) {
-      case 'ADMIN':
-        return const [
-          'Hom nay store nao ban tot nhat?',
-          'Cho minh xem uu dai dang bat cua he thong',
-          'Tai khoan manager nao dang phu trach Q1?',
-        ];
-      case 'MANAGER':
-        return const [
-          'Tom tat store cua toi hom nay',
-          'Mon nao dang ban tot nhat o store nay?',
-          'Cho minh xem feedback gan day cua store',
-        ];
-      case 'STAFF':
-        return const [
-          'Store nay co mon matcha nao dang hot?',
-          'Cho minh xem tin tuc moi cua Kamatcha',
-          'Tai khoan cua toi dang o trang thai nao?',
-        ];
-      case 'SHIPPER':
-        return const [
-          'Voucher nao dang bat de tu van cho khach?',
-          'Cho minh xem tin tuc moi cua Kamatcha',
-          'Tai khoan cua toi dang o trang thai nao?',
-        ];
-      default:
-        return const [
-          'Cua hang nao o Quan 1 co matcha latte?',
-          'Cho minh xem uu dai dang bat',
-          'Tai khoan cua toi dang o trang thai nao?',
-        ];
-    }
->>>>>>> origin/main
   }
 
   Future<void> _bootstrap() async {
@@ -159,43 +129,16 @@ class _AiChatScreenState extends State<AiChatScreen> {
       return;
     }
     setState(() {
-      _threadsLoading = true;
-      _threadsError = null;
-      _threadError = null;
       _error = null;
       _messages = const [];
-      _threads = const [];
       _activeThreadId = null;
       _activeThreadTitle = '';
     });
-
-    try {
-      final threads = await controller.loadAiChatThreads(page: 0, size: 20);
-      if (!mounted || _boundUserId != controller.session?.user.id) {
-        return;
-      }
-      setState(() {
-        _threads = threads;
-      });
-      if (threads.isNotEmpty) {
-        await _openThread(threads.first);
-      }
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _threadsError = error.toString();
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _threadsLoading = false;
-        });
-      }
-    }
+    _composerController.clear();
+    await _refreshThreads();
   }
 
+  // ignore: unused_element
   Future<void> _refreshThreads({bool quiet = false}) async {
     final controller = AppScope.of(context);
     if (!controller.isLoggedIn) {
@@ -278,6 +221,83 @@ class _AiChatScreenState extends State<AiChatScreen> {
     }
   }
 
+  Future<bool> _deleteThreadFromHistory(AiChatThreadSummary thread) async {
+    final controller = AppScope.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final displayTitle = thread.title.trim().isEmpty
+        ? 'this conversation'
+        : thread.title.trim();
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Delete chat history?'),
+            content: Text(
+              'Delete "$displayTitle" from AI chat history?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Keep'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) {
+      return false;
+    }
+
+    setState(() {
+      _deletingThreadId = thread.threadId;
+      _threadsError = null;
+      _threadError = null;
+      _error = null;
+    });
+
+    try {
+      await controller.deleteAiChatThread(thread.threadId);
+      if (!mounted) {
+        return true;
+      }
+      setState(() {
+        _threads = _threads
+            .where((item) => item.threadId != thread.threadId)
+            .toList(growable: false);
+        if (_activeThreadId == thread.threadId) {
+          _activeThreadId = null;
+          _activeThreadTitle = '';
+          _messages = const [];
+          _threadError = null;
+          _error = null;
+        }
+      });
+      messenger.showSnackBar(
+        const SnackBar(content: Text('AI chat history deleted.')),
+      );
+      return true;
+    } catch (error) {
+      if (!mounted) {
+        return false;
+      }
+      final message = error.toString();
+      setState(() {
+        _threadsError = message;
+      });
+      messenger.showSnackBar(SnackBar(content: Text(message)));
+      return false;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _deletingThreadId = null;
+        });
+      }
+    }
+  }
+
   void _startNewThread() {
     setState(() {
       _activeThreadId = null;
@@ -331,6 +351,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
     }
   }
 
+  // ignore: unused_element
   Future<void> _showConversationSheet() async {
     final result = await showModalBottomSheet<_AiConversationSheetResult>(
       context: context,
@@ -341,6 +362,8 @@ class _AiChatScreenState extends State<AiChatScreen> {
         activeThreadId: _activeThreadId,
         loading: _threadsLoading,
         error: _threadsError,
+        deletingThreadId: _deletingThreadId,
+        onDeleteThread: _deleteThreadFromHistory,
       ),
     );
     if (!mounted || result == null) {
@@ -359,24 +382,13 @@ class _AiChatScreenState extends State<AiChatScreen> {
 
   Future<void> _sendMessage([String? preset]) async {
     final controller = AppScope.of(context);
-    if (!controller.isLoggedIn || _sending || _threadLoading) {
+    if (!controller.isLoggedIn || _sending) {
       return;
     }
     final message = (preset ?? _composerController.text).trim();
     if (message.isEmpty) {
       return;
     }
-    final history = _messages
-        .where((entry) => entry.role == 'user' || entry.role == 'assistant')
-        .map(
-          (entry) => AiChatHistoryEntry(
-            role: entry.role,
-            content: entry.content,
-          ),
-        )
-        .toList();
-    final boundedHistory =
-        history.length > 8 ? history.sublist(history.length - 8) : history;
     final localUserMessage = _AiChatUiMessage(
       role: 'user',
       content: message,
@@ -394,21 +406,17 @@ class _AiChatScreenState extends State<AiChatScreen> {
     try {
       final response = await controller.queryAiChat(
         message: message,
-        history: boundedHistory,
         threadId: _activeThreadId,
       );
       if (!mounted) {
         return;
       }
-      final nextThreadId = response.threadId ?? _activeThreadId;
-      final nextThreadTitle = (response.threadTitle ?? '').trim();
+      final responseThreadTitle = (response.threadTitle ?? '').trim();
       setState(() {
-        _activeThreadId = nextThreadId;
-        if (nextThreadTitle.isNotEmpty) {
-          _activeThreadTitle = nextThreadTitle;
-        } else if (_activeThreadTitle.trim().isEmpty) {
-          _activeThreadTitle = _deriveThreadTitle(message);
-        }
+        _activeThreadId = response.threadId;
+        _activeThreadTitle = responseThreadTitle.isEmpty
+            ? _deriveThreadTitle(message)
+            : responseThreadTitle;
         _messages = [
           ..._messages,
           _AiChatUiMessage(
@@ -421,7 +429,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
           ),
         ];
       });
-      unawaited(_refreshThreads(quiet: true));
+      await _refreshThreads(quiet: true);
       _scrollToBottom();
     } catch (error) {
       if (!mounted) {
@@ -877,13 +885,8 @@ class _AiChatScreenState extends State<AiChatScreen> {
     }
 
     final prompts = _quickPromptsForRole(controller.currentRole).take(2).toList();
-    final activeThreadSummary =
-        _threads.where((thread) => thread.threadId == _activeThreadId);
-    final activeThreadMeta =
-        activeThreadSummary.isNotEmpty ? activeThreadSummary.first : null;
 
     return Scaffold(
-<<<<<<< HEAD
       appBar: AppBar(
         title: const Text('Kamatcha AI'),
         actions: [
@@ -918,9 +921,13 @@ class _AiChatScreenState extends State<AiChatScreen> {
               ),
             ),
           IconButton(
-            tooltip: 'Chat history',
+            tooltip: 'History',
             onPressed: _showConversationSheet,
-            icon: const Icon(Icons.history_outlined),
+            icon: Badge(
+              isLabelVisible: _threads.isNotEmpty,
+              label: Text('${_threads.length}'),
+              child: const Icon(Icons.history_rounded),
+            ),
           ),
           IconButton(
             tooltip: 'New chat',
@@ -929,9 +936,6 @@ class _AiChatScreenState extends State<AiChatScreen> {
           ),
         ],
       ),
-=======
-      appBar: AppBar(title: const Text('Kamatcha AI')),
->>>>>>> origin/main
       body: Column(
         children: [
           Padding(
@@ -942,10 +946,6 @@ class _AiChatScreenState extends State<AiChatScreen> {
                   prompts: prompts,
                   onSelectPrompt: _prefillPrompt,
                 ),
-                if ((_threadsError ?? '').trim().isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  _AiInlineErrorBanner(message: _threadsError!),
-                ],
               ],
             ),
           ),
@@ -968,14 +968,18 @@ class _AiChatScreenState extends State<AiChatScreen> {
                 child: Column(
                   children: [
                     _AiChatPanelHeader(
-                      title: _activeThreadTitle.trim().isEmpty
+                      title: _messages.isEmpty
                           ? 'New chat'
-                          : _activeThreadTitle.trim(),
-                      subtitle: _activeThreadId == null
-                          ? 'Ready to chat'
-                          : '${_messages.length} messages',
-                      loading: _threadLoading,
-                      lastUpdatedAt: activeThreadMeta?.updatedAt,
+                          : (_activeThreadTitle.trim().isEmpty
+                              ? 'Current chat'
+                              : _activeThreadTitle.trim()),
+                      subtitle: _messages.isEmpty
+                          ? 'Focused answers from your live account state'
+                          : '${_messages.length} messages in this chat',
+                      loading: false,
+                      lastUpdatedAt: _messages.isNotEmpty
+                          ? _messages.last.createdAt
+                          : null,
                     ),
                     Expanded(
                       child: _buildMessageViewport(controller),
@@ -1012,7 +1016,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
                   ),
                   const SizedBox(width: 12),
                   IconButton.filled(
-                    onPressed: _sending || _threadLoading ? null : _sendMessage,
+                    onPressed: _sending ? null : _sendMessage,
                     icon: _sending
                         ? const SizedBox(
                             width: 16,
@@ -1032,29 +1036,6 @@ class _AiChatScreenState extends State<AiChatScreen> {
   }
 
   Widget _buildMessageViewport(AppController controller) {
-    if (_threadLoading && _messages.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if ((_threadError ?? '').trim().isNotEmpty && _messages.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(16),
-        child: ErrorStateCard(
-          message: _threadError!,
-          onRetry: _activeThreadId == null
-              ? _bootstrap
-              : () async {
-                  final thread = _threads.where(
-                    (item) => item.threadId == _activeThreadId,
-                  );
-                  if (thread.isNotEmpty) {
-                    await _openThread(thread.first);
-                  } else {
-                    await _refreshThreads();
-                  }
-                },
-        ),
-      );
-    }
     if (_messages.isEmpty) {
       return _AiChatEmptyState(
         role: controller.currentRole,
@@ -1107,7 +1088,6 @@ class _AiQuickPromptCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-<<<<<<< HEAD
     if (prompts.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -1132,104 +1112,6 @@ class _AiQuickPromptCard extends StatelessWidget {
                 onPressed: () => onSelectPrompt(prompt),
               );
             },
-=======
-    final controller = AppScope.of(context);
-    final incoming = message.role == 'assistant';
-    return Align(
-      alignment: incoming ? Alignment.centerLeft : Alignment.centerRight,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 380),
-        child: Card(
-          color: incoming ? null : const Color(0xFFE8F0E0),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  incoming ? 'Kamatcha AI' : 'Ban',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 8),
-                Text(message.content),
-                if (message.currentUserStatus != null) ...[
-                  const SizedBox(height: 12),
-                  _AiUserStatusCard(status: message.currentUserStatus!),
-                ],
-                if (message.references.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  ...message.references.map(
-                    (reference) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(18),
-                        onTap: () => onOpenReference(reference),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.78),
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(color: const Color(0xFFE1E6D7)),
-                          ),
-                          padding: const EdgeInsets.all(12),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              SizedBox(
-                                width: 72,
-                                child: NetworkOrFallbackImage(
-                                  imageUrl: controller.config.resolveImageUrl(reference.imagePath),
-                                  height: 72,
-                                  borderRadius: BorderRadius.circular(16),
-                                  label: reference.title,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      reference.title,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleSmall
-                                          ?.copyWith(fontWeight: FontWeight.w800),
-                                    ),
-                                    if ((reference.subtitle ?? '').trim().isNotEmpty) ...[
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        reference.subtitle!,
-                                        maxLines: 3,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                    const SizedBox(height: 8),
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 8,
-                                      children: [
-                                        MetricChip(label: reference.entityType),
-                                        if ((reference.slug ?? '').trim().isNotEmpty)
-                                          MetricChip(label: reference.slug!),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              const Icon(Icons.arrow_forward_ios, size: 16),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
->>>>>>> origin/main
           ),
         ),
       ),
@@ -1380,6 +1262,14 @@ class _AiInlineErrorBanner extends StatelessWidget {
   }
 }
 
+Future<void> _openExternalUrl(String url) async {
+  final uri = Uri.tryParse(url);
+  if (uri == null) {
+    return;
+  }
+  await launchUrl(uri, mode: LaunchMode.externalApplication);
+}
+
 bool _looksLikeHtmlFragment(String value) {
   return RegExp(r'</?[a-z][\s\S]*>', caseSensitive: false).hasMatch(value);
 }
@@ -1451,6 +1341,8 @@ class _AiChatMessageCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final incoming = message.role == 'assistant';
     final groupedActions = _AiGroupedActions.from(message.actions);
+    final paymentAction = _findPaymentQrAction(message.actions);
+    final paymentPayload = _paymentPayloadFromAction(paymentAction);
     final visibleReferences = message.references
         .where(
           (reference) => _isPrimarySuggestionReference(reference.entityType),
@@ -1502,6 +1394,20 @@ class _AiChatMessageCard extends StatelessWidget {
                     incoming
                         ? _AiHtmlMessageBody(content: message.content)
                         : Text(message.content),
+                    if (incoming && paymentPayload != null) ...[
+                      const SizedBox(height: 12),
+                      PaymentQrSection(
+                        qrCode: paymentPayload.qrCode,
+                        checkoutUrl: paymentPayload.checkoutUrl,
+                        expiresAt: paymentPayload.expiresAt,
+                        title: 'Payment QR',
+                        subtitle:
+                            'Scan this QR with your banking app or open the payment page to finish checkout.',
+                        onOpenCheckoutUrl: paymentPayload.checkoutUrl.trim().isEmpty
+                            ? null
+                            : () => _openExternalUrl(paymentPayload.checkoutUrl),
+                      ),
+                    ],
                     if (visibleReferences.isNotEmpty) ...[
                       const SizedBox(height: 12),
                       Container(
@@ -1538,6 +1444,21 @@ class _AiChatMessageCard extends StatelessWidget {
                             ),
                           ],
                         ),
+                      ),
+                    ],
+                    if (incoming && groupedActions.generalActions.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: groupedActions.generalActions
+                            .map(
+                              (action) => _AiActionButton(
+                                action: action,
+                                onPressed: () => onAction(action),
+                              ),
+                            )
+                            .toList(),
                       ),
                     ],
                   ],
@@ -1709,12 +1630,16 @@ class _AiConversationSheet extends StatefulWidget {
     required this.activeThreadId,
     required this.loading,
     required this.error,
+    required this.deletingThreadId,
+    required this.onDeleteThread,
   });
 
   final List<AiChatThreadSummary> threads;
   final int? activeThreadId;
   final bool loading;
   final String? error;
+  final int? deletingThreadId;
+  final Future<bool> Function(AiChatThreadSummary thread) onDeleteThread;
 
   @override
   State<_AiConversationSheet> createState() => _AiConversationSheetState();
@@ -1722,6 +1647,22 @@ class _AiConversationSheet extends StatefulWidget {
 
 class _AiConversationSheetState extends State<_AiConversationSheet> {
   final TextEditingController _searchController = TextEditingController();
+  late List<AiChatThreadSummary> _localThreads;
+
+  @override
+  void initState() {
+    super.initState();
+    _localThreads = List<AiChatThreadSummary>.from(widget.threads);
+  }
+
+  @override
+  void didUpdateWidget(covariant _AiConversationSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.deletingThreadId == null &&
+        !identical(oldWidget.threads, widget.threads)) {
+      _localThreads = List<AiChatThreadSummary>.from(widget.threads);
+    }
+  }
 
   @override
   void dispose() {
@@ -1732,9 +1673,9 @@ class _AiConversationSheetState extends State<_AiConversationSheet> {
   List<AiChatThreadSummary> get _filteredThreads {
     final search = _searchController.text.trim().toLowerCase();
     if (search.isEmpty) {
-      return widget.threads;
+      return _localThreads;
     }
-    return widget.threads.where((thread) {
+    return _localThreads.where((thread) {
       final haystack = [
         thread.title,
         thread.lastMessagePreview,
@@ -1742,6 +1683,18 @@ class _AiConversationSheetState extends State<_AiConversationSheet> {
       ].join(' ').toLowerCase();
       return haystack.contains(search);
     }).toList();
+  }
+
+  Future<void> _handleDeleteThread(AiChatThreadSummary thread) async {
+    final deleted = await widget.onDeleteThread(thread);
+    if (!mounted || !deleted) {
+      return;
+    }
+    setState(() {
+      _localThreads = _localThreads
+          .where((item) => item.threadId != thread.threadId)
+          .toList(growable: false);
+    });
   }
 
   @override
@@ -1809,84 +1762,132 @@ class _AiConversationSheetState extends State<_AiConversationSheet> {
                               final thread = _filteredThreads[index];
                               final isActive =
                                   thread.threadId == widget.activeThreadId;
-                              return InkWell(
-                                borderRadius: BorderRadius.circular(18),
-                                onTap: () {
-                                  Navigator.of(context).pop(
-                                    _AiConversationSheetResult(thread: thread),
-                                  );
-                                },
-                                child: Container(
-                                  decoration: BoxDecoration(
+                              final isDeleting =
+                                  widget.deletingThreadId == thread.threadId;
+                              return Container(
+                                decoration: BoxDecoration(
+                                  color: isActive
+                                      ? const Color(0xFFEAF3E3)
+                                      : Colors.white,
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(
                                     color: isActive
-                                        ? const Color(0xFFEAF3E3)
-                                        : Colors.white,
-                                    borderRadius: BorderRadius.circular(18),
-                                    border: Border.all(
-                                      color: isActive
-                                          ? const Color(0xFFB8C9A7)
-                                          : const Color(0xFFE1E6D7),
-                                    ),
+                                        ? const Color(0xFFB8C9A7)
+                                        : const Color(0xFFE1E6D7),
                                   ),
-                                  padding: const EdgeInsets.all(14),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              thread.title.trim().isEmpty
-                                                  ? 'Untitled conversation'
-                                                  : thread.title,
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .titleSmall
-                                                  ?.copyWith(
-                                                    fontWeight: FontWeight.w800,
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(18),
+                                        onTap: isDeleting
+                                            ? null
+                                            : () {
+                                                Navigator.of(context).pop(
+                                                  _AiConversationSheetResult(
+                                                    thread: thread,
                                                   ),
-                                            ),
-                                          ),
-                                          if (thread.messageCount > 0)
-                                            MetricChip(
-                                              label: '${thread.messageCount}',
-                                            ),
-                                        ],
-                                      ),
-                                      if (thread.lastMessagePreview
-                                          .trim()
-                                          .isNotEmpty) ...[
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          thread.lastMessagePreview,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ],
-                                      const SizedBox(height: 8),
-                                      Wrap(
-                                        spacing: 8,
-                                        runSpacing: 8,
-                                        children: [
-                                          if (thread.lastMessageRole
-                                              .trim()
-                                              .isNotEmpty)
-                                            MetricChip(
-                                              label: thread.lastMessageRole,
-                                            ),
-                                          if (thread.lastMessageAt != null)
-                                            MetricChip(
-                                              label: Formatters.fullDateTime(
-                                                thread.lastMessageAt,
+                                                );
+                                              },
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(14),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      thread.title.trim().isEmpty
+                                                          ? 'Untitled conversation'
+                                                          : thread.title,
+                                                      maxLines: 2,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .titleSmall
+                                                          ?.copyWith(
+                                                            fontWeight:
+                                                                FontWeight.w800,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                  if (thread.messageCount > 0)
+                                                    MetricChip(
+                                                      label:
+                                                          '${thread.messageCount}',
+                                                    ),
+                                                ],
                                               ),
-                                            ),
-                                        ],
+                                              if (thread.lastMessagePreview
+                                                  .trim()
+                                                  .isNotEmpty) ...[
+                                                const SizedBox(height: 8),
+                                                Text(
+                                                  thread.lastMessagePreview,
+                                                  maxLines: 2,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ],
+                                              const SizedBox(height: 8),
+                                              Wrap(
+                                                spacing: 8,
+                                                runSpacing: 8,
+                                                children: [
+                                                  if (thread.lastMessageRole
+                                                      .trim()
+                                                      .isNotEmpty)
+                                                    MetricChip(
+                                                      label:
+                                                          thread.lastMessageRole,
+                                                    ),
+                                                  if (thread.lastMessageAt !=
+                                                      null)
+                                                    MetricChip(
+                                                      label:
+                                                          Formatters.fullDateTime(
+                                                        thread.lastMessageAt,
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        top: 10,
+                                        right: 8,
+                                      ),
+                                      child: IconButton(
+                                        onPressed: isDeleting
+                                            ? null
+                                            : () => unawaited(
+                                                  _handleDeleteThread(thread),
+                                                ),
+                                        tooltip: 'Delete chat history',
+                                        icon: isDeleting
+                                            ? const SizedBox(
+                                                width: 18,
+                                                height: 18,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                ),
+                                              )
+                                            : const Icon(
+                                                Icons.delete_outline_rounded,
+                                              ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               );
                             },
@@ -1929,6 +1930,44 @@ class _AiChatUiMessage {
   final String? model;
 }
 
+AiChatAction? _findPaymentQrAction(List<AiChatAction> actions) {
+  for (final action in actions) {
+    if (action.actionType.trim().toUpperCase() == 'SHOW_PAYMENT_QR') {
+      return action;
+    }
+  }
+  return null;
+}
+
+_AiPaymentPayload? _paymentPayloadFromAction(AiChatAction? action) {
+  final payload = action?.payload;
+  if (payload == null) {
+    return null;
+  }
+  final qrCode = asString(payload['paymentQrCode']).trim();
+  final checkoutUrl = asString(payload['paymentCheckoutUrl']).trim();
+  if (qrCode.isEmpty && checkoutUrl.isEmpty) {
+    return null;
+  }
+  return _AiPaymentPayload(
+    qrCode: qrCode,
+    checkoutUrl: checkoutUrl,
+    expiresAt: asDateTime(payload['paymentExpiresAt']),
+  );
+}
+
+class _AiPaymentPayload {
+  const _AiPaymentPayload({
+    required this.qrCode,
+    required this.checkoutUrl,
+    required this.expiresAt,
+  });
+
+  final String qrCode;
+  final String checkoutUrl;
+  final DateTime? expiresAt;
+}
+
 class _AiGroupedActions {
   const _AiGroupedActions({
     required this.byReferenceKey,
@@ -1938,6 +1977,9 @@ class _AiGroupedActions {
   factory _AiGroupedActions.from(List<AiChatAction> actions) {
     final deduped = <String, AiChatAction>{};
     for (final action in actions) {
+      if (action.actionType.trim().toUpperCase() == 'SHOW_PAYMENT_QR') {
+        continue;
+      }
       final key = action.actionKey.trim().isNotEmpty
           ? action.actionKey.trim()
           : '${action.actionType}:${action.referenceKey ?? ''}:${action.label}';
@@ -1978,15 +2020,9 @@ class _AiConversationSheetResult {
 String _welcomeMessageForRole(String role) {
   switch (role.toUpperCase()) {
     case 'ADMIN':
-<<<<<<< HEAD
       return 'Quickly look up stores, items, events, news, promotions, and admin records across Kamatcha.';
     case 'MANAGER':
       return 'Ask about the current store, best sellers, news, promotions, and staff within the store scope.';
-=======
-      return 'Chao ban. Minh co the giup tra cuu nhanh store, mon, event, news, promotions va record quan tri theo quyen ADMIN cua Kamatcha.';
-    case 'MANAGER':
-      return 'Chao manager. Ban co the hoi ve store hien tai, mon dang ban tot, tin tuc, promotions va nhan su trong scope cua hang Kamatcha.';
->>>>>>> origin/main
     case 'STAFF':
       return 'Quickly ask about actionable orders, items, stores, and related info to work faster on mobile.';
     case 'SHIPPER':

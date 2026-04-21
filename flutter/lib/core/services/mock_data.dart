@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+﻿import 'dart:math' as math;
 
 import '../models/models.dart';
 
@@ -1080,6 +1080,10 @@ class MockData {
       storeId: summary.id == 701 ? 1 : 2,
       storeSlug: summary.id == 701 ? 'tea-house-q1' : 'airport-hub',
       storeName: summary.storeName,
+      storeAddress: summary.id == 701
+          ? '12 Nguyen Trai, District 1, Ho Chi Minh City'
+          : '45 Truong Son, Tan Binh, Ho Chi Minh City',
+      storePhoneNumber: summary.id == 701 ? '0909000001' : '0909000002',
       status: summary.status,
       paymentStatus: summary.paymentStatus,
       paymentProvider: 'PAYOS',
@@ -1117,6 +1121,11 @@ class MockData {
       confirmedByUserName: 'Store Manager',
       confirmedByUserRole: 'MANAGER',
       confirmedAt: DateTime.now().subtract(const Duration(hours: 5)),
+      cancelledByUserId: null,
+      cancelledByUserName: null,
+      cancelledByUserRole: null,
+      cancelledAt: null,
+      cancellationNote: null,
       preparingStaffId:
           summary.status == 'OUT_FOR_DELIVERY' || summary.status == 'COMPLETED'
               ? 15
@@ -1143,7 +1152,13 @@ class MockData {
           ? DateTime.now().subtract(const Duration(minutes: 55))
           : null,
       deliveryProofNote:
-          summary.status == 'COMPLETED' ? 'Da giao cho le tan toa nha.' : null,
+          summary.status == 'COMPLETED' ? 'Delivered to the building reception desk.' : null,
+      feedbackId: summary.feedbackId,
+      feedbackSubmitted: summary.feedbackSubmitted,
+      feedbackCreatedAt: summary.feedbackCreatedAt,
+      feedbackUpdatedAt: summary.feedbackUpdatedAt,
+      feedbackMessage: summary.feedbackMessage,
+      feedbackReplyMessage: summary.feedbackReplyMessage,
       statusSummary: summary.statusSummary,
       items: const [
         OrderLineItem(
@@ -1173,8 +1188,8 @@ class MockData {
           ? 'https://example.com/invoices/${summary.id}/download'
           : null,
       allowedActions: summary.paymentStatus == 'PAID'
-          ? const ['VIEW_INVOICE']
-          : const ['REFRESH_PAYMENT'],
+          ? const ['VIEW_INVOICE', 'REORDER_ORDER']
+          : const ['REFRESH_PAYMENT', 'CANCEL_ORDER', 'REORDER_ORDER'],
     );
   }
 
@@ -1222,7 +1237,7 @@ class MockData {
           status: 'COMPLETED',
           paymentStatus: 'PAID',
           totalAmount: 89000,
-          statusSummary: 'Da giao thanh cong',
+          statusSummary: 'Delivered successfully',
           createdAt: null,
           confirmedByUserName: 'Airport Manager',
           confirmedAt:
@@ -1267,3 +1282,4 @@ class MockData {
     );
   }
 }
+

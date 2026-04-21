@@ -152,6 +152,59 @@ class ApiService {
     return AiChatThreadDetail.fromJson(json);
   }
 
+  Future<void> deleteAiChatThread({
+    required String token,
+    required int threadId,
+  }) async {
+    await _request(
+      'DELETE',
+      '/api/ai/chat/threads/$threadId',
+      token: token,
+    );
+  }
+
+  Future<List<AddressSuggestionOption>> getAddressSuggestions({
+    required String query,
+    String sessionToken = '',
+    int limit = 5,
+  }) async {
+    final json = await _request(
+      'GET',
+      '/api/public/address-suggestions',
+      query: {
+        'input': query,
+        'sessionToken': sessionToken.isEmpty ? null : sessionToken,
+        'limit': '$limit',
+      },
+    );
+    if (json is List) {
+      return json
+          .whereType<Map>()
+          .map((item) => AddressSuggestionOption.fromJson(
+                Map<String, dynamic>.from(item),
+              ))
+          .toList();
+    }
+    return const [];
+  }
+
+  Future<AddressResolveResult> resolveAddress({
+    required String query,
+    String placeId = '',
+    String sessionToken = '',
+  }) async {
+    final json = await _request(
+      'GET',
+      '/api/public/address-resolve',
+      query: {
+        'input': query,
+        'placeId': placeId.isEmpty ? null : placeId,
+        'sessionToken': sessionToken.isEmpty ? null : sessionToken,
+      },
+    ) as JsonMap;
+    return AddressResolveResult.fromJson(json);
+  }
+
   Future<List<DishCard>> getDishes({
     String search = '',
     String sort = 'top_rated',
@@ -931,6 +984,30 @@ class ApiService {
     return OrderDetail.fromJson(json);
   }
 
+  Future<OrderDetail> cancelOrder({
+    required String token,
+    required int orderId,
+  }) async {
+    final json = await _request(
+      'POST',
+      '/api/user/orders/$orderId/cancel',
+      token: token,
+    ) as JsonMap;
+    return OrderDetail.fromJson(json);
+  }
+
+  Future<Cart> reorderOrder({
+    required String token,
+    required int orderId,
+  }) async {
+    final json = await _request(
+      'POST',
+      '/api/user/orders/$orderId/reorder',
+      token: token,
+    ) as JsonMap;
+    return Cart.fromJson(json);
+  }
+
   Future<JsonMap> getOrderInvoice({
     required String token,
     required int orderId,
@@ -1140,10 +1217,7 @@ class ApiService {
 
   Future<CustomerFeedback> createUserFeedback({
     required String token,
-    required String category,
-    int? relatedStoreId,
     int? relatedOrderId,
-    required String subject,
     required String message,
   }) async {
     final json = await _request(
@@ -1151,10 +1225,7 @@ class ApiService {
       '/api/user/feedbacks',
       token: token,
       body: {
-        'category': category,
-        if (relatedStoreId != null) 'relatedStoreId': relatedStoreId,
         if (relatedOrderId != null) 'relatedOrderId': relatedOrderId,
-        'subject': subject,
         'message': message,
       },
     ) as JsonMap;

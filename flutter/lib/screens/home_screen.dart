@@ -194,14 +194,6 @@ class _HomeScreenState extends State<HomeScreen> {
     BuildContext context,
     PromotionCard promotion,
   ) async {
-    if (promotion.requiresCreditRedemption && !promotion.hasAvailableRedemption) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Redeem ${promotion.creditCost} credits before using this voucher.'),
-        ),
-      );
-      return;
-    }
     await Clipboard.setData(ClipboardData(text: promotion.code));
     if (!context.mounted) {
       return;
@@ -209,34 +201,6 @@ class _HomeScreenState extends State<HomeScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Copied code ${promotion.code}')),
     );
-  }
-
-  Future<void> _redeemPromotion(
-    BuildContext context,
-    AppController controller,
-    PromotionCard promotion,
-  ) async {
-    try {
-      final result = await controller.redeemVoucher(promotion.id);
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${result.promotionCode} was redeemed successfully. ${result.remainingCreditPoints} credits remaining.',
-          ),
-        ),
-      );
-      await _refresh();
-    } catch (error) {
-      if (!context.mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
-      );
-    }
   }
 
   Future<void> _openPromotionAction(
@@ -250,24 +214,11 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       return;
     }
-    if (promotion.requiresCreditRedemption && !promotion.hasAvailableRedemption) {
-      await _redeemPromotion(context, controller, promotion);
-      return;
-    }
     if (controller.cart.items.isNotEmpty) {
       Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) =>
               CheckoutScreen(initialPromotionCode: promotion.code),
-        ),
-      );
-      return;
-    }
-    if (promotion.applicableDishIds.length == 1) {
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) =>
-              DishDetailScreen(dishId: promotion.applicableDishIds.first),
         ),
       );
       return;
@@ -284,16 +235,10 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!controller.isLoggedIn) {
       return 'Sign in';
     }
-    if (promotion.requiresCreditRedemption && !promotion.hasAvailableRedemption) {
-      return 'Redeem ${promotion.creditCost} credits';
-    }
     if (controller.cart.items.isNotEmpty) {
-      return 'Use now';
+      return 'Use at checkout';
     }
-    if (promotion.applicableDishIds.length == 1) {
-      return 'View item';
-    }
-    return 'View menu';
+    return 'Browse menu';
   }
 
   void _openNotifications(AppController controller) {
@@ -325,7 +270,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
-<<<<<<< HEAD
     _ensureFutureSynced();
     return AnimatedBuilder(
       animation: controller,
@@ -344,17 +288,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       controller.userNotificationUnreadCount > 0,
                   label: Text('${controller.userNotificationUnreadCount}'),
                   child: const Icon(Icons.notifications_none_rounded),
-=======
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Kamatcha'),
-        actions: [
-          IconButton(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const UserOrderQrScanScreen(),
->>>>>>> origin/main
                 ),
               ),
               IconButton(
@@ -384,7 +317,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               }
 
-<<<<<<< HEAD
               final data = snapshot.data!;
                 final home = data.home;
                 final promotions = data.promotions;
@@ -409,207 +341,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       primaryAddress: data.primaryAddress,
                       creditPoints: creditPoints,
                       onPrimaryAction: () {
-=======
-          final home = snapshot.data!;
-          return RefreshIndicator(
-            onRefresh: _refresh,
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-              children: [
-                _HeroBanner(
-                  brand: _displayBrand(home.brand),
-                  loggedIn: controller.isLoggedIn,
-                  useMockData: controller.config.useMockData,
-                  onScanOrderQr: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const UserOrderQrScanScreen(),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 24),
-                SectionHeader(
-                  title: 'Featured stores',
-                  subtitle: 'Chon diem den de order nhanh hon.',
-                ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  height: 324,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: home.featuredStores.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 12),
-                    itemBuilder: (context, index) {
-                      final store = home.featuredStores[index];
-                      return SizedBox(
-                        width: 260,
-                        child: StoreCardTile(
-                          store: store,
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) =>
-                                    StoreDetailScreen(storeKey: store.slug),
-                              ),
-                            );
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SectionHeader(
-                  title: 'Best sellers',
-                  subtitle: 'Mon de chon, de them vao gio hang.',
-                ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  height: 348,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: home.featuredDishes.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 12),
-                    itemBuilder: (context, index) {
-                      final dish = home.featuredDishes[index];
-                      return SizedBox(
-                        width: 250,
-                        child: DishCardTile(
-                          dish: dish,
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) =>
-                                    DishDetailScreen(dishId: dish.id),
-                              ),
-                            );
-                          },
-                          onQuickAdd: () async {
-                            final bestStore = dish.bestStore;
-                            if (bestStore == null) {
-                              return;
-                            }
-                            try {
-                              await controller.addToCart(
-                                storeId: bestStore.storeId,
-                                storeName: bestStore.storeName,
-                                dishId: dish.id,
-                                dishName: dish.name,
-                                unitPrice: bestStore.price,
-                                imagePaths: dish.imagePaths,
-                              );
-                            } catch (error) {
-                              if (!context.mounted) {
-                                return;
-                              }
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(error.toString())),
-                              );
-                              return;
-                            }
-                            if (!context.mounted) {
-                              return;
-                            }
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  content: Text(
-                                      '${dish.name} da duoc them vao gio hang')),
-                            );
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SectionHeader(
-                  title: 'Su kien sap toi',
-                  subtitle: 'Tap trung nhung event ngan gon, de tham gia.',
-                  actionLabel: 'Xem het',
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const EventsScreen(),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 14),
-                ...home.upcomingEvents.map(
-                  (event) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Card(
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  EventDetailScreen(eventKey: event.slug),
-                            ),
-                          );
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                event.name,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w800),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                  '${event.storeName} - ${Formatters.shortDate(event.startsAt)}'),
-                              const SizedBox(height: 8),
-                              Text(
-                                event.highlightSummary,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 10),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  MetricChip(
-                                      label: '${event.remainingSlots} cho'),
-                                  MetricChip(
-                                      label:
-                                          '${Formatters.rating(event.averageRating)} sao'),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SectionHeader(
-                  title: 'Tin moi',
-                  subtitle: 'Bai viet ngan, doc nhanh tren mobile.',
-                  actionLabel: 'Xem het',
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const NewsListScreen(),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 14),
-                ...home.latestNews.map(
-                  (news) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: NewsTile(
-                      news: news,
-                      onTap: () {
->>>>>>> origin/main
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
                             builder: (_) => controller.cart.totalItems > 0
@@ -628,12 +359,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           SectionHeader(
-                            title: 'Vouchers, credits, and membership',
+                            title: 'Voucher codes and membership',
                             subtitle:
-                                'Credits can be redeemed for vouchers, while membership determines your tier when ordering.',
+                                'Each code follows a simple rule: order, dishes, or shipping. The app checks membership, minimum order, and maximum discount automatically.',
                             actionLabel:
                                 controller.isLoggedIn
-                                    ? 'View credits and membership'
+                                    ? 'View membership'
                                     : 'Sign in',
                             onTap: () => _openLoyaltyOrLogin(controller),
                           ),
@@ -646,9 +377,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(height: 12),
                           if (promotions.isEmpty)
                             const EmptyStateCard(
-                              title: 'No active vouchers',
+                              title: 'No active codes',
                               message:
-                                  'New vouchers will appear here as soon as the backend opens the program.',
+                                  'New voucher codes will appear here as soon as they are published.',
                             )
                           else
                             SizedBox(
@@ -1009,23 +740,8 @@ class _HomeSectionPanel extends StatelessWidget {
   }
 }
 
-<<<<<<< HEAD
 class _HomeHeroBanner extends StatelessWidget {
   const _HomeHeroBanner({
-=======
-String _displayBrand(String rawBrand) {
-  final trimmed = rawBrand.trim();
-  if (trimmed.isEmpty) {
-    return 'Kamatcha';
-  }
-  return trimmed
-      .replaceAll('Tea Matcha', 'Kamatcha')
-      .replaceAll('Tea matcha', 'Kamatcha');
-}
-
-class _HeroBanner extends StatelessWidget {
-  const _HeroBanner({
->>>>>>> origin/main
     required this.brand,
     required this.loggedIn,
     required this.signatureCount,
@@ -1409,8 +1125,8 @@ class _CreditOverviewCard extends StatelessWidget {
               children: [
                 Text(
                   loggedIn
-                      ? 'Available credits'
-                      : 'Sign in to view credits',
+                      ? 'Membership status'
+                      : 'Sign in to view membership',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
@@ -1418,8 +1134,8 @@ class _CreditOverviewCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   loggedIn
-                      ? '$creditPoints credits are available for voucher redemption. Membership is tracked separately on the level page.'
-                      : 'Sign in to track voucher credits and your current membership level.',
+                      ? '$creditPoints points are recorded on your account. Voucher eligibility is checked automatically during checkout.'
+                      : 'Sign in to view your membership progress and available voucher rules.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w600,
@@ -1440,7 +1156,7 @@ class _CreditOverviewCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: onTap,
-                  child: Text(loggedIn ? 'View credits and membership' : 'Sign in'),
+                  child: Text(loggedIn ? 'View membership' : 'Sign in'),
                 ),
               ],
             );
@@ -1498,45 +1214,40 @@ class _PromotionHomeCard extends StatelessWidget {
     return Formatters.currency(promotion.discountValue);
   }
 
-  String _creditLabel() {
-    if (!promotion.requiresCreditRedemption) {
-      return 'Available now';
+  String _membershipLabel() {
+    if (!promotion.hasMembershipRestriction) {
+      return 'All membership levels';
     }
-    if (promotion.hasAvailableRedemption) {
-      return 'Redeemed x${promotion.availableRedemptions}';
-    }
-    return 'Redeem ${promotion.creditCost} credits';
+    return 'Membership checked at checkout';
   }
 
-  String _targetLabel() {
-    return switch (promotion.normalizedDiscountTarget) {
-      'SHIPPING' => 'Shipping discount',
-      'BOTH' => 'Item + shipping discount',
-      _ => 'Signature item discount',
+  String _scopeLabel() {
+    return switch (promotion.normalizedScope) {
+      'SHIP' => 'Shipping code',
+      'DISH' => 'Dish code',
+      _ => 'Order code',
     };
   }
 
-  IconData _targetIcon() {
-    return switch (promotion.normalizedDiscountTarget) {
-      'SHIPPING' => Icons.local_shipping_outlined,
-      'BOTH' => Icons.auto_awesome_outlined,
-      _ => Icons.local_cafe_outlined,
+  IconData _scopeIcon() {
+    return switch (promotion.normalizedScope) {
+      'SHIP' => Icons.local_shipping_outlined,
+      'DISH' => Icons.local_cafe_outlined,
+      _ => Icons.receipt_long_outlined,
     };
   }
 
-  String _targetSummary() {
-    return switch (promotion.normalizedDiscountTarget) {
-      'SHIPPING' => 'Shipping fee for the signature-item order',
-      'BOTH' => 'Signature items and shipping across the system',
-      _ => 'Signature items across the system',
+  String _scopeSummary() {
+    return switch (promotion.normalizedScope) {
+      'SHIP' => 'Applies to the shipping fee only',
+      'DISH' => 'Applies to all dishes in the order',
+      _ => 'Applies to the full order total',
     };
   }
 
   @override
   Widget build(BuildContext context) {
     final endsAt = promotion.endsAt;
-    final canCopyCode =
-        !promotion.requiresCreditRedemption || promotion.hasAvailableRedemption;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1564,11 +1275,11 @@ class _PromotionHomeCard extends StatelessWidget {
                             foregroundColor: const Color(0xFF8A5C12),
                           ),
                           MetricChip(
-                            label: _creditLabel(),
-                            backgroundColor: promotion.hasAvailableRedemption
+                            label: _membershipLabel(),
+                            backgroundColor: promotion.hasMembershipRestriction
                                 ? const Color(0xFFE7F1E3)
                                 : const Color(0xFFF2EEE4),
-                            foregroundColor: promotion.hasAvailableRedemption
+                            foregroundColor: promotion.hasMembershipRestriction
                                 ? const Color(0xFF17332A)
                                 : const Color(0xFF6A665E),
                           ),
@@ -1587,7 +1298,7 @@ class _PromotionHomeCard extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  onPressed: canCopyCode ? onCopyCode : null,
+                  onPressed: onCopyCode,
                   tooltip: 'Copy code',
                   icon: const Icon(Icons.copy_rounded),
                 ),
@@ -1610,12 +1321,12 @@ class _PromotionHomeCard extends StatelessWidget {
               runSpacing: 8,
               children: [
                 MetricChip(
-                  label: _targetLabel(),
-                  icon: _targetIcon(),
+                  label: _scopeLabel(),
+                  icon: _scopeIcon(),
                   maxWidth: 220,
                 ),
                 MetricChip(
-                  label: _targetSummary(),
+                  label: _scopeSummary(),
                   icon: Icons.language_outlined,
                   maxWidth: 240,
                 ),
@@ -1646,7 +1357,7 @@ class _PromotionHomeCard extends StatelessWidget {
               overflowSpacing: 8,
               children: [
                 OutlinedButton.icon(
-                  onPressed: canCopyCode ? onCopyCode : null,
+                  onPressed: onCopyCode,
                   icon: const Icon(Icons.copy_rounded),
                   label: const Text('Copy'),
                 ),
@@ -1777,22 +1488,6 @@ class _NearbyStoreCard extends StatelessWidget {
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
                     ),
-              ),
-              const SizedBox(height: 16),
-              OverflowBar(
-                alignment: MainAxisAlignment.start,
-                spacing: 10,
-                overflowSpacing: 10,
-                children: [
-                  OutlinedButton(
-                    onPressed: onTap,
-                    child: const Text('View store'),
-                  ),
-                  FilledButton(
-                    onPressed: onTap,
-                    child: const Text('View menu'),
-                  ),
-                ],
               ),
             ],
           ),
@@ -2091,22 +1786,6 @@ class _ResponsiveNearbyStoreCard extends StatelessWidget {
                       color: theme.colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  OverflowBar(
-                    alignment: MainAxisAlignment.start,
-                    spacing: 10,
-                    overflowSpacing: 10,
-                    children: [
-                      OutlinedButton(
-                        onPressed: onTap,
-                        child: const Text('View store'),
-                      ),
-                      FilledButton(
-                        onPressed: onTap,
-                        child: const Text('View menu'),
-                      ),
-                    ],
                   ),
                 ],
               ),

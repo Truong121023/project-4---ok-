@@ -215,6 +215,8 @@ class OrderDetail {
     required this.storeId,
     required this.storeSlug,
     required this.storeName,
+    required this.storeAddress,
+    required this.storePhoneNumber,
     required this.status,
     required this.paymentStatus,
     required this.paymentProvider,
@@ -243,6 +245,11 @@ class OrderDetail {
     required this.confirmedByUserName,
     required this.confirmedByUserRole,
     required this.confirmedAt,
+    required this.cancelledByUserId,
+    required this.cancelledByUserName,
+    required this.cancelledByUserRole,
+    required this.cancelledAt,
+    required this.cancellationNote,
     required this.preparingStaffId,
     required this.preparingStaffName,
     required this.deliveringShipperId,
@@ -251,6 +258,12 @@ class OrderDetail {
     required this.deliveryProofCapturedAt,
     required this.deliveryProofUploadedAt,
     required this.deliveryProofNote,
+    required this.feedbackId,
+    required this.feedbackSubmitted,
+    required this.feedbackCreatedAt,
+    required this.feedbackUpdatedAt,
+    required this.feedbackMessage,
+    required this.feedbackReplyMessage,
     required this.statusSummary,
     required this.items,
     required this.createdAt,
@@ -269,6 +282,8 @@ class OrderDetail {
       storeId: asInt(json['storeId']),
       storeSlug: asString(json['storeSlug']),
       storeName: asString(json['storeName']),
+      storeAddress: asNullableString(json['storeAddress']),
+      storePhoneNumber: asNullableString(json['storePhoneNumber']),
       status: asString(json['status']),
       paymentStatus: asString(json['paymentStatus']),
       paymentProvider: asString(json['paymentProvider']),
@@ -300,6 +315,11 @@ class OrderDetail {
       confirmedByUserName: asNullableString(json['confirmedByUserName']),
       confirmedByUserRole: asNullableString(json['confirmedByUserRole']),
       confirmedAt: asDateTime(json['confirmedAt']),
+      cancelledByUserId: asNullableInt(json['cancelledByUserId']),
+      cancelledByUserName: asNullableString(json['cancelledByUserName']),
+      cancelledByUserRole: asNullableString(json['cancelledByUserRole']),
+      cancelledAt: asDateTime(json['cancelledAt']),
+      cancellationNote: asNullableString(json['cancellationNote']),
       preparingStaffId: asNullableInt(json['preparingStaffId']),
       preparingStaffName: asNullableString(json['preparingStaffName']),
       deliveringShipperId: asNullableInt(json['deliveringShipperId']),
@@ -308,6 +328,12 @@ class OrderDetail {
       deliveryProofCapturedAt: asDateTime(json['deliveryProofCapturedAt']),
       deliveryProofUploadedAt: asDateTime(json['deliveryProofUploadedAt']),
       deliveryProofNote: asNullableString(json['deliveryProofNote']),
+      feedbackId: asNullableInt(json['feedbackId']),
+      feedbackSubmitted: asBool(json['feedbackSubmitted']),
+      feedbackCreatedAt: asDateTime(json['feedbackCreatedAt']),
+      feedbackUpdatedAt: asDateTime(json['feedbackUpdatedAt']),
+      feedbackMessage: asNullableString(json['feedbackMessage']),
+      feedbackReplyMessage: asNullableString(json['feedbackReplyMessage']),
       statusSummary: UiText.translate(asString(json['statusSummary'])),
       items: asObjectList(json['items'], OrderLineItem.fromJson),
       createdAt: asDateTime(json['createdAt']),
@@ -325,6 +351,8 @@ class OrderDetail {
   final int storeId;
   final String storeSlug;
   final String storeName;
+  final String? storeAddress;
+  final String? storePhoneNumber;
   final String status;
   final String paymentStatus;
   final String paymentProvider;
@@ -353,6 +381,11 @@ class OrderDetail {
   final String? confirmedByUserName;
   final String? confirmedByUserRole;
   final DateTime? confirmedAt;
+  final int? cancelledByUserId;
+  final String? cancelledByUserName;
+  final String? cancelledByUserRole;
+  final DateTime? cancelledAt;
+  final String? cancellationNote;
   final int? preparingStaffId;
   final String? preparingStaffName;
   final int? deliveringShipperId;
@@ -361,6 +394,12 @@ class OrderDetail {
   final DateTime? deliveryProofCapturedAt;
   final DateTime? deliveryProofUploadedAt;
   final String? deliveryProofNote;
+  final int? feedbackId;
+  final bool feedbackSubmitted;
+  final DateTime? feedbackCreatedAt;
+  final DateTime? feedbackUpdatedAt;
+  final String? feedbackMessage;
+  final String? feedbackReplyMessage;
   final String statusSummary;
   final List<OrderLineItem> items;
   final DateTime? createdAt;
@@ -372,6 +411,8 @@ class OrderDetail {
   final List<String> allowedActions;
 
   bool get canRefreshPayment => allowedActions.contains('REFRESH_PAYMENT');
+  bool get canCancelOrder => allowedActions.contains('CANCEL_ORDER');
+  bool get canReorderOrder => allowedActions.contains('REORDER_ORDER');
   bool get canViewInvoice =>
       invoiceAvailable || allowedActions.contains('VIEW_INVOICE');
   bool get hasShippingSummary =>

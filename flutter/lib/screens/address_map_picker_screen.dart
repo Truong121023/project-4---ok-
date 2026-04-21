@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../app/app.dart';
+import '../core/models/models.dart';
 import '../core/services/address_search_service.dart';
 
 class AddressMapPickResult {
@@ -38,7 +40,7 @@ class _AddressMapPickerScreenState extends State<AddressMapPickerScreen> {
   bool _searchingAddress = false;
   String? _searchError;
   String? _normalizedQuery;
-  List<AddressSearchResult> _searchResults = const [];
+  List<AddressSuggestionOption> _searchResults = const [];
 
   @override
   void initState() {
@@ -90,7 +92,10 @@ class _AddressMapPickerScreenState extends State<AddressMapPickerScreen> {
       );
     }
     try {
-      final matches = await _addressSearchService.search(normalizedQuery);
+      final matches = await AppScope.of(context).searchAddressSuggestions(
+        normalizedQuery,
+        limit: 6,
+      );
       if (matches.isEmpty) {
         if (!mounted) {
           return;
@@ -104,13 +109,10 @@ class _AddressMapPickerScreenState extends State<AddressMapPickerScreen> {
       if (!mounted) {
         return;
       }
-      final firstMatch = matches.first;
-      final nextCenter = LatLng(firstMatch.latitude, firstMatch.longitude);
-      _moveToResult(nextCenter);
       setState(() {
-        _selectedCenter = nextCenter;
         _searchResults = matches;
       });
+      await _selectSearchResult(matches.first, updateSearchResults: false);
     } catch (error) {
       if (!mounted) {
         return;
@@ -135,15 +137,57 @@ class _AddressMapPickerScreenState extends State<AddressMapPickerScreen> {
     _mapController.move(nextCenter, zoom);
   }
 
-  void _selectSearchResult(AddressSearchResult result) {
-    final nextCenter = LatLng(result.latitude, result.longitude);
-    _moveToResult(nextCenter);
-    setState(() {
-      _selectedCenter = nextCenter;
-      _searchController.text = result.label;
-      _searchError = null;
-      _normalizedQuery = null;
-    });
+  Future<void> _selectSearchResult(
+    AddressSuggestionOption result, {
+    bool updateSearchResults = true,
+  }) async {
+    try {
+      final resolved = result.hasCoordinates
+          ? AddressResolveResult(
+              label: result.label,
+              normalizedAddress: result.normalizedAddress.trim().isEmpty
+                  ? result.label
+                  : result.normalizedAddress.trim(),
+              latitude: result.latitude!,
+              longitude: result.longitude!,
+              placeId: result.placeId,
+              source: result.source,
+            )
+          : await AppScope.of(context).resolveAddressLookup(
+              query: result.label,
+              placeId: result.placeId,
+              sessionToken: result.sessionToken,
+            );
+      if (!mounted) {
+        return;
+      }
+
+      final nextCenter = LatLng(resolved.latitude, resolved.longitude);
+      _moveToResult(nextCenter);
+      setState(() {
+        _selectedCenter = nextCenter;
+        _searchController.text = resolved.normalizedAddress;
+        _searchError = null;
+        _normalizedQuery = null;
+        if (updateSearchResults) {
+          _searchResults = [
+            result,
+            ..._searchResults.where(
+              (item) =>
+                  item.placeId != result.placeId || item.label != result.label,
+            ),
+          ];
+        }
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _searchError =
+            'Unable to resolve this result right now. Please try another suggestion.';
+      });
+    }
   }
 
   Future<void> _applyQuickPick(AddressQuickPick quickPick) async {
@@ -343,9 +387,11 @@ class _AddressMapPickerScreenState extends State<AddressMapPickerScreen> {
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
-                                            result.source == 'nominatim'
-                                                ? 'Map search result'
-                                                : 'Device search result',
+                                            result.secondaryLabel.trim().isNotEmpty
+                                                ? result.secondaryLabel.trim()
+                                                : result.hasCoordinates
+                                                    ? 'Lat ${result.latitude!.toStringAsFixed(6)} | Lng ${result.longitude!.toStringAsFixed(6)}'
+                                                    : 'Tap to move the map to this suggestion',
                                             style: theme.textTheme.bodySmall
                                                 ?.copyWith(
                                               color: theme.colorScheme

@@ -21,12 +21,18 @@ class _FeedbacksScreenState extends State<FeedbacksScreen> {
     super.didChangeDependencies();
     final controller = AppScope.of(context);
     if (controller.isLoggedIn) {
-      _future ??= controller.loadUserFeedbacks();
+      _future ??= _load();
     }
   }
 
+  Future<List<CustomerFeedback>> _load() async {
+    final controller = AppScope.of(context);
+    await controller.refreshOrders();
+    return controller.loadUserFeedbacks();
+  }
+
   Future<void> _refresh() async {
-    final future = AppScope.of(context).loadUserFeedbacks();
+    final future = _load();
     setState(() {
       _future = future;
     });
@@ -62,7 +68,7 @@ class _FeedbacksScreenState extends State<FeedbacksScreen> {
     final controller = AppScope.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Feedback'),
+        title: const Text('Order feedback'),
         actions: [
           if (controller.isLoggedIn)
             IconButton(
@@ -76,8 +82,8 @@ class _FeedbacksScreenState extends State<FeedbacksScreen> {
                   _refresh();
                 }
               },
-              icon: const Icon(Icons.add_comment_outlined),
-              tooltip: 'Create feedback',
+              icon: const Icon(Icons.rate_review_outlined),
+              tooltip: 'Leave feedback',
             ),
         ],
       ),
@@ -105,9 +111,9 @@ class _FeedbacksScreenState extends State<FeedbacksScreen> {
                       padding: const EdgeInsets.all(16),
                       children: const [
                         EmptyStateCard(
-                          title: 'No feedback yet',
+                          title: 'No order feedback yet',
                           message:
-                              'You can send feedback about delivery, the order experience, store service, or the app.',
+                              'Feedback becomes available after a paid order has been completed.',
                         ),
                       ],
                     ),
@@ -131,47 +137,49 @@ class _FeedbacksScreenState extends State<FeedbacksScreen> {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      feedback.subject,
+                                      feedback.relatedStoreName ??
+                                          'Order #${feedback.relatedOrderId ?? feedback.id}',
                                       style: Theme.of(context)
                                           .textTheme
                                           .titleMedium
                                           ?.copyWith(fontWeight: FontWeight.w800),
                                     ),
                                   ),
-                                  MetricChip(label: feedback.category),
+                                  MetricChip(
+                                    label: feedback.replyMessage != null &&
+                                            feedback.replyMessage!.trim().isNotEmpty
+                                        ? 'Replied'
+                                        : 'Awaiting reply',
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 8),
-                              Text(feedback.message),
-                              const SizedBox(height: 12),
                               Wrap(
                                 spacing: 8,
                                 runSpacing: 8,
                                 children: [
-                                  if (feedback.relatedStoreName != null)
-                                    MetricChip(label: feedback.relatedStoreName!),
                                   if (feedback.relatedOrderId != null)
                                     MetricChip(label: 'Order #${feedback.relatedOrderId}'),
-                                  MetricChip(label: Formatters.shortDate(feedback.createdAt)),
+                                  MetricChip(label: Formatters.shortDate(feedback.updatedAt ?? feedback.createdAt)),
                                 ],
                               ),
+                              const SizedBox(height: 12),
+                              Text(
+                                feedback.message,
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
                               if (feedback.replyMessage != null &&
-                                  feedback.replyMessage!.isNotEmpty) ...[
+                                  feedback.replyMessage!.trim().isNotEmpty) ...[
                                 const SizedBox(height: 14),
                                 Card(
                                   color: const Color(0xFFF4F7F1),
                                   child: Padding(
                                     padding: const EdgeInsets.all(14),
                                     child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
-<<<<<<< HEAD
-                                          'Reply from ${feedback.repliedByUserName ?? 'Kamatcha'}',
-=======
-                                          'Phan hoi tu ${feedback.repliedByUserName ?? 'Kamatcha'}',
->>>>>>> origin/main
+                                          'Store reply',
                                           style: Theme.of(context)
                                               .textTheme
                                               .titleSmall
@@ -179,6 +187,16 @@ class _FeedbacksScreenState extends State<FeedbacksScreen> {
                                         ),
                                         const SizedBox(height: 8),
                                         Text(feedback.replyMessage!),
+                                        if (feedback.repliedAt != null) ...[
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            'Updated ${Formatters.fullDateTime(feedback.repliedAt!)}',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(color: const Color(0xFF6D675C)),
+                                          ),
+                                        ],
                                       ],
                                     ),
                                   ),
@@ -206,7 +224,7 @@ class _FeedbacksScreenState extends State<FeedbacksScreen> {
               child: EmptyStateCard(
                 title: 'Sign in required',
                 message:
-                    'Sign in to send feedback and track the team response.',
+                    'Sign in to review completed orders and leave feedback for the store.',
                 actionLabel: 'Sign in',
                 onAction: () {
                   Navigator.of(context).push(
@@ -220,35 +238,35 @@ class _FeedbacksScreenState extends State<FeedbacksScreen> {
 }
 
 class FeedbackComposerScreen extends StatefulWidget {
-  const FeedbackComposerScreen({super.key});
+  const FeedbackComposerScreen({
+    super.key,
+    this.initialOrderId,
+  });
+
+  final int? initialOrderId;
 
   @override
-  State<FeedbackComposerScreen> createState() =>
-      _FeedbackComposerScreenState();
+  State<FeedbackComposerScreen> createState() => _FeedbackComposerScreenState();
 }
 
 class _FeedbackComposerScreenState extends State<FeedbackComposerScreen> {
-  static const List<String> _categories = [
-    'GENERAL',
-    'STORE_SERVICE',
-    'PRODUCT_QUALITY',
-    'DELIVERY',
-    'ORDER_EXPERIENCE',
-    'APP_EXPERIENCE',
-    'OTHER',
-  ];
-
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _subjectController = TextEditingController();
   final TextEditingController _messageController = TextEditingController();
 
-  String _category = 'GENERAL';
   OrderSummary? _selectedOrder;
   bool _submitting = false;
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final controller = AppScope.of(context);
+    if (controller.isLoggedIn && controller.orders.isEmpty) {
+      controller.refreshOrders();
+    }
+  }
+
+  @override
   void dispose() {
-    _subjectController.dispose();
     _messageController.dispose();
     super.dispose();
   }
@@ -257,17 +275,25 @@ class _FeedbackComposerScreenState extends State<FeedbackComposerScreen> {
     if (!_formKey.currentState!.validate() || _submitting) {
       return;
     }
+    if (_selectedOrder == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Choose a completed order first.')),
+      );
+      return;
+    }
     final controller = AppScope.of(context);
     setState(() {
       _submitting = true;
     });
     try {
       await controller.createUserFeedback(
-        category: _category,
-        relatedOrderId: _selectedOrder?.id,
-        subject: _subjectController.text.trim(),
+        relatedOrderId: _selectedOrder!.id,
         message: _messageController.text.trim(),
       );
+      if (!mounted) {
+        return;
+      }
+      await controller.refreshOrders();
       if (!mounted) {
         return;
       }
@@ -294,101 +320,97 @@ class _FeedbackComposerScreenState extends State<FeedbackComposerScreen> {
   @override
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
-    return Scaffold(
-      appBar: AppBar(title: const Text('Create feedback')),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-          children: [
-            DropdownButtonFormField<String>(
-              initialValue: _category,
-              decoration: const InputDecoration(labelText: 'Feedback category'),
-              items: _categories
-                  .map(
-                    (item) => DropdownMenuItem<String>(
-                      value: item,
-                      child: Text(item),
-                    ),
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final feedbackOrderIds = <int>{
+          ...controller.orders
+              .where((order) => order.feedbackSubmitted)
+              .map((order) => order.id),
+        };
+        final eligibleOrders = controller.orders
+            .where((order) => order.status.toUpperCase() == 'COMPLETED')
+            .where((order) => order.paymentStatus.toUpperCase() == 'PAID')
+            .where((order) => !feedbackOrderIds.contains(order.id))
+            .toList()
+          ..sort((left, right) {
+            final rightTime = right.createdAt?.millisecondsSinceEpoch ?? 0;
+            final leftTime = left.createdAt?.millisecondsSinceEpoch ?? 0;
+            return rightTime.compareTo(leftTime);
+          });
+
+        _selectedOrder ??= eligibleOrders.cast<OrderSummary?>().firstWhere(
+              (order) => order?.id == widget.initialOrderId,
+              orElse: () => eligibleOrders.isEmpty ? null : eligibleOrders.first,
+            );
+
+        return Scaffold(
+          appBar: AppBar(title: const Text('Leave order feedback')),
+          body: Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+              children: [
+                if (eligibleOrders.isEmpty)
+                  const EmptyStateCard(
+                    title: 'No eligible orders',
+                    message:
+                        'Feedback becomes available after an order is paid and completed, and each order can only receive feedback once.',
                   )
-                  .toList(),
-              onChanged: (value) {
-                if (value == null) {
-                  return;
-                }
-                setState(() {
-                  _category = value;
-                });
-              },
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<OrderSummary?>(
-              initialValue: _selectedOrder,
-              decoration: const InputDecoration(
-                labelText: 'Related order (optional)',
-              ),
-              items: [
-                const DropdownMenuItem<OrderSummary?>(
-                  value: null,
-                  child: Text('Not linked to a specific order'),
-                ),
-                ...controller.orders.map(
-                  (order) => DropdownMenuItem<OrderSummary?>(
-                    value: order,
-                    child: Text('#${order.id} - ${order.storeName}'),
+                else ...[
+                  DropdownButtonFormField<OrderSummary>(
+                    initialValue:
+                        eligibleOrders.contains(_selectedOrder) ? _selectedOrder : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Completed order',
+                    ),
+                    items: eligibleOrders
+                        .map(
+                          (order) => DropdownMenuItem<OrderSummary>(
+                            value: order,
+                            child: Text('#${order.id} - ${order.storeName}'),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedOrder = value;
+                      });
+                    },
                   ),
-                ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _messageController,
+                    maxLines: 7,
+                    decoration: const InputDecoration(
+                      labelText: 'Feedback message',
+                      hintText: 'Tell the store how the completed order experience went.',
+                    ),
+                    validator: (value) {
+                      if ((value ?? '').trim().isEmpty) {
+                        return 'Enter your feedback message';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  FilledButton.icon(
+                    onPressed: _submitting ? null : _submit,
+                    icon: _submitting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.send_outlined),
+                    label: Text(_submitting ? 'Sending...' : 'Send feedback'),
+                  ),
+                ],
               ],
-              onChanged: (value) {
-                setState(() {
-                  _selectedOrder = value;
-                });
-              },
             ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _subjectController,
-              decoration: const InputDecoration(
-                labelText: 'Subject',
-                hintText: 'Example: late delivery or app support needed',
-              ),
-              validator: (value) {
-                if ((value ?? '').trim().isEmpty) {
-                  return 'Enter a feedback subject';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _messageController,
-              maxLines: 7,
-              decoration: const InputDecoration(
-                labelText: 'Message',
-                hintText: 'Describe the issue clearly so the team can help faster',
-              ),
-              validator: (value) {
-                if ((value ?? '').trim().isEmpty) {
-                  return 'Enter your feedback message';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: _submitting ? null : _submit,
-              icon: _submitting
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.send_outlined),
-              label: Text(_submitting ? 'Sending...' : 'Send feedback'),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/config/app_config.dart';
 import '../core/models/models.dart';
 import '../core/services/address_search_service.dart';
+import '../core/services/app_realtime_socket_service.dart';
 import '../core/services/api_service.dart';
 import '../core/services/mock_data.dart';
 import '../core/services/session_store.dart';
@@ -13,6 +16,7 @@ class AppController extends ChangeNotifier {
     required this.config,
     required this.api,
     required this.sessionStore,
+    required this.appRealtime,
   });
 
   static Future<AppController> create() async {
@@ -22,8 +26,13 @@ class AppController extends ChangeNotifier {
       config: config,
       api: ApiService(config: config),
       sessionStore: SessionStore(prefs),
+      appRealtime: AppRealtimeSocketService(
+        config: config,
+        useMockData: config.useMockData,
+      ),
     );
     controller.api.onUnauthorized = controller._handleUnauthorizedSignal;
+    controller.appRealtime.addListener(controller._handleRealtimeSignals);
     await controller.bootstrap();
     return controller;
   }
@@ -31,6 +40,7 @@ class AppController extends ChangeNotifier {
   final AppConfig config;
   final ApiService api;
   final SessionStore sessionStore;
+  final AppRealtimeSocketService appRealtime;
   final AddressSearchService _addressSearchService = AddressSearchService();
 
   UserSession? session;
@@ -42,8 +52,14 @@ class AppController extends ChangeNotifier {
   CheckoutResult? lastCheckout;
   String? pendingOrderQrToken;
   int userNotificationUnreadCount = 0;
+  int userOrderRealtimeTick = 0;
+  int userNotificationRealtimeTick = 0;
+  int employeeOrderRealtimeTick = 0;
+  int employeeNotificationRealtimeTick = 0;
   final Map<int, AiChatThreadDetail> _mockAiChatThreadsById = {};
   int _nextMockAiChatThreadId = 1;
+  int _lastHandledOrderRealtimeVersion = 0;
+  int _lastHandledNotificationRealtimeVersion = 0;
 
   bool initialized = false;
   bool authBusy = false;
@@ -93,6 +109,58 @@ class AppController extends ChangeNotifier {
 
   bool get isGuestCartActive => session == null;
 
+  void _handleRealtimeSignals() {
+    if (_lastHandledOrderRealtimeVersion != appRealtime.orderEventVersion) {
+      _lastHandledOrderRealtimeVersion = appRealtime.orderEventVersion;
+      _handleOrderRealtimeUpdate();
+    }
+
+    if (_lastHandledNotificationRealtimeVersion !=
+        appRealtime.notificationEventVersion) {
+      _lastHandledNotificationRealtimeVersion =
+          appRealtime.notificationEventVersion;
+      _handleNotificationRealtimeUpdate();
+    }
+  }
+
+  void _handleOrderRealtimeUpdate() {
+    if (isUser) {
+      userOrderRealtimeTick += 1;
+      unawaited(refreshOrders().catchError((_) {}));
+      notifyListeners();
+      return;
+    }
+
+    if (isEmployee) {
+      employeeOrderRealtimeTick += 1;
+      notifyListeners();
+    }
+  }
+
+  void _handleNotificationRealtimeUpdate() {
+    if (isUser) {
+      userNotificationRealtimeTick += 1;
+      unawaited(loadUserNotificationUnreadCount().catchError((_) => 0));
+      notifyListeners();
+      return;
+    }
+
+    if (isEmployee) {
+      employeeNotificationRealtimeTick += 1;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _bindRealtimeForCurrentSession() async {
+    final currentSession = session;
+    if (currentSession == null) {
+      appRealtime.disconnect();
+      return;
+    }
+
+    await appRealtime.connect(accessToken: currentSession.accessToken);
+  }
+
   Future<void> bootstrap() async {
     session = sessionStore.loadSession();
     pendingOrderQrToken = sessionStore.loadPendingOrderQrToken();
@@ -120,6 +188,7 @@ class AppController extends ChangeNotifier {
         session = session!.copyWith(user: currentUser);
         await sessionStore.saveSession(session!);
         hadAuthenticatedSession = true;
+        await _bindRealtimeForCurrentSession();
         if (_supportsBuyerFeatures(session)) {
           await _syncLocalCartIntoAccount(session!.accessToken);
           await _loadProtectedState(
@@ -132,10 +201,13 @@ class AppController extends ChangeNotifier {
           _resetBuyerOnlyState();
         }
       } catch (_) {
+        appRealtime.disconnect();
         await _clearSessionLocally(
           clearHadAuthenticatedSession: pendingSessionInterruption == null,
         );
       }
+    } else {
+      appRealtime.disconnect();
     }
 
     initialized = true;
@@ -231,6 +303,17 @@ class AppController extends ChangeNotifier {
       throw ApiException('Saved chat history could not be found.');
     }
     return api.getAiChatThreadDetail(
+      token: _requireAuthenticatedToken(),
+      threadId: threadId,
+    );
+  }
+
+  Future<void> deleteAiChatThread(int threadId) async {
+    if (config.useMockData) {
+      _mockAiChatThreadsById.remove(threadId);
+      return;
+    }
+    await api.deleteAiChatThread(
       token: _requireAuthenticatedToken(),
       threadId: threadId,
     );
@@ -946,6 +1029,7 @@ class AppController extends ChangeNotifier {
         session = MockData.sessionFor(email);
         await sessionStore.saveSession(session!);
         hadAuthenticatedSession = true;
+        await _bindRealtimeForCurrentSession();
         orders = MockData.orders;
         favoriteItems = MockData.favorites;
         userNotificationUnreadCount = MockData.notifications
@@ -956,6 +1040,7 @@ class AppController extends ChangeNotifier {
         session = await api.login(email: email, password: password);
         await sessionStore.saveSession(session!);
         hadAuthenticatedSession = true;
+        await _bindRealtimeForCurrentSession();
         if (_supportsBuyerFeatures(session)) {
           await _syncLocalCartIntoAccount(session!.accessToken);
           await _loadProtectedState(
@@ -993,6 +1078,7 @@ class AppController extends ChangeNotifier {
         session = MockData.sessionFor('google.user@example.com');
         await sessionStore.saveSession(session!);
         hadAuthenticatedSession = true;
+        await _bindRealtimeForCurrentSession();
         orders = MockData.orders;
         favoriteItems = MockData.favorites;
         userNotificationUnreadCount = MockData.notifications
@@ -1003,6 +1089,7 @@ class AppController extends ChangeNotifier {
         session = await api.googleLogin(idToken: idToken);
         await sessionStore.saveSession(session!);
         hadAuthenticatedSession = true;
+        await _bindRealtimeForCurrentSession();
         if (_supportsBuyerFeatures(session)) {
           await _syncLocalCartIntoAccount(session!.accessToken);
           await _loadProtectedState(
@@ -1032,6 +1119,7 @@ class AppController extends ChangeNotifier {
     final currentSession = session;
     logoutInProgress = true;
     pendingSessionInterruption = null;
+    appRealtime.disconnect();
     await _clearSessionLocally();
     try {
       if (!config.useMockData && currentSession != null) {
@@ -1092,6 +1180,35 @@ class AppController extends ChangeNotifier {
       }
     }
     return detail;
+  }
+
+  Future<OrderDetail> cancelOrder(int orderId) async {
+    if (config.useMockData) {
+      throw ApiException('Order cancellation is only available when connected to the real server.');
+    }
+    final detail = await api.cancelOrder(
+      token: _requireUserToken(),
+      orderId: orderId,
+    );
+    await refreshOrders();
+    return detail;
+  }
+
+  Future<void> reorderOrder(int orderId) async {
+    if (config.useMockData) {
+      throw ApiException('Reorder is only available when connected to the real server.');
+    }
+    cartBusy = true;
+    notifyListeners();
+    try {
+      cart = await api.reorderOrder(
+        token: _requireUserToken(),
+        orderId: orderId,
+      );
+    } finally {
+      cartBusy = false;
+      notifyListeners();
+    }
   }
 
   Future<List<FavoriteItem>> loadFavorites({
@@ -1266,10 +1383,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<CustomerFeedback> createUserFeedback({
-    required String category,
-    int? relatedStoreId,
     int? relatedOrderId,
-    required String subject,
     required String message,
   }) async {
     if (config.useMockData) {
@@ -1277,10 +1391,7 @@ class AppController extends ChangeNotifier {
     }
     return api.createUserFeedback(
       token: _requireUserToken(),
-      category: category,
-      relatedStoreId: relatedStoreId,
       relatedOrderId: relatedOrderId,
-      subject: subject,
       message: message,
     );
   }
@@ -1933,14 +2044,11 @@ class AppController extends ChangeNotifier {
         _addressSearchService.normalizeVietnameseAddress(deliveryAddress);
 
     try {
-      final matches = await _addressSearchService.search(normalizedAddress);
-      if (matches.isNotEmpty) {
-        final firstMatch = matches.first;
-        return (
-          latitude: firstMatch.latitude,
-          longitude: firstMatch.longitude,
-        );
-      }
+      final resolved = await resolveAddressLookup(query: normalizedAddress);
+      return (
+        latitude: resolved.latitude,
+        longitude: resolved.longitude,
+      );
     } catch (error) {
       final message = '$error';
       if (message.contains('IO_ERROR') ||
@@ -1951,6 +2059,88 @@ class AppController extends ChangeNotifier {
         );
       }
     }
+    throw ApiException(
+      'We could not resolve coordinates for this address automatically. Please add the ward, district, or city, or choose the location on the map.',
+    );
+  }
+
+  Future<List<AddressSuggestionOption>> searchAddressSuggestions(
+    String query, {
+    String sessionToken = '',
+    int limit = 5,
+  }) async {
+    final normalizedQuery =
+        _addressSearchService.normalizeVietnameseAddress(query);
+    if (normalizedQuery.length < 3) {
+      return const [];
+    }
+
+    if (!config.useMockData) {
+      try {
+        final suggestions = await api.getAddressSuggestions(
+          query: normalizedQuery,
+          sessionToken: sessionToken,
+          limit: limit,
+        );
+        if (suggestions.isNotEmpty) {
+          return suggestions;
+        }
+      } catch (_) {
+        // Fall back to the local geocoder if the proxy is temporarily unavailable.
+      }
+    }
+
+    final fallbackMatches = await _addressSearchService.search(normalizedQuery);
+    return fallbackMatches
+        .take(limit)
+        .map(
+          (match) => AddressSuggestionOption(
+            label: match.label,
+            secondaryLabel: '',
+            source: match.source,
+            latitude: match.latitude,
+            longitude: match.longitude,
+            normalizedAddress: normalizedQuery,
+          ),
+        )
+        .toList();
+  }
+
+  Future<AddressResolveResult> resolveAddressLookup({
+    required String query,
+    String placeId = '',
+    String sessionToken = '',
+  }) async {
+    final normalizedQuery =
+        _addressSearchService.normalizeVietnameseAddress(query);
+
+    if (!config.useMockData) {
+      try {
+        return await api.resolveAddress(
+          query: normalizedQuery,
+          placeId: placeId,
+          sessionToken: sessionToken,
+        );
+      } catch (_) {
+        // Fall back to the local geocoder if the proxy is temporarily unavailable.
+      }
+    }
+
+    final fallbackMatches = await _addressSearchService.search(normalizedQuery);
+    if (fallbackMatches.isNotEmpty) {
+      final firstMatch = fallbackMatches.first;
+      final normalizedAddress = normalizedQuery.isEmpty
+          ? firstMatch.label
+          : normalizedQuery;
+      return AddressResolveResult(
+        label: firstMatch.label,
+        normalizedAddress: normalizedAddress,
+        latitude: firstMatch.latitude,
+        longitude: firstMatch.longitude,
+        source: firstMatch.source,
+      );
+    }
+
     throw ApiException(
       'We could not resolve coordinates for this address automatically. Please add the ward, district, or city, or choose the location on the map.',
     );
@@ -2261,6 +2451,7 @@ class AppController extends ChangeNotifier {
   Future<void> _clearSessionLocally({
     bool clearHadAuthenticatedSession = true,
   }) async {
+    appRealtime.disconnect();
     session = null;
     orders = const [];
     favoriteItems = const [];
@@ -2276,6 +2467,13 @@ class AppController extends ChangeNotifier {
     await sessionStore.clearPendingOrderQrToken();
     await sessionStore.clearSession();
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    appRealtime.removeListener(_handleRealtimeSignals);
+    appRealtime.dispose();
+    super.dispose();
   }
 
   Future<void> _syncLocalCartIntoAccount(String token) async {
@@ -2396,7 +2594,7 @@ class AppController extends ChangeNotifier {
     if (lower.contains('voucher') || lower.contains('promotion')) {
       answer =
           'Kamatcha Q1 is a good place to start. You can quickly open the store, the Matcha Latte item, and related articles or offers from the reference cards below.';
-    } else if (lower.contains('tai khoan') || lower.contains('account')) {
+    } else if (lower.contains('account')) {
       answer =
           'I pulled a quick summary of your current account status. You can open the account card below to check role, verification, and store scope.';
     } else {

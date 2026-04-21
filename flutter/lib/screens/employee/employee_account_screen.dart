@@ -18,7 +18,7 @@ class EmployeeAccountScreen extends StatelessWidget {
         children: [
           if (session == null)
             const EmptyStateCard(
-              title: 'Khong tim thay session',
+              title: 'Session not found',
               message: 'Sign in again to open the employee panel.',
             )
           else ...[
@@ -41,13 +41,13 @@ class EmployeeAccountScreen extends StatelessWidget {
                       children: [
                         MetricChip(label: session.user.role),
                         if (session.user.workingStoreName != null) MetricChip(label: session.user.workingStoreName!),
-                        MetricChip(label: session.user.verified ? 'Verified' : 'Cho verify'),
+                        MetricChip(label: session.user.verified ? 'Verified' : 'Pending verification'),
                       ],
                     ),
                     const SizedBox(height: 18),
                     if (session.user.workingStoreAddress != null) ...[
                       Text(
-                        'Noi lam viec',
+                        'Assigned workplace',
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(height: 8),
@@ -58,7 +58,7 @@ class EmployeeAccountScreen extends StatelessWidget {
                       width: double.infinity,
                       child: OutlinedButton(
                         onPressed: () => controller.logout(),
-                        child: const Text('Dang xuat'),
+                        child: const Text('Sign out'),
                       ),
                     ),
                   ],

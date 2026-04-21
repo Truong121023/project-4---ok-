@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -30,10 +32,15 @@ class _AddressEditorScreenState extends State<AddressEditorScreen> {
   late final TextEditingController _addressController;
   late bool _primary;
   bool _resolvingCoordinates = false;
+  bool _loadingSuggestions = false;
   String? _error;
+  String? _suggestionsError;
   double? _selectedLatitude;
   double? _selectedLongitude;
   String? _mappedAddressSnapshot;
+  String? _resolvingSuggestionKey;
+  Timer? _suggestionDebounce;
+  List<AddressSuggestionOption> _addressSuggestions = const [];
 
   @override
   void initState() {
@@ -56,6 +63,7 @@ class _AddressEditorScreenState extends State<AddressEditorScreen> {
 
   @override
   void dispose() {
+    _suggestionDebounce?.cancel();
     _fullNameController.dispose();
     _phoneController.dispose();
     _addressController
@@ -80,6 +88,7 @@ class _AddressEditorScreenState extends State<AddressEditorScreen> {
     if (mounted) {
       setState(() {});
     }
+    _scheduleAddressSuggestions();
   }
 
   void _applyQuickPick(AddressQuickPick quickPick) {
@@ -91,7 +100,154 @@ class _AddressEditorScreenState extends State<AddressEditorScreen> {
     );
     setState(() {
       _error = null;
+      _suggestionsError = null;
+      _addressSuggestions = const [];
     });
+  }
+
+  void _scheduleAddressSuggestions() {
+    _suggestionDebounce?.cancel();
+    final query = _addressSearchService
+        .normalizeVietnameseAddress(_addressController.text);
+
+    if (query.length < 4) {
+      if (mounted) {
+        setState(() {
+          _loadingSuggestions = false;
+          _suggestionsError = null;
+          _addressSuggestions = const [];
+        });
+      }
+      return;
+    }
+
+    _suggestionDebounce = Timer(const Duration(milliseconds: 350), () {
+      unawaited(_loadAddressSuggestions(query));
+    });
+  }
+
+  Future<void> _loadAddressSuggestions(String query) async {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _loadingSuggestions = true;
+      _suggestionsError = null;
+    });
+
+    try {
+      final matches =
+          await AppScope.of(context).searchAddressSuggestions(query, limit: 5);
+      final currentQuery = _addressSearchService
+          .normalizeVietnameseAddress(_addressController.text);
+      if (!mounted || currentQuery != query) {
+        return;
+      }
+
+      setState(() {
+        _addressSuggestions = matches.take(5).toList();
+      });
+    } catch (_) {
+      final currentQuery = _addressSearchService
+          .normalizeVietnameseAddress(_addressController.text);
+      if (!mounted || currentQuery != query) {
+        return;
+      }
+
+      setState(() {
+        _addressSuggestions = const [];
+        _suggestionsError = 'Unable to load address suggestions right now.';
+      });
+    } finally {
+      final currentQuery = _addressSearchService
+          .normalizeVietnameseAddress(_addressController.text);
+      if (mounted && currentQuery == query) {
+        setState(() {
+          _loadingSuggestions = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _applyAddressSuggestion(AddressSuggestionOption suggestion) async {
+    final fallbackAddress = suggestion.label.trim().isEmpty
+        ? _addressSearchService.normalizeVietnameseAddress(
+            _addressController.text,
+          )
+        : suggestion.label.trim();
+    final suggestionKey =
+        '${suggestion.placeId}:${suggestion.sessionToken}:${suggestion.label}';
+
+    setState(() {
+      _resolvingSuggestionKey = suggestionKey;
+      _error = null;
+      _suggestionsError = null;
+    });
+
+    try {
+      final resolved = suggestion.hasCoordinates
+          ? AddressResolveResult(
+              label: fallbackAddress,
+              normalizedAddress:
+                  suggestion.normalizedAddress.trim().isEmpty
+                      ? fallbackAddress
+                      : suggestion.normalizedAddress.trim(),
+              latitude: suggestion.latitude!,
+              longitude: suggestion.longitude!,
+              placeId: suggestion.placeId,
+              source: suggestion.source,
+            )
+          : await AppScope.of(context).resolveAddressLookup(
+              query: fallbackAddress,
+              placeId: suggestion.placeId,
+              sessionToken: suggestion.sessionToken,
+            );
+
+      final resolvedAddress = resolved.normalizedAddress.trim().isEmpty
+          ? fallbackAddress
+          : resolved.normalizedAddress.trim();
+      _addressController.value = TextEditingValue(
+        text: resolvedAddress,
+        selection: TextSelection.collapsed(offset: resolvedAddress.length),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _selectedLatitude = resolved.latitude;
+        _selectedLongitude = resolved.longitude;
+        _mappedAddressSnapshot =
+            _addressSearchService.normalizeVietnameseAddress(resolvedAddress);
+        _error = null;
+        _suggestionsError = null;
+        _addressSuggestions = const [];
+      });
+      FocusScope.of(context).unfocus();
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _addressController.value = TextEditingValue(
+          text: fallbackAddress,
+          selection: TextSelection.collapsed(offset: fallbackAddress.length),
+        );
+        _selectedLatitude = null;
+        _selectedLongitude = null;
+        _mappedAddressSnapshot = null;
+        _suggestionsError =
+            'Unable to validate this address suggestion right now.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _resolvingSuggestionKey = null;
+        });
+      }
+    }
   }
 
   Future<void> _save() async {
@@ -181,18 +337,19 @@ class _AddressEditorScreenState extends State<AddressEditorScreen> {
         initialLatitude = _selectedLatitude!;
         initialLongitude = _selectedLongitude!;
       } else {
-        final matches = await _addressSearchService.search(deliveryAddress);
-        if (matches.isEmpty) {
+        try {
+          final resolved = await AppScope.of(context).resolveAddressLookup(
+            query: deliveryAddress,
+          );
+          initialLatitude = resolved.latitude;
+          initialLongitude = resolved.longitude;
+        } catch (_) {
           initialLatitude = _fallbackMapCenter.latitude;
           initialLongitude = _fallbackMapCenter.longitude;
           if (mounted) {
             _error =
                 'We could not find accurate coordinates for this address. The map opened in the default area so you can search or drag the pin manually.';
           }
-        } else {
-          final firstMatch = matches.first;
-          initialLatitude = firstMatch.latitude;
-          initialLongitude = firstMatch.longitude;
         }
       }
 
@@ -295,6 +452,16 @@ class _AddressEditorScreenState extends State<AddressEditorScreen> {
                       validator: (value) =>
                           (value ?? '').trim().isEmpty ? 'Enter address' : null,
                     ),
+                    if (_addressController.text.trim().length >= 4) ...[
+                      const SizedBox(height: 12),
+                      _AddressSuggestionCard(
+                        suggestions: _addressSuggestions,
+                        loading: _loadingSuggestions,
+                        error: _suggestionsError,
+                        resolvingSuggestionKey: _resolvingSuggestionKey,
+                        onSelectSuggestion: _applyAddressSuggestion,
+                      ),
+                    ],
                     const SizedBox(height: 10),
                     Align(
                       alignment: Alignment.centerLeft,
@@ -468,6 +635,149 @@ class _MapStatusCard extends StatelessWidget {
                   busy ? 'Preparing map...' : 'Open map to find the address'),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AddressSuggestionCard extends StatelessWidget {
+  const _AddressSuggestionCard({
+    required this.suggestions,
+    required this.loading,
+    required this.error,
+    required this.resolvingSuggestionKey,
+    required this.onSelectSuggestion,
+  });
+
+  final List<AddressSuggestionOption> suggestions;
+  final bool loading;
+  final String? error;
+  final String? resolvingSuggestionKey;
+  final ValueChanged<AddressSuggestionOption> onSelectSuggestion;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBF3),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE5DED0)),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Address suggestions',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+              ),
+              if (loading)
+                Text(
+                  'Searching...',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (error != null && error!.trim().isNotEmpty)
+            Text(
+              error!,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.error,
+                    fontWeight: FontWeight.w700,
+                  ),
+            )
+          else if (!loading && suggestions.isEmpty)
+            Text(
+              'Keep typing the street, ward, district, or city to see matching addresses.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                    height: 1.35,
+                  ),
+            )
+          else
+            Column(
+              children: suggestions
+                  .map(
+                    (suggestion) => Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () => onSelectSuggestion(suggestion),
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFFE5DED0)),
+                          ),
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (resolvingSuggestionKey ==
+                                  '${suggestion.placeId}:${suggestion.sessionToken}:${suggestion.label}')
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Text(
+                                    'Resolving selected address...',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelMedium
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .primary,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                  ),
+                                ),
+                              Text(
+                                suggestion.label,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w800,
+                                      color: const Color(0xFF2A231C),
+                                    ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                suggestion.secondaryLabel.trim().isNotEmpty
+                                    ? suggestion.secondaryLabel.trim()
+                                    : suggestion.hasCoordinates
+                                        ? 'Lat ${suggestion.latitude!.toStringAsFixed(6)} | Lng ${suggestion.longitude!.toStringAsFixed(6)}'
+                                        : 'Tap to use this address',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelMedium
+                                    ?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
         ],
       ),
     );

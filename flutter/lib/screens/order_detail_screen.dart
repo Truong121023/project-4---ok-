@@ -1,12 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app/app.dart';
+import '../app/app_controller.dart';
 import '../core/models/models.dart';
 import '../core/utils/formatters.dart';
 import '../widgets/app_widgets.dart';
 import '../widgets/order_processing_timeline.dart';
 import '../widgets/payment_widgets.dart';
+import 'cart_screen.dart';
+import 'feedbacks_screen.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   const OrderDetailScreen({
@@ -23,11 +28,39 @@ class OrderDetailScreen extends StatefulWidget {
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Future<OrderDetail>? _future;
   bool _paymentRefreshing = false;
+  bool _orderActionBusy = false;
+  AppController? _controller;
+  int _lastRealtimeTick = 0;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final controller = AppScope.of(context);
+    if (!identical(_controller, controller)) {
+      _controller?.removeListener(_handleControllerChanged);
+      _controller = controller;
+      _lastRealtimeTick = controller.userOrderRealtimeTick;
+      controller.addListener(_handleControllerChanged);
+    }
     _future ??= _load();
+  }
+
+  @override
+  void dispose() {
+    _controller?.removeListener(_handleControllerChanged);
+    super.dispose();
+  }
+
+  void _handleControllerChanged() {
+    final controller = _controller;
+    if (!mounted || controller == null) {
+      return;
+    }
+    if (_lastRealtimeTick == controller.userOrderRealtimeTick) {
+      return;
+    }
+    _lastRealtimeTick = controller.userOrderRealtimeTick;
+    unawaited(_refresh());
   }
 
   Future<OrderDetail> _load() {
@@ -43,13 +76,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Future<void> _openExternalUrl(String? url) async {
-    if (url == null || url.isEmpty) {
+    final resolvedUrl = AppScope.of(context).config.resolveExternalUrl(url);
+    if (resolvedUrl == null || resolvedUrl.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('The server did not return a link to open yet.')),
       );
       return;
     }
-    final uri = Uri.tryParse(url);
+    final uri = Uri.tryParse(resolvedUrl);
     if (uri == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('The URL is invalid.')),
@@ -59,7 +93,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not open $url')),
+        SnackBar(content: Text('Could not open $resolvedUrl')),
       );
     }
   }
@@ -81,13 +115,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            order.statusSummary.isEmpty
-                ? 'Payment refreshed'
-                : order.statusSummary,
-          ),
-        ),
+        SnackBar(content: Text(_paymentCheckMessage(order))),
       );
     } catch (error) {
       if (!mounted) {
@@ -103,6 +131,145 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         });
       }
     }
+  }
+
+  Future<void> _cancelOrder() async {
+    if (_orderActionBusy) {
+      return;
+    }
+    final messenger = ScaffoldMessenger.of(context);
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Cancel unpaid order?'),
+            content: const Text(
+              'This will cancel the unpaid order and stop the current payment session.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Keep order'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Cancel order'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed) {
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    final controller = _controller ?? AppScope.of(context);
+    setState(() {
+      _orderActionBusy = true;
+    });
+    try {
+      final order = await controller.cancelOrder(widget.orderId);
+      setState(() {
+        _future = Future<OrderDetail>.value(order);
+      });
+      if (!mounted) {
+        return;
+      }
+      messenger.showSnackBar(
+        const SnackBar(content: Text('The unpaid order has been cancelled.')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      messenger.showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _orderActionBusy = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _reorder(OrderDetail order) async {
+    if (_orderActionBusy) {
+      return;
+    }
+    final controller = AppScope.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final hasExistingCartItems = controller.cart.items.isNotEmpty;
+    if (hasExistingCartItems) {
+      final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Replace current cart?'),
+              content: const Text(
+                'Reorder will replace the current cart so it matches this order.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Keep cart'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Replace cart'),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    setState(() {
+      _orderActionBusy = true;
+    });
+    try {
+      await controller.reorderOrder(order.id);
+      if (!mounted) {
+        return;
+      }
+      messenger.showSnackBar(
+        SnackBar(content: Text('The cart now matches Order #${order.id}.')),
+      );
+      await navigator.push(
+        MaterialPageRoute<void>(
+          builder: (_) => const CartScreen(),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _orderActionBusy = false;
+        });
+      }
+    }
+  }
+
+  String _paymentCheckMessage(OrderDetail order) {
+    final paymentStatus = order.paymentStatus.trim().toUpperCase();
+    if (paymentStatus == 'PAID') {
+      return 'The server confirmed your transfer successfully.';
+    }
+    if (paymentStatus == 'CANCELLED' || paymentStatus == 'FAILED') {
+      return 'The transfer has not been confirmed for this payment session.';
+    }
+    return 'The server is still checking your transfer.';
   }
 
   @override
@@ -129,13 +296,19 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           );
         }
 
-<<<<<<< HEAD
         final controller = AppScope.of(context);
         final order = snapshot.data!;
-        final hasPaymentPayload = order.paymentQrCode.isNotEmpty ||
-            order.paymentCheckoutUrl.isNotEmpty ||
-            order.paymentExpiresAt != null;
-        final hasBottomActions = order.canRefreshPayment || order.canViewInvoice;
+        final isCancelledOrder =
+            order.status.toUpperCase() == 'CANCELLED' ||
+            order.paymentStatus.toUpperCase() == 'CANCELLED';
+        final hasPaymentPayload = !isCancelledOrder &&
+            (order.paymentQrCode.isNotEmpty ||
+                order.paymentCheckoutUrl.isNotEmpty ||
+                order.paymentExpiresAt != null);
+        final hasBottomActions = order.canRefreshPayment ||
+            order.canViewInvoice ||
+            order.canCancelOrder ||
+            order.canReorderOrder;
 
         return Scaffold(
           appBar: AppBar(title: const Text('Order details')),
@@ -144,7 +317,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   canRefreshPayment: order.canRefreshPayment,
                   paymentRefreshing: _paymentRefreshing,
                   canViewInvoice: order.canViewInvoice,
+                  canCancelOrder: order.canCancelOrder,
+                  canReorderOrder: order.canReorderOrder,
+                  actionBusy: _orderActionBusy,
                   onRefreshPayment: _refreshPayment,
+                  onCancelOrder: _cancelOrder,
+                  onReorderOrder: () => _reorder(order),
                   onOpenInvoice: order.canViewInvoice
                       ? () => _openExternalUrl(
                             order.invoicePreviewUrl ??
@@ -154,13 +332,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 )
               : null,
           body: RefreshIndicator(
-=======
-          final order = snapshot.data!;
-          final hasPaymentPayload = order.paymentQrCode.isNotEmpty ||
-              order.paymentCheckoutUrl.isNotEmpty ||
-              order.paymentExpiresAt != null;
-          return RefreshIndicator(
->>>>>>> origin/main
             onRefresh: _refresh,
             child: ListView(
               padding: EdgeInsets.fromLTRB(
@@ -170,8 +341,47 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 hasBottomActions ? 200 : 32,
               ),
               children: [
-<<<<<<< HEAD
                 _OrderDetailHeroCard(order: order),
+                if ((order.cancellationNote?.trim().isNotEmpty ?? false)) ...[
+                  const SizedBox(height: 18),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Cancellation note',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                  color: const Color(0xFF9A3412),
+                                ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            order.cancellationNote!,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.45,
+                                ),
+                          ),
+                          if (order.cancelledByUserName?.trim().isNotEmpty ?? false) ...[
+                            const SizedBox(height: 10),
+                            Text(
+                              order.cancelledAt != null
+                                  ? 'Cancelled by ${order.cancelledByUserName} at ${Formatters.fullDateTime(order.cancelledAt!)}'
+                                  : 'Cancelled by ${order.cancelledByUserName}',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
                 if (hasPaymentPayload) ...[
                   const SizedBox(height: 18),
                   PaymentQrSection(
@@ -203,90 +413,76 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       imageUrl: controller.config.resolveImageUrl(
                         item.imagePaths.isEmpty ? null : item.imagePaths.first,
                       ),
-=======
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '#${order.id} - ${order.storeName}',
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(order.statusSummary),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            MetricChip(label: order.status),
-                            MetricChip(label: order.paymentStatus),
-                            MetricChip(label: Formatters.currency(order.totalAmount)),
-                            if (order.promotionCode.isNotEmpty) MetricChip(label: order.promotionCode),
-                            if (order.hasShippingSummary)
-                              MetricChip(label: 'Ship ${Formatters.currency(order.shippingFeeAmount)}'),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            if (order.canRefreshPayment)
-                              FilledButton.icon(
-                                onPressed: _paymentRefreshing ? null : _refreshPayment,
-                                icon: _paymentRefreshing
-                                    ? const SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(strokeWidth: 2),
-                                      )
-                                    : const Icon(Icons.refresh),
-                                label: Text(_paymentRefreshing ? 'Dang refresh...' : 'Refresh payment'),
-                              ),
-                            if (order.canViewInvoice)
-                              OutlinedButton.icon(
-                                onPressed: () => _openExternalUrl(
-                                  order.invoicePreviewUrl ?? order.invoiceDownloadUrl,
-                                ),
-                                icon: const Icon(Icons.receipt_long_outlined),
-                                label: const Text('Mo hoa don'),
-                              ),
-                          ],
-                        ),
-                      ],
->>>>>>> origin/main
                     ),
                   ),
                 ),
-                if (hasPaymentPayload) ...[
+                const SizedBox(height: 20),
+                _OrderDetailMetaCard(order: order),
+                if (order.status.toUpperCase() == 'COMPLETED' &&
+                    order.paymentStatus.toUpperCase() == 'PAID') ...[
                   const SizedBox(height: 20),
-                  PaymentQrSection(
-                    qrCode: order.paymentQrCode,
-                    checkoutUrl: order.paymentCheckoutUrl,
-                    expiresAt: order.paymentExpiresAt,
-                    subtitle: 'Uu tien quet QR PayOS. Neu QR khong tien, ban co the mo trang thanh toan tu nut ben duoi.',
-                    onOpenCheckoutUrl: order.paymentCheckoutUrl.isEmpty
-                        ? null
-                        : () => _openExternalUrl(order.paymentCheckoutUrl),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SectionHeader(
+                            title: 'Order feedback',
+                            subtitle:
+                                'Feedback is available after a paid order has been completed.',
+                          ),
+                          const SizedBox(height: 14),
+                          if (order.feedbackSubmitted) ...[
+                            MetricChip(
+                              label: order.feedbackUpdatedAt != null
+                                  ? 'Updated ${Formatters.shortDate(order.feedbackUpdatedAt)}'
+                                  : 'Feedback sent',
+                            ),
+                            const SizedBox(height: 12),
+                            Text(order.feedbackMessage ?? 'Feedback content is not available.'),
+                            if ((order.feedbackReplyMessage ?? '').trim().isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              Card(
+                                color: const Color(0xFFF4F7F1),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(14),
+                                  child: Text(order.feedbackReplyMessage!),
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 14),
+                            FilledButton.tonal(
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => const FeedbacksScreen(),
+                                  ),
+                                );
+                              },
+                              child: const Text('Open feedback history'),
+                            ),
+                          ] else ...[
+                            const Text('This order is ready for feedback.'),
+                            const SizedBox(height: 14),
+                            FilledButton.tonal(
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => FeedbackComposerScreen(
+                                      initialOrderId: order.id,
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: const Text('Leave feedback'),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
                 ],
-                const SizedBox(height: 20),
-<<<<<<< HEAD
-                _OrderDetailMetaCard(order: order),
-=======
-                OrderProcessingTimeline(
-                  confirmedByUserName: order.confirmedByUserName,
-                  confirmedByUserRole: order.confirmedByUserRole,
-                  confirmedAt: order.confirmedAt,
-                  preparingStaffName: order.preparingStaffName,
-                  deliveringShipperName: order.deliveringShipperName,
-                  deliveryStatus: order.status,
-                  deliveryProofCapturedAt: order.deliveryProofCapturedAt,
-                ),
->>>>>>> origin/main
                 if (order.deliveryProofImagePath != null) ...[
                   const SizedBox(height: 20),
                   Card(
@@ -324,7 +520,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   ),
                 ],
                 const SizedBox(height: 12),
-<<<<<<< HEAD
                 OrderProcessingTimeline(
                   confirmedByUserName: order.confirmedByUserName,
                   confirmedByUserRole: order.confirmedByUserRole,
@@ -333,141 +528,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   deliveringShipperName: order.deliveringShipperName,
                   deliveryStatus: order.status,
                   deliveryProofCapturedAt: order.deliveryProofCapturedAt,
-=======
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(order.deliveryFullName, style: const TextStyle(fontWeight: FontWeight.w800)),
-                        const SizedBox(height: 8),
-                        Text(order.deliveryPhoneNumber),
-                        const SizedBox(height: 6),
-                        Text(order.deliveryAddress),
-                        const SizedBox(height: 10),
-                        Text('Kieu giao: ${deliveryTypeLabel(order.deliveryType)}'),
-                        if (order.scheduledDeliveryAt != null) ...[
-                          const SizedBox(height: 6),
-                          Text('Hen giao: ${Formatters.fullDateTime(order.scheduledDeliveryAt)}'),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const SectionHeader(
-                  title: 'Mon trong don',
-                  subtitle: 'Mo lai nhanh cac mon da mua trong order nay.',
-                ),
-                const SizedBox(height: 12),
-                ...order.items.map(
-                  (item) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Card(
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.all(16),
-                        leading: SizedBox(
-                          width: 56,
-                          child: NetworkOrFallbackImage(
-                            imageUrl: controller.config.resolveImageUrl(
-                              item.imagePaths.isEmpty ? null : item.imagePaths.first,
-                            ),
-                            height: 56,
-                            borderRadius: BorderRadius.circular(16),
-                            label: item.dishName,
-                          ),
-                        ),
-                        title: Text(
-                          item.dishName,
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                        subtitle: Text('x${item.quantity} - ${Formatters.currency(item.unitPrice)}'),
-                        trailing: Text(
-                          Formatters.currency(item.totalPrice),
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const SectionHeader(
-                  title: 'Thanh toan va xu ly',
-                  subtitle: 'Trang thai thanh toan, hoa don va nguoi dang xu ly don.',
-                ),
-                const SizedBox(height: 12),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Tam tinh: ${Formatters.currency(order.subtotalAmount)}'),
-                        const SizedBox(height: 6),
-                        Text('Giam gia: ${Formatters.currency(order.discountAmount)}'),
-                        const SizedBox(height: 6),
-                        Text('Shipping fee: ${Formatters.currency(order.shippingFeeAmount)}'),
-                        if (order.shippingDistanceKm != null) ...[
-                          const SizedBox(height: 6),
-                          Text('Shipping distance: ${Formatters.distance(order.shippingDistanceKm)}'),
-                        ],
-                        if (order.shippingFeeBreakdown.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            'Shipping breakdown: ${order.shippingFeeBreakdown.map((item) => '${item.storeName}: ${Formatters.currency(item.shippingFeeAmount)}${item.distanceKm == null ? '' : ' (${Formatters.distance(item.distanceKm)})'}').join(' | ')}',
-                          ),
-                        ],
-                        const SizedBox(height: 6),
-                        Text(
-                          'Promotion: ${order.promotionCode.isEmpty ? 'Khong ap dung' : order.promotionCode}',
-                        ),
-                        if (order.promotionScope.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Text('Promotion scope: ${order.promotionScope}'),
-                        ],
-                        if (order.promotionEligibleAmount > 0) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            'Promotion eligible amount: ${Formatters.currency(order.promotionEligibleAmount)}',
-                          ),
-                        ],
-                        if (order.promotionDishIds.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Text('Promotion dish IDs: ${order.promotionDishIds.join(', ')}'),
-                        ],
-                        const SizedBox(height: 6),
-                        Text('Provider: ${order.paymentProvider.isEmpty ? 'Dang cap nhat' : order.paymentProvider}'),
-                        const SizedBox(height: 6),
-                        Text('Reference: ${order.paymentReference.isEmpty ? 'Dang cap nhat' : order.paymentReference}'),
-                        const SizedBox(height: 6),
-                        Text('Tao luc: ${Formatters.fullDateTime(order.createdAt)}'),
-                        const SizedBox(height: 6),
-                        Text('Cap nhat luc: ${Formatters.fullDateTime(order.updatedAt)}'),
-                        if (order.paymentExpiresAt != null) ...[
-                          const SizedBox(height: 6),
-                          Text('Payment expires: ${Formatters.fullDateTime(order.paymentExpiresAt)}'),
-                        ],
-                        if (order.invoiceNumber != null) ...[
-                          const SizedBox(height: 6),
-                          Text('Invoice: ${order.invoiceNumber}'),
-                        ],
-                        if (order.confirmedByUserName != null) ...[
-                          const SizedBox(height: 6),
-                          Text('Xac nhan cua hang: ${order.confirmedByUserName}'),
-                        ],
-                        if (order.preparingStaffName != null) ...[
-                          const SizedBox(height: 6),
-                          Text('Staff xu ly: ${order.preparingStaffName}'),
-                        ],
-                        if (order.deliveringShipperName != null) ...[
-                          const SizedBox(height: 6),
-                          Text('Shipper giao: ${order.deliveringShipperName}'),
-                        ],
-                      ],
-                    ),
-                  ),
->>>>>>> origin/main
                 ),
               ],
             ),
@@ -556,6 +616,47 @@ class _OrderDetailHeroCard extends StatelessWidget {
                 ),
               ),
             ),
+            if ((order.storePhoneNumber?.trim().isNotEmpty ?? false) ||
+                (order.storeAddress?.trim().isNotEmpty ?? false)) ...[
+              const SizedBox(height: 14),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: const Color(0xFFE7DCCD)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Store information',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                      if (order.storePhoneNumber?.trim().isNotEmpty ?? false) ...[
+                        const SizedBox(height: 10),
+                        SummaryLine(
+                          label: 'Phone',
+                          value: order.storePhoneNumber!,
+                          compact: true,
+                        ),
+                      ],
+                      if (order.storeAddress?.trim().isNotEmpty ?? false) ...[
+                        const SizedBox(height: 10),
+                        SummaryLine(
+                          label: 'Address',
+                          value: order.storeAddress!,
+                          compact: true,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -756,25 +857,27 @@ class _OrderDetailMetaCard extends StatelessWidget {
             const SectionHeader(
               title: 'Order summary',
               subtitle:
-                  'Payment and fulfillment details are shown below for quick review.',
+                  'Only the important order and payment details are shown here.',
             ),
             const SizedBox(height: 14),
             SummaryLine(
               label: 'Items subtotal',
               value: Formatters.currency(order.subtotalAmount),
             ),
-            const SizedBox(height: 10),
-            SummaryLine(
-              label: 'Discount',
-              value: Formatters.currency(order.discountAmount),
-            ),
-            const SizedBox(height: 10),
-            SummaryLine(
-              label: 'Promotion',
-              value: order.promotionCode.isEmpty
-                  ? 'Not applied'
-                  : order.promotionCode,
-            ),
+            if (order.discountAmount > 0) ...[
+              const SizedBox(height: 10),
+              SummaryLine(
+                label: 'Discount',
+                value: Formatters.currency(order.discountAmount),
+              ),
+            ],
+            if (order.promotionCode.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              SummaryLine(
+                label: 'Promotion code',
+                value: order.promotionCode,
+              ),
+            ],
             if (order.creditPointsAwarded > 0) ...[
               const SizedBox(height: 10),
               SummaryLine(
@@ -783,32 +886,26 @@ class _OrderDetailMetaCard extends StatelessWidget {
                 valueColor: const Color(0xFF5E7B62),
               ),
             ],
-            if (order.promotionEligibleAmount > 0) ...[
-              const SizedBox(height: 10),
-              SummaryLine(
-                label: 'Eligible amount',
-                value: Formatters.currency(order.promotionEligibleAmount),
-              ),
-            ],
-            if (order.paymentProvider.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              SummaryLine(
-                label: 'Provider',
-                value: order.paymentProvider,
-              ),
-            ],
-            if (order.paymentReference.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              SummaryLine(
-                label: 'Reference',
-                value: order.paymentReference,
-              ),
-            ],
             if (order.invoiceNumber != null) ...[
               const SizedBox(height: 10),
               SummaryLine(
                 label: 'Invoice',
                 value: order.invoiceNumber!,
+              ),
+            ],
+            if (order.paidAt != null) ...[
+              const SizedBox(height: 10),
+              SummaryLine(
+                label: 'Paid at',
+                value: Formatters.fullDateTime(order.paidAt!),
+              ),
+            ],
+            if (order.paymentExpiresAt != null &&
+                order.paymentStatus.trim().toUpperCase() != 'PAID') ...[
+              const SizedBox(height: 10),
+              SummaryLine(
+                label: 'Payment expires',
+                value: Formatters.fullDateTime(order.paymentExpiresAt!),
               ),
             ],
             const SizedBox(height: 10),
@@ -821,20 +918,6 @@ class _OrderDetailMetaCard extends StatelessWidget {
               label: 'Updated at',
               value: Formatters.fullDateTime(order.updatedAt),
             ),
-            if (order.preparingStaffName != null) ...[
-              const SizedBox(height: 10),
-              SummaryLine(
-                label: 'Store handler',
-                value: order.preparingStaffName!,
-              ),
-            ],
-            if (order.deliveringShipperName != null) ...[
-              const SizedBox(height: 10),
-              SummaryLine(
-                label: 'Assigned shipper',
-                value: order.deliveringShipperName!,
-              ),
-            ],
           ],
         ),
       ),
@@ -847,14 +930,24 @@ class _OrderDetailActionBar extends StatelessWidget {
     required this.canRefreshPayment,
     required this.paymentRefreshing,
     required this.canViewInvoice,
+    required this.canCancelOrder,
+    required this.canReorderOrder,
+    required this.actionBusy,
     required this.onRefreshPayment,
+    required this.onCancelOrder,
+    required this.onReorderOrder,
     required this.onOpenInvoice,
   });
 
   final bool canRefreshPayment;
   final bool paymentRefreshing;
   final bool canViewInvoice;
+  final bool canCancelOrder;
+  final bool canReorderOrder;
+  final bool actionBusy;
   final VoidCallback onRefreshPayment;
+  final VoidCallback onCancelOrder;
+  final VoidCallback onReorderOrder;
   final VoidCallback? onOpenInvoice;
 
   @override
@@ -878,35 +971,48 @@ class _OrderDetailActionBar extends StatelessWidget {
           ),
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 12,
               children: [
                 if (canViewInvoice)
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: onOpenInvoice,
-                      icon: const Icon(Icons.receipt_long_outlined),
-                      label: const Text('Open invoice'),
+                  OutlinedButton.icon(
+                    onPressed: onOpenInvoice,
+                    icon: const Icon(Icons.receipt_long_outlined),
+                    label: const Text('Open invoice'),
+                  ),
+                if (canRefreshPayment)
+                  FilledButton.icon(
+                    onPressed:
+                        paymentRefreshing || actionBusy ? null : onRefreshPayment,
+                    icon: paymentRefreshing
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.verified_outlined),
+                    label: Text(
+                      paymentRefreshing
+                          ? 'Checking transfer...'
+                          : 'I have transferred',
                     ),
                   ),
-                if (canViewInvoice && canRefreshPayment)
-                  const SizedBox(width: 12),
-                if (canRefreshPayment)
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: paymentRefreshing ? null : onRefreshPayment,
-                      icon: paymentRefreshing
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.refresh),
-                      label: Text(
-                        paymentRefreshing
-                            ? 'Refreshing...'
-                            : 'Refresh payment',
-                      ),
-                    ),
+                if (canCancelOrder)
+                  OutlinedButton.icon(
+                    onPressed: actionBusy || paymentRefreshing
+                        ? null
+                        : onCancelOrder,
+                    icon: const Icon(Icons.close_rounded),
+                    label: const Text('Cancel order'),
+                  ),
+                if (canReorderOrder)
+                  FilledButton.tonalIcon(
+                    onPressed: actionBusy || paymentRefreshing
+                        ? null
+                        : onReorderOrder,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: Text(actionBusy ? 'Working...' : 'Reorder'),
                   ),
               ],
             ),

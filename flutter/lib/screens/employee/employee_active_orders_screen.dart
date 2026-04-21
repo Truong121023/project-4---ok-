@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app/app.dart';
+import '../../app/app_controller.dart';
 import '../../core/models/models.dart';
 import '../../widgets/app_widgets.dart';
 import 'employee_order_cards.dart';
@@ -21,11 +24,38 @@ class EmployeeActiveOrdersScreen extends StatefulWidget {
 
 class _EmployeeActiveOrdersScreenState extends State<EmployeeActiveOrdersScreen> {
   Future<AdminListResult>? _future;
+  AppController? _controller;
+  int _lastRealtimeTick = 0;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final controller = AppScope.of(context);
+    if (!identical(_controller, controller)) {
+      _controller?.removeListener(_handleControllerChanged);
+      _controller = controller;
+      _lastRealtimeTick = controller.employeeOrderRealtimeTick;
+      controller.addListener(_handleControllerChanged);
+    }
     _future ??= _load();
+  }
+
+  @override
+  void dispose() {
+    _controller?.removeListener(_handleControllerChanged);
+    super.dispose();
+  }
+
+  void _handleControllerChanged() {
+    final controller = _controller;
+    if (!mounted || controller == null) {
+      return;
+    }
+    if (_lastRealtimeTick == controller.employeeOrderRealtimeTick) {
+      return;
+    }
+    _lastRealtimeTick = controller.employeeOrderRealtimeTick;
+    unawaited(_refresh());
   }
 
   Future<AdminListResult> _load() {
@@ -63,7 +93,7 @@ class _EmployeeActiveOrdersScreenState extends State<EmployeeActiveOrdersScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(employeePrimaryQueueLabel(widget.kind)),
+        title: Text(employeeActiveQueueLabel(widget.kind)),
         actions: [
           PopupMenuButton<String>(
             onSelected: (value) {
@@ -154,7 +184,7 @@ class _EmployeeActiveOrdersScreenState extends State<EmployeeActiveOrdersScreen>
                 if (activeOrders.isEmpty)
                   const EmptyStateCard(
                     title: 'No active orders yet',
-                    message: 'Orders move here after you confirm pickup from the assigned QR task.',
+                    message: 'Orders move here after you accept them for delivery.',
                   )
                 else
                   ...activeOrders.map(

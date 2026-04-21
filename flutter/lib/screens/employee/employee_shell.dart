@@ -24,6 +24,19 @@ class _EmployeeShellState extends State<EmployeeShell> {
   final Set<int> _activatedIndexes = {0};
 
   Widget _buildPage(int index) {
+    if (widget.kind == EmployeeRoleKind.shipper) {
+      switch (index) {
+        case 0:
+          return EmployeeNotificationsScreen(kind: widget.kind);
+        case 1:
+          return EmployeeActiveOrdersScreen(kind: widget.kind);
+        case 2:
+          return EmployeeCompletedOrdersScreen(kind: widget.kind);
+        default:
+          return const SizedBox.shrink();
+      }
+    }
+
     switch (index) {
       case 0:
         return EmployeeScanScreen(kind: widget.kind);
@@ -42,13 +55,8 @@ class _EmployeeShellState extends State<EmployeeShell> {
     if (widget.kind == EmployeeRoleKind.shipper) {
       return const [
         NavigationDestination(
-          icon: Icon(Icons.qr_code_scanner_outlined),
-          selectedIcon: Icon(Icons.qr_code_scanner),
-          label: 'Scan',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.local_shipping_outlined),
-          selectedIcon: Icon(Icons.local_shipping),
+          icon: Icon(Icons.inbox_outlined),
+          selectedIcon: Icon(Icons.inbox),
           label: 'Inbox',
         ),
         NavigationDestination(
@@ -70,22 +78,22 @@ class _EmployeeShellState extends State<EmployeeShell> {
         selectedIcon: Icon(Icons.qr_code_scanner),
         label: 'Scan',
       ),
-      NavigationDestination(
-        icon: Icon(Icons.notifications_active_outlined),
-        selectedIcon: Icon(Icons.notifications_active),
-        label: 'Inbox',
-      ),
-      NavigationDestination(
-        icon: Icon(Icons.local_cafe_outlined),
-        selectedIcon: Icon(Icons.local_cafe),
-        label: 'Active',
-      ),
-      NavigationDestination(
-        icon: Icon(Icons.inventory_2_outlined),
-        selectedIcon: Icon(Icons.inventory_2),
-        label: 'Completed',
-      ),
-    ];
+        NavigationDestination(
+          icon: Icon(Icons.notifications_active_outlined),
+          selectedIcon: Icon(Icons.notifications_active),
+          label: 'Inbox',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.local_cafe_outlined),
+          selectedIcon: Icon(Icons.local_cafe),
+          label: 'Active',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.inventory_2_outlined),
+          selectedIcon: Icon(Icons.inventory_2),
+          label: 'Completed',
+        ),
+      ];
   }
 
   @override
@@ -95,7 +103,7 @@ class _EmployeeShellState extends State<EmployeeShell> {
         bottom: false,
         child: IndexedStack(
           index: _index,
-          children: List<Widget>.generate(4, (index) {
+          children: List<Widget>.generate(_destinations.length, (index) {
             if (!_activatedIndexes.contains(index)) {
               return const SizedBox.shrink();
             }

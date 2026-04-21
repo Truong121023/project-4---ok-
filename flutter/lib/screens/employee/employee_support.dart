@@ -26,7 +26,7 @@ String employeePanelSubtitle(EmployeeRoleKind kind) {
     EmployeeRoleKind.staff =>
       'Store-side processing is now handled by the manager. Staff accounts only track related order details and notifications here.',
     EmployeeRoleKind.shipper =>
-      'Check your inbox for new assignments, scan the invoice QR at pickup, and complete delivery with a proof photo.',
+      'Check your inbox for new assignments, open the order details, accept the order, and complete delivery with a proof photo.',
   };
 }
 
@@ -40,7 +40,7 @@ IconData employeeRoleIcon(EmployeeRoleKind kind) {
 String employeePrimaryQueueLabel(EmployeeRoleKind kind) {
   return switch (kind) {
     EmployeeRoleKind.staff => 'No more PREPARING tasks',
-    EmployeeRoleKind.shipper => 'Pickup ready',
+    EmployeeRoleKind.shipper => 'Awaiting acceptance',
   };
 }
 
@@ -54,7 +54,7 @@ String employeeActiveQueueLabel(EmployeeRoleKind kind) {
 String employeeCompletedQueueLabel(EmployeeRoleKind kind) {
   return switch (kind) {
     EmployeeRoleKind.staff => 'Completed',
-    EmployeeRoleKind.shipper => 'Completed',
+    EmployeeRoleKind.shipper => 'History',
   };
 }
 
@@ -70,17 +70,17 @@ bool employeeHasAction(JsonMap order, String action) {
 
 List<JsonMap> employeePendingOrders(
     EmployeeRoleKind kind, List<JsonMap> orders) {
-  return orders.where((order) {
+  return employeeSortOrdersNewest(orders.where((order) {
     return switch (kind) {
       EmployeeRoleKind.staff => false,
       EmployeeRoleKind.shipper => employeeHasAction(order, 'ACCEPT_DELIVERY'),
     };
-  }).toList();
+  }).toList());
 }
 
 List<JsonMap> employeeActiveOrders(
     EmployeeRoleKind kind, List<JsonMap> orders, int currentUserId) {
-  return orders.where((order) {
+  return employeeSortOrdersNewest(orders.where((order) {
     final status = asString(order['status']).toUpperCase();
     final assignedId = switch (kind) {
       EmployeeRoleKind.staff => asInt(order['preparingStaffId']),
@@ -94,18 +94,50 @@ List<JsonMap> employeeActiveOrders(
       return false;
     }
     return assignedId == 0 || assignedId == currentUserId;
-  }).toList();
+  }).toList());
 }
 
 List<JsonMap> employeeCompletedOrders(
     EmployeeRoleKind kind, List<JsonMap> orders) {
-  return orders.where((order) {
+  return employeeSortOrdersNewest(orders.where((order) {
     final status = asString(order['status']).toUpperCase();
     return switch (kind) {
       EmployeeRoleKind.staff => false,
       EmployeeRoleKind.shipper => status == 'COMPLETED',
     };
-  }).toList();
+  }).toList());
+}
+
+DateTime _employeeOrderSortTime(JsonMap order) {
+  return asDateTime(order['updatedAt']) ??
+      asDateTime(order['paidAt']) ??
+      asDateTime(order['createdAt']) ??
+      DateTime.fromMillisecondsSinceEpoch(0);
+}
+
+List<JsonMap> employeeSortOrdersNewest(List<JsonMap> orders) {
+  final items = List<JsonMap>.from(orders);
+  items.sort(
+    (left, right) =>
+        _employeeOrderSortTime(right).compareTo(_employeeOrderSortTime(left)),
+  );
+  return items;
+}
+
+DateTime employeeNotificationSortTime(JsonMap notification) {
+  return asDateTime(notification['updatedAt']) ??
+      asDateTime(notification['readAt']) ??
+      asDateTime(notification['createdAt']) ??
+      DateTime.fromMillisecondsSinceEpoch(0);
+}
+
+List<JsonMap> employeeSortNotificationsNewest(List<JsonMap> notifications) {
+  final items = List<JsonMap>.from(notifications);
+  items.sort(
+    (left, right) => employeeNotificationSortTime(right)
+        .compareTo(employeeNotificationSortTime(left)),
+  );
+  return items;
 }
 
 String? employeeActionPath(
@@ -136,7 +168,7 @@ String? employeeActionLabel(
     EmployeeRoleKind kind, JsonMap order, int currentUserId) {
   final action = employeeActionPath(kind, order, currentUserId);
   return switch (action) {
-    'accept-delivery' => 'Confirm pickup',
+    'accept-delivery' => 'Accept order',
     'complete-delivery' => 'Upload delivery proof',
     _ => null,
   };

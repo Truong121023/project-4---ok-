@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app/app.dart';
+import '../../app/app_controller.dart';
 import '../../core/models/models.dart';
 import '../../widgets/app_widgets.dart';
 import 'employee_order_detail_screen.dart';
@@ -24,11 +27,38 @@ class _EmployeeNotificationsScreenState
     extends State<EmployeeNotificationsScreen> {
   bool? _filterRead;
   Future<_EmployeeNotificationBundle>? _future;
+  AppController? _controller;
+  int _lastRealtimeTick = 0;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final controller = AppScope.of(context);
+    if (!identical(_controller, controller)) {
+      _controller?.removeListener(_handleControllerChanged);
+      _controller = controller;
+      _lastRealtimeTick = controller.employeeNotificationRealtimeTick;
+      controller.addListener(_handleControllerChanged);
+    }
     _future ??= _load();
+  }
+
+  @override
+  void dispose() {
+    _controller?.removeListener(_handleControllerChanged);
+    super.dispose();
+  }
+
+  void _handleControllerChanged() {
+    final controller = _controller;
+    if (!mounted || controller == null) {
+      return;
+    }
+    if (_lastRealtimeTick == controller.employeeNotificationRealtimeTick) {
+      return;
+    }
+    _lastRealtimeTick = controller.employeeNotificationRealtimeTick;
+    unawaited(_refresh());
   }
 
   Future<_EmployeeNotificationBundle> _load() async {
@@ -36,9 +66,25 @@ class _EmployeeNotificationsScreenState
     final values = await Future.wait<dynamic>([
       controller.loadEmployeeNotifications(page: 0, size: 30, read: _filterRead),
       controller.loadEmployeeNotificationUnreadCount(),
+      controller.loadEmployeeOrders(page: 0, size: 80, mine: true),
     ]);
+    final notifications = (values[0] as AdminListResult).items;
+    final orders = (values[2] as AdminListResult).items;
+    final orderStatusById = <int, String>{
+      for (final order in orders)
+        asInt(order['id']): asString(order['status']).trim().toUpperCase(),
+    };
+    final visibleNotifications = widget.kind == EmployeeRoleKind.shipper
+        ? notifications.where((notification) {
+            final orderId = employeeNotificationOrderId(notification);
+            if (orderId == null) {
+              return true;
+            }
+            return orderStatusById[orderId] != 'COMPLETED';
+          }).toList()
+        : notifications;
     return _EmployeeNotificationBundle(
-      notifications: (values[0] as AdminListResult).items,
+      notifications: employeeSortNotificationsNewest(visibleNotifications),
       unreadCount: values[1] as int,
     );
   }
@@ -138,7 +184,7 @@ class _EmployeeNotificationsScreenState
   @override
   Widget build(BuildContext context) {
     final screenTitle = widget.kind == EmployeeRoleKind.shipper
-        ? 'Pickup inbox'
+        ? 'Delivery inbox'
         : 'Task notifications';
     return Scaffold(
       appBar: AppBar(title: Text(screenTitle)),
@@ -209,7 +255,7 @@ class _EmployeeNotificationsScreenState
                       children: [
                         Text(
                           widget.kind == EmployeeRoleKind.shipper
-                              ? 'New pickup tasks for your route'
+                              ? 'New delivery tasks for your route'
                               : '${data.unreadCount} unread notifications',
                           style: Theme.of(context)
                               .textTheme
@@ -219,7 +265,7 @@ class _EmployeeNotificationsScreenState
                         const SizedBox(height: 6),
                         Text(
                           widget.kind == EmployeeRoleKind.shipper
-                              ? 'When a manager assigns you to an order, it appears here. Open the task, go to the store, and scan the invoice QR to confirm pickup.'
+                              ? 'When a manager assigns you to an order, it appears here. Open the task, review the delivery details, and tap Accept order when you are ready.'
                               : 'Tap a card to open the task quickly and manage its read status.',
                         ),
                         const SizedBox(height: 14),
@@ -240,11 +286,6 @@ class _EmployeeNotificationsScreenState
                                   ? const Color(0xFF17332A)
                                   : const Color(0xFF9A6B1F),
                             ),
-                            if (widget.kind == EmployeeRoleKind.shipper)
-                              const MetricChip(
-                                label: 'Scan required at pickup',
-                                backgroundColor: Color(0xFFE7F1E3),
-                              ),
                           ],
                         ),
                         const SizedBox(height: 14),

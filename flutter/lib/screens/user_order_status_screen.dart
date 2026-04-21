@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../app/app.dart';
 import '../core/models/models.dart';
 import '../core/utils/formatters.dart';
 import '../widgets/app_widgets.dart';
@@ -15,13 +16,14 @@ class UserOrderStatusScreen extends StatelessWidget {
   final MobileOrderQrResolveResponse response;
 
   Future<void> _openExternalUrl(BuildContext context, String? url) async {
-    if (url == null || url.trim().isEmpty) {
+    final resolvedUrl = AppScope.of(context).config.resolveExternalUrl(url);
+    if (resolvedUrl == null || resolvedUrl.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('There is no invoice to open yet.')),
       );
       return;
     }
-    final uri = Uri.tryParse(url);
+    final uri = Uri.tryParse(resolvedUrl);
     if (uri == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('The invoice link is invalid.')),
@@ -31,7 +33,7 @@ class UserOrderStatusScreen extends StatelessWidget {
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not open $url')),
+        SnackBar(content: Text('Could not open $resolvedUrl')),
       );
     }
   }
@@ -106,6 +108,14 @@ class UserOrderStatusScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   if (invoiceNumber.isNotEmpty) Text('Invoice: $invoiceNumber'),
+                  if (asString(order['storePhoneNumber']).isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text('Store phone: ${asString(order['storePhoneNumber'])}'),
+                  ],
+                  if (asString(order['storeAddress']).isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text('Store address: ${asString(order['storeAddress'])}'),
+                  ],
                   if (totalAmount > 0) ...[
                     const SizedBox(height: 8),
                     Text('Total amount: ${Formatters.currency(totalAmount)}'),
@@ -121,6 +131,16 @@ class UserOrderStatusScreen extends StatelessWidget {
                   if (asDateTime(order['createdAt']) != null) ...[
                     const SizedBox(height: 8),
                     Text('Created at: ${Formatters.fullDateTime(asDateTime(order['createdAt'])!)}'),
+                  ],
+                  if (asString(order['cancellationNote']).isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'Cancellation note: ${asString(order['cancellationNote'])}',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: const Color(0xFF9A3412),
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
                   ],
                 ],
               ),

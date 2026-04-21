@@ -120,6 +120,72 @@ class PageResponse<T> {
   final bool hasPrevious;
 }
 
+class AddressSuggestionOption {
+  const AddressSuggestionOption({
+    required this.label,
+    this.secondaryLabel = '',
+    this.placeId = '',
+    this.sessionToken = '',
+    this.source = '',
+    this.latitude,
+    this.longitude,
+    this.normalizedAddress = '',
+  });
+
+  factory AddressSuggestionOption.fromJson(JsonMap json) {
+    return AddressSuggestionOption(
+      label: asString(json['label']),
+      secondaryLabel: asString(json['secondaryLabel']),
+      placeId: asString(json['placeId']),
+      sessionToken: asString(json['sessionToken']),
+      source: asString(json['source']),
+      latitude: json['latitude'] == null ? null : asDouble(json['latitude']),
+      longitude: json['longitude'] == null ? null : asDouble(json['longitude']),
+      normalizedAddress: asString(json['normalizedAddress']),
+    );
+  }
+
+  final String label;
+  final String secondaryLabel;
+  final String placeId;
+  final String sessionToken;
+  final String source;
+  final double? latitude;
+  final double? longitude;
+  final String normalizedAddress;
+
+  bool get hasCoordinates => latitude != null && longitude != null;
+}
+
+class AddressResolveResult {
+  const AddressResolveResult({
+    required this.label,
+    required this.normalizedAddress,
+    required this.latitude,
+    required this.longitude,
+    this.placeId = '',
+    this.source = '',
+  });
+
+  factory AddressResolveResult.fromJson(JsonMap json) {
+    return AddressResolveResult(
+      label: asString(json['label']),
+      normalizedAddress: asString(json['normalizedAddress']),
+      latitude: asDouble(json['latitude']),
+      longitude: asDouble(json['longitude']),
+      placeId: asString(json['placeId']),
+      source: asString(json['source']),
+    );
+  }
+
+  final String label;
+  final String normalizedAddress;
+  final double latitude;
+  final double longitude;
+  final String placeId;
+  final String source;
+}
+
 class ContentSection {
   const ContentSection({
     required this.title,

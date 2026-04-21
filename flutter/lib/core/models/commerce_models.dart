@@ -357,6 +357,12 @@ class OrderSummary {
     required this.totalAmount,
     required this.statusSummary,
     required this.createdAt,
+    this.feedbackId,
+    this.feedbackSubmitted = false,
+    this.feedbackCreatedAt,
+    this.feedbackUpdatedAt,
+    this.feedbackMessage,
+    this.feedbackReplyMessage,
     this.creditPointsAwarded = 0,
     this.promotionCode,
     this.promotionEligibleAmount,
@@ -378,6 +384,12 @@ class OrderSummary {
       totalAmount: asDouble(json['totalAmount']),
       statusSummary: UiText.translate(asString(json['statusSummary'])),
       createdAt: asDateTime(json['createdAt']),
+      feedbackId: asNullableInt(json['feedbackId']),
+      feedbackSubmitted: asBool(json['feedbackSubmitted']),
+      feedbackCreatedAt: asDateTime(json['feedbackCreatedAt']),
+      feedbackUpdatedAt: asDateTime(json['feedbackUpdatedAt']),
+      feedbackMessage: asNullableString(json['feedbackMessage']),
+      feedbackReplyMessage: asNullableString(json['feedbackReplyMessage']),
       creditPointsAwarded: asInt(json['creditPointsAwarded']),
       promotionCode: asNullableString(json['promotionCode']),
       promotionEligibleAmount:
@@ -399,6 +411,12 @@ class OrderSummary {
   final double totalAmount;
   final String statusSummary;
   final DateTime? createdAt;
+  final int? feedbackId;
+  final bool feedbackSubmitted;
+  final DateTime? feedbackCreatedAt;
+  final DateTime? feedbackUpdatedAt;
+  final String? feedbackMessage;
+  final String? feedbackReplyMessage;
   final int creditPointsAwarded;
   final String? promotionCode;
   final double? promotionEligibleAmount;

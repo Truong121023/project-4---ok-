@@ -12,11 +12,7 @@ class PaymentQrSection extends StatefulWidget {
     required this.checkoutUrl,
     required this.expiresAt,
     this.onOpenCheckoutUrl,
-<<<<<<< HEAD
     this.title = 'PayOS payment',
-=======
-    this.title = 'Thanh toan PayOS',
->>>>>>> origin/main
     this.subtitle,
   });
 
@@ -94,7 +90,6 @@ class _PaymentQrSectionState extends State<PaymentQrSection> {
 
     final theme = Theme.of(context);
     final expiresAt = widget.expiresAt;
-<<<<<<< HEAD
     final remaining = expiresAt?.difference(_now);
 
     return Card(
@@ -191,88 +186,10 @@ class _PaymentQrSectionState extends State<PaymentQrSection> {
                     ),
                   ),
                 ],
-=======
-    final remaining = expiresAt == null ? null : expiresAt.difference(_now);
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.title,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            if ((widget.subtitle ?? '').trim().isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(widget.subtitle!),
-            ],
-            if (expiresAt != null) ...[
-              const SizedBox(height: 14),
-              _PaymentStatusPill(
-                label: _isExpired
-                    ? 'Da het han'
-                    : 'Con ${Formatters.countdown(remaining!)}',
-                expired: _isExpired,
-              ),
-              const SizedBox(height: 10),
-              Text('Het han luc ${Formatters.fullDateTime(expiresAt)}'),
-            ],
-            const SizedBox(height: 16),
-            if (_hasQrCode && !_isExpired)
-              Center(
-                child: Column(
-                  children: [
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: theme.colorScheme.outlineVariant,
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(18),
-                        child: QrImageView(
-                          data: widget.qrCode.trim(),
-                          version: QrVersions.auto,
-                          gapless: false,
-                          size: 220,
-                          backgroundColor: Colors.white,
-                          errorStateBuilder: (context, error) {
-                            return const SizedBox(
-                              width: 220,
-                              height: 220,
-                              child: Center(
-                                child: Text(
-                                  'Khong ve duoc ma QR PayOS.',
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Quet ma QR bang app ngan hang de thanh toan.',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
->>>>>>> origin/main
               )
             else
               Text(
                 _isExpired
-<<<<<<< HEAD
                     ? 'This payment link has expired. Refresh the payment to generate a new code if you still want to pay.'
                     : 'The server has not returned a PayOS QR code for this order yet.',
                 textAlign: TextAlign.center,
@@ -289,19 +206,6 @@ class _PaymentQrSectionState extends State<PaymentQrSection> {
                   onPressed: _isExpired ? null : widget.onOpenCheckoutUrl,
                   icon: const Icon(Icons.open_in_browser_outlined),
                   label: const Text('Open payment page'),
-=======
-                    ? 'Link thanh toan da het han. Neu van muon thanh toan, hay refresh payment de lay ma moi.'
-                    : 'Server chua tra ma QR PayOS cho don nay.',
-              ),
-            if (_hasCheckoutUrl) ...[
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _isExpired ? null : widget.onOpenCheckoutUrl,
-                  icon: const Icon(Icons.open_in_browser_outlined),
-                  label: const Text('Thanh toan'),
->>>>>>> origin/main
                 ),
               ),
             ],
@@ -324,19 +228,10 @@ class _PaymentStatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-<<<<<<< HEAD
     final backgroundColor =
         expired ? theme.colorScheme.errorContainer : const Color(0xFFE8F0E0);
     final foregroundColor =
         expired ? theme.colorScheme.onErrorContainer : const Color(0xFF17332A);
-=======
-    final backgroundColor = expired
-        ? theme.colorScheme.errorContainer
-        : const Color(0xFFE8F0E0);
-    final foregroundColor = expired
-        ? theme.colorScheme.onErrorContainer
-        : const Color(0xFF17332A);
->>>>>>> origin/main
 
     return DecoratedBox(
       decoration: BoxDecoration(

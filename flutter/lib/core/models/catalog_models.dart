@@ -213,6 +213,7 @@ class PromotionCard {
     required this.discountValue,
     required this.storeNames,
     required this.applicableDishIds,
+    this.eligibleUserLevelIds = const [],
     this.discountTarget = 'ITEMS',
     this.creditCost = 0,
     this.availableRedemptions = 0,
@@ -240,6 +241,12 @@ class PromotionCard {
           ? null
           : asDouble(json['maxDiscountAmount']),
       storeNames: asStringList(json['storeNames']),
+      eligibleUserLevelIds: (json['eligibleUserLevelIds'] is List)
+          ? (json['eligibleUserLevelIds'] as List)
+              .map((item) => asInt(item))
+              .where((item) => item > 0)
+              .toList()
+          : const [],
       applicableDishIds: (json['applicableDishIds'] is List)
           ? (json['applicableDishIds'] as List)
               .map((item) => asInt(item))
@@ -259,6 +266,7 @@ class PromotionCard {
   final String discountType;
   final String discountTarget;
   final double discountValue;
+  final List<int> eligibleUserLevelIds;
   final int creditCost;
   final int availableRedemptions;
   final double? minOrderAmount;
@@ -270,6 +278,13 @@ class PromotionCard {
 
   bool get isPercentDiscount =>
       discountType.trim().toUpperCase() == 'PERCENT';
+
+  String get normalizedScope {
+    final normalized = scope.trim().toUpperCase();
+    return normalized.isEmpty ? 'ORDER' : normalized;
+  }
+
+  bool get hasMembershipRestriction => eligibleUserLevelIds.isNotEmpty;
 
   String get normalizedDiscountTarget {
     final normalized = discountTarget.trim().toUpperCase();

@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -88,13 +88,14 @@ class _EmployeeOrderDetailScreenState extends State<EmployeeOrderDetailScreen> {
   }
 
   Future<void> _openExternalUrl(String? url) async {
-    if (url == null || url.trim().isEmpty) {
+    final resolvedUrl = AppScope.of(context).config.resolveExternalUrl(url);
+    if (resolvedUrl == null || resolvedUrl.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('The server did not return a link to open yet.')),
       );
       return;
     }
-    final uri = Uri.tryParse(url);
+    final uri = Uri.tryParse(resolvedUrl);
     if (uri == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('The URL is invalid.')),
@@ -104,7 +105,7 @@ class _EmployeeOrderDetailScreenState extends State<EmployeeOrderDetailScreen> {
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not open $url')),
+        SnackBar(content: Text('Could not open $resolvedUrl')),
       );
     }
   }
@@ -136,7 +137,7 @@ class _EmployeeOrderDetailScreenState extends State<EmployeeOrderDetailScreen> {
 
     if ((shipperName == null || shipperName.isEmpty) && shipperId == null) {
       return status == 'READY_FOR_SHIPPER'
-          ? 'The manager has not assigned a shipper to this order yet. It will wait here until a shipper is assigned for pickup.'
+          ? 'The manager has not assigned a shipper to this order yet. It will wait here until a shipper is assigned and the order can be accepted for delivery.'
           : 'No shipper information is available for this order yet.';
     }
 
@@ -146,7 +147,7 @@ class _EmployeeOrderDetailScreenState extends State<EmployeeOrderDetailScreen> {
             : '$shipperName (#$shipperId)'
         : 'Shipper #$shipperId';
     final assignmentSummary = switch (status) {
-      'READY_FOR_SHIPPER' => '$identity has been assigned and is waiting for pickup.',
+      'READY_FOR_SHIPPER' => '$identity has been assigned and is waiting to accept the order.',
       'OUT_FOR_DELIVERY' => '$identity is delivering this order.',
       'COMPLETED' => '$identity completed this delivery successfully.',
       _ => '$identity is currently assigned to this delivery.',
@@ -362,82 +363,8 @@ class _EmployeeOrderDetailScreenState extends State<EmployeeOrderDetailScreen> {
                   ? null
                   : _openGoogleMapsDirections,
             ),
-            if (showDeliveryAssignmentCard) ...[
-              const SizedBox(height: 18),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SectionHeader(
-                        title: 'Delivery assignment',
-                        subtitle:
-                            'See the assigned shipper and the current assignment status here.',
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        _deliveryAssignmentSummary(currentUserId, allowedActions),
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          MetricChip(
-                            label: shipperName == null || shipperName.isEmpty
-                                ? 'No shipper assigned'
-                                : 'Shipper: $shipperName',
-                          ),
-                          if (shipperId != null)
-                            MetricChip(label: 'ID: $shipperId'),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-            const SizedBox(height: 18),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SectionHeader(
-                      title: 'Additional details',
-                      subtitle:
-                          'Invoice access, allowed actions, and delivery proof are grouped below.',
-                    ),
-                    const SizedBox(height: 14),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: allowedActions.isEmpty
-                          ? const [MetricChip(label: 'No actions available')]
-                          : allowedActions
-                              .map((action) => MetricChip(label: action))
-                              .toList(),
-                    ),
-                    if (canViewInvoice) ...[
-                      const SizedBox(height: 14),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () => _openExternalUrl(invoiceUrl),
-                          icon: const Icon(Icons.receipt_long_outlined),
-                          label: const Text('Open invoice'),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
             if (serverProofImagePath != null) ...[
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(20),
@@ -461,7 +388,8 @@ class _EmployeeOrderDetailScreenState extends State<EmployeeOrderDetailScreen> {
                         const SizedBox(height: 12),
                         Text(serverProofNote),
                       ],
-                      if (asDateTime(_order['deliveryProofUploadedAt']) != null) ...[
+                      if (asDateTime(_order['deliveryProofUploadedAt']) !=
+                          null) ...[
                         const SizedBox(height: 8),
                         Text(
                           'Uploaded at ${Formatters.fullDateTime(asDateTime(_order['deliveryProofUploadedAt'])!)}',
@@ -474,7 +402,7 @@ class _EmployeeOrderDetailScreenState extends State<EmployeeOrderDetailScreen> {
             ],
             if (proofRecord?.photoPath != null &&
                 File(proofRecord!.photoPath!).existsSync()) ...[
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(20),
@@ -501,7 +429,7 @@ class _EmployeeOrderDetailScreenState extends State<EmployeeOrderDetailScreen> {
                 ),
               ),
             ],
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
             const SectionHeader(
               title: 'Order timeline',
               subtitle:
@@ -601,14 +529,14 @@ class _EmployeeOrderDetailScreenState extends State<EmployeeOrderDetailScreen> {
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 12),
-                  if (totalAmount > 0) Text('Total: ${Formatters.currency(totalAmount)}'),
+                  if (totalAmount > 0) Text('Tong tien: ${Formatters.currency(totalAmount)}'),
                   if (asString(_order['deliveryFullName']).isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text('Recipient: ${asString(_order['deliveryFullName'])}'),
                   ],
                   if (asString(_order['deliveryPhoneNumber']).isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    Text('Phone: ${asString(_order['deliveryPhoneNumber'])}'),
+                    Text('So dien thoai: ${asString(_order['deliveryPhoneNumber'])}'),
                   ],
                   if (asString(_order['deliveryAddress']).isNotEmpty) ...[
                     const SizedBox(height: 8),
@@ -655,7 +583,7 @@ class _EmployeeOrderDetailScreenState extends State<EmployeeOrderDetailScreen> {
           ),
           if (showDeliveryAssignmentCard) ...[
             const SizedBox(height: 20),
-            const SectionHeader(
+            SectionHeader(
               title: 'Delivery assignment',
               subtitle: 'This assignment is synced directly from the latest employee order response.',
             ),
@@ -689,7 +617,7 @@ class _EmployeeOrderDetailScreenState extends State<EmployeeOrderDetailScreen> {
             ),
           ],
           const SizedBox(height: 20),
-          const SectionHeader(
+          SectionHeader(
             title: 'Available actions',
             subtitle: 'Only valid workflow steps for this order are shown here.',
           ),
@@ -719,7 +647,7 @@ class _EmployeeOrderDetailScreenState extends State<EmployeeOrderDetailScreen> {
           ],
           if (serverProofImagePath != null) ...[
             const SizedBox(height: 20),
-            const SectionHeader(
+            SectionHeader(
               title: 'Delivery proof from server',
               subtitle: 'The delivery proof image has been saved on the system.',
             ),
@@ -753,7 +681,7 @@ class _EmployeeOrderDetailScreenState extends State<EmployeeOrderDetailScreen> {
           ],
           if (proofRecord?.photoPath != null && File(proofRecord!.photoPath!).existsSync()) ...[
             const SizedBox(height: 20),
-            const SectionHeader(
+            SectionHeader(
               title: 'Successful delivery photo',
               subtitle: 'The image is stored on the device after the order is completed.',
             ),
@@ -1171,3 +1099,4 @@ class _ShipperOrderActionBar extends StatelessWidget {
     );
   }
 }
+

@@ -69,13 +69,14 @@ class _OrderQrStatusScreenState extends State<OrderQrStatusScreen> {
   }
 
   Future<void> _openExternalUrl(String? url) async {
-    if (url == null || url.trim().isEmpty) {
+    final resolvedUrl = AppScope.of(context).config.resolveExternalUrl(url);
+    if (resolvedUrl == null || resolvedUrl.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('The server did not return a link to open yet.')),
       );
       return;
     }
-    final uri = Uri.tryParse(url);
+    final uri = Uri.tryParse(resolvedUrl);
     if (uri == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('The URL is invalid.')),
@@ -85,7 +86,7 @@ class _OrderQrStatusScreenState extends State<OrderQrStatusScreen> {
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not open $url')),
+        SnackBar(content: Text('Could not open $resolvedUrl')),
       );
     }
   }

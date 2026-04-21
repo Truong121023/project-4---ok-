@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app/app.dart';
+import '../../app/app_controller.dart';
 import '../../core/models/models.dart';
 import '../../core/utils/formatters.dart';
 import '../../widgets/app_widgets.dart';
@@ -22,11 +25,38 @@ class EmployeeCompletedOrdersScreen extends StatefulWidget {
 
 class _EmployeeCompletedOrdersScreenState extends State<EmployeeCompletedOrdersScreen> {
   Future<AdminListResult>? _future;
+  AppController? _controller;
+  int _lastRealtimeTick = 0;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final controller = AppScope.of(context);
+    if (!identical(_controller, controller)) {
+      _controller?.removeListener(_handleControllerChanged);
+      _controller = controller;
+      _lastRealtimeTick = controller.employeeOrderRealtimeTick;
+      controller.addListener(_handleControllerChanged);
+    }
     _future ??= _load();
+  }
+
+  @override
+  void dispose() {
+    _controller?.removeListener(_handleControllerChanged);
+    super.dispose();
+  }
+
+  void _handleControllerChanged() {
+    final controller = _controller;
+    if (!mounted || controller == null) {
+      return;
+    }
+    if (_lastRealtimeTick == controller.employeeOrderRealtimeTick) {
+      return;
+    }
+    _lastRealtimeTick = controller.employeeOrderRealtimeTick;
+    unawaited(_refresh());
   }
 
   Future<AdminListResult> _load() {

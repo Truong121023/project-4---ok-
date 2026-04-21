@@ -85,7 +85,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     },
                   )
                 else ...[
-<<<<<<< HEAD
                   _ProfileHeroCard(
                     fullName: session.user.fullName,
                     email: session.user.email,
@@ -94,45 +93,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     cartItems: controller.cart.totalItems,
                     creditPoints: session.user.creditPoints,
                     onLogout: controller.logout,
-=======
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            session.user.fullName,
-                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(session.user.email),
-                          const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              MetricChip(label: session.user.verified ? 'Verified' : 'Cho verify'),
-                              MetricChip(label: '${controller.orders.length} don'),
-                              MetricChip(label: '${controller.cart.totalItems} sp trong cart'),
-                              MetricChip(label: '${session.user.creditPoints} credit'),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton(
-                                  onPressed: controller.logout,
-                                  child: const Text('Dang xuat'),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
->>>>>>> origin/main
                   ),
                   const SizedBox(height: 24),
                   const SectionHeader(
@@ -187,9 +147,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 12),
                   ActionMenuCard(
                     icon: Icons.feedback_outlined,
-                    title: 'Feedback',
+                    title: 'Order feedback',
                     subtitle:
-                        'Send feedback about stores, delivery, or the app and follow the team response.',
+                        'Review completed-order feedback and store replies in one place.',
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
@@ -222,14 +182,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 12),
                   ActionMenuCard(
                     icon: Icons.workspace_premium_outlined,
-<<<<<<< HEAD
                     title: 'Membership and credits',
                     subtitle:
                         'View voucher credits and membership progress for your account.',
-=======
-                    title: 'Loyalty levels',
-                    subtitle: 'Xem muc level hien tai theo tung store de biet quyen dung voucher va nguong chi tieu.',
->>>>>>> origin/main
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(

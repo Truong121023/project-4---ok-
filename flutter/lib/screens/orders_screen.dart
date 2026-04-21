@@ -338,6 +338,12 @@ class _UserOrderListCard extends StatelessWidget {
                 runSpacing: 8,
                 children: [
                   MetricChip(label: order.status),
+                  if (order.status.toUpperCase() == 'COMPLETED' &&
+                      order.paymentStatus.toUpperCase() == 'PAID')
+                    MetricChip(
+                      label:
+                          order.feedbackSubmitted ? 'Feedback sent' : 'Feedback available',
+                    ),
                   if (order.creditPointsAwarded > 0)
                     MetricChip(label: '+${order.creditPointsAwarded} credits'),
                   MetricChip(label: Formatters.shortDate(order.createdAt)),

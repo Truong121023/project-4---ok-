@@ -191,7 +191,6 @@ class _LoyaltyLevelsScreenState extends State<LoyaltyLevelsScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
                     children: [
-<<<<<<< HEAD
                       const SoftInfoBanner(
                         message:
                             'Credits and membership are separate systems. Every 1,000 VND paid adds 1 credit point and 1 membership point.',
@@ -215,72 +214,6 @@ class _LoyaltyLevelsScreenState extends State<LoyaltyLevelsScreen> {
                         membershipPoints: membershipPoints,
                         currentLevel: currentLevel,
                         levelDefinitions: data.levelDefinitions,
-=======
-                      const EmptyStateCard(
-                        title: 'Level membership theo store',
-                        message: 'Frontend co the hien thi badge va goi y voucher theo level, nhung backend van la noi quyet dinh cuoi cung luc checkout.',
-                      ),
-                      const SizedBox(height: 12),
-                      ...items.map(
-                        (level) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Card(
-                            child: InkWell(
-                              onTap: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => StoreDetailScreen(
-                                      storeKey: level.storeSlug.isEmpty ? level.storeId.toString() : level.storeSlug,
-                                    ),
-                                  ),
-                                );
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            level.storeName,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .titleMedium
-                                                ?.copyWith(fontWeight: FontWeight.w800),
-                                          ),
-                                        ),
-                                        MetricChip(
-                                          label: level.levelCode ?? level.levelName ?? 'Chua dat level',
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 10),
-                                    if (level.levelName != null) Text('Muc hien tai: ${level.levelName}'),
-                                    if (level.levelName != null) const SizedBox(height: 6),
-                                    Text(
-                                      'So tien xet level: ${Formatters.currency(level.qualifyingPaidAmount)}',
-                                    ),
-                                    const SizedBox(height: 6),
-                                    if (level.levelMinPaidAmount != null)
-                                      Text('Nguong toi thieu: ${Formatters.currency(level.levelMinPaidAmount!)}'),
-                                    const SizedBox(height: 10),
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 8,
-                                      children: [
-                                        MetricChip(label: 'Q${level.currentQuarter}/${level.currentYear}'),
-                                        MetricChip(label: 'Xet tu Q${level.evaluatedQuarter}/${level.evaluatedYear}'),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
->>>>>>> origin/main
                       ),
                     ],
                   ),

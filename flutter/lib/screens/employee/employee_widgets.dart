@@ -110,10 +110,6 @@ class EmployeeNotificationCard extends StatelessWidget {
     final storeName = asString(notification['relatedStoreName']).trim();
     final title = asString(notification['title'], 'Notification');
     final message = asString(notification['message']).trim();
-    final combinedText = '${title.toLowerCase()} ${message.toLowerCase()}';
-    final requiresPickupScan =
-        kind == EmployeeRoleKind.shipper &&
-        (combinedText.contains('pickup') || combinedText.contains('scan'));
 
     if (kind == EmployeeRoleKind.shipper) {
       return Card(
@@ -188,12 +184,6 @@ class EmployeeNotificationCard extends StatelessWidget {
                   children: [
                     if (orderId != null) MetricChip(label: 'Order #$orderId'),
                     if (storeName.isNotEmpty) MetricChip(label: storeName),
-                    if (requiresPickupScan)
-                      const MetricChip(
-                        label: 'Scan to confirm pickup',
-                        backgroundColor: Color(0xFFFFEED8),
-                        foregroundColor: Color(0xFF9A6B1F),
-                      ),
                     if (createdAt != null)
                       MetricChip(
                         label: Formatters.fullDateTime(createdAt),
@@ -214,7 +204,7 @@ class EmployeeNotificationCard extends StatelessWidget {
                     Expanded(
                       child: FilledButton(
                         onPressed: onTap,
-                        child: Text(requiresPickupScan ? 'Open pickup' : 'Open order'),
+                        child: const Text('Open order'),
                       ),
                     ),
                   ],
@@ -265,7 +255,7 @@ class EmployeeNotificationCard extends StatelessWidget {
         ),
         trailing: FilledButton.tonal(
           onPressed: onToggleRead,
-          child: Text(read ? 'Mark unread' : 'Mark read'),
+          child: Text(read ? 'Unread' : 'Read'),
         ),
         isThreeLine: true,
         onTap: onTap,

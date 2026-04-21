@@ -108,6 +108,21 @@ class AppConfig {
     return '$normalizedAssetBaseUrl$normalizedPath';
   }
 
+  String? resolveExternalUrl(String? url) {
+    if (url == null || url.trim().isEmpty) {
+      return null;
+    }
+
+    final trimmed = url.trim();
+    final parsed = Uri.tryParse(trimmed);
+    if (parsed != null && parsed.hasScheme) {
+      return trimmed;
+    }
+
+    final normalizedPath = trimmed.startsWith('/') ? trimmed : '/$trimmed';
+    return '$normalizedBaseUrl$normalizedPath';
+  }
+
   static Future<Map<String, String>> _loadDotEnv() async {
     try {
       final raw = await rootBundle.loadString('.env');
