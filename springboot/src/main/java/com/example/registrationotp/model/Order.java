@@ -103,6 +103,16 @@ public class Order {
 	@Column(name = "confirmed_at")
 	private Instant confirmedAt;
 
+	@ManyToOne(fetch = FetchType.EAGER)
+	@JoinColumn(name = "cancelled_by_user_id")
+	private User cancelledByUser;
+
+	@Column(name = "cancelled_at")
+	private Instant cancelledAt;
+
+	@Column(name = "cancellation_note", length = 500)
+	private String cancellationNote;
+
 	@Column(name = "payment_provider", length = 30)
 	private String paymentProvider;
 
@@ -353,6 +363,30 @@ public class Order {
 
 	public void setConfirmedAt(Instant confirmedAt) {
 		this.confirmedAt = confirmedAt;
+	}
+
+	public User getCancelledByUser() {
+		return cancelledByUser;
+	}
+
+	public void setCancelledByUser(User cancelledByUser) {
+		this.cancelledByUser = cancelledByUser;
+	}
+
+	public Instant getCancelledAt() {
+		return cancelledAt;
+	}
+
+	public void setCancelledAt(Instant cancelledAt) {
+		this.cancelledAt = cancelledAt;
+	}
+
+	public String getCancellationNote() {
+		return cancellationNote;
+	}
+
+	public void setCancellationNote(String cancellationNote) {
+		this.cancellationNote = cancellationNote;
 	}
 
 	public String getPaymentProvider() {

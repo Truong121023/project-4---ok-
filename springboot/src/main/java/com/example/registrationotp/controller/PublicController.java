@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.registrationotp.dto.OrderInvoiceDocument;
 import com.example.registrationotp.dto.PageResponse;
+import com.example.registrationotp.dto.PublicAddressResolveResponse;
+import com.example.registrationotp.dto.PublicAddressSuggestionResponse;
 import com.example.registrationotp.dto.PublicDishCardResponse;
 import com.example.registrationotp.dto.PublicDishDetailResponse;
 import com.example.registrationotp.dto.PublicEventCardResponse;
@@ -22,6 +24,7 @@ import com.example.registrationotp.dto.PublicReviewItemResponse;
 import com.example.registrationotp.dto.PublicStoreCardResponse;
 import com.example.registrationotp.dto.PublicStoreDetailResponse;
 import com.example.registrationotp.model.ReviewTargetType;
+import com.example.registrationotp.service.AddressLookupService;
 import com.example.registrationotp.service.OrderService;
 import com.example.registrationotp.service.PublicService;
 
@@ -31,10 +34,16 @@ public class PublicController {
 
 	private final PublicService publicService;
 	private final OrderService orderService;
+	private final AddressLookupService addressLookupService;
 
-	public PublicController(PublicService publicService, OrderService orderService) {
+	public PublicController(
+			PublicService publicService,
+			OrderService orderService,
+			AddressLookupService addressLookupService
+	) {
 		this.publicService = publicService;
 		this.orderService = orderService;
+		this.addressLookupService = addressLookupService;
 	}
 
 	@GetMapping("/home")
@@ -129,6 +138,24 @@ public class PublicController {
 			@RequestParam(defaultValue = "10") int size
 	) {
 		return ResponseEntity.ok(publicService.listReviews(targetType, targetId, sort, page, size));
+	}
+
+	@GetMapping("/address-suggestions")
+	public ResponseEntity<java.util.List<PublicAddressSuggestionResponse>> suggestAddresses(
+			@RequestParam String input,
+			@RequestParam(required = false) String sessionToken,
+			@RequestParam(defaultValue = "5") int limit
+	) {
+		return ResponseEntity.ok(addressLookupService.suggestAddresses(input, sessionToken, limit));
+	}
+
+	@GetMapping("/address-resolve")
+	public ResponseEntity<PublicAddressResolveResponse> resolveAddress(
+			@RequestParam(required = false) String input,
+			@RequestParam(required = false) String placeId,
+			@RequestParam(required = false) String sessionToken
+	) {
+		return ResponseEntity.ok(addressLookupService.resolveAddress(input, placeId, sessionToken));
 	}
 
 	@GetMapping(value = "/order-qr/{token}", produces = MediaType.TEXT_HTML_VALUE)

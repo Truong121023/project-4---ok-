@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import com.example.registrationotp.dto.MessageResponse;
 import com.example.registrationotp.dto.PageResponse;
@@ -46,17 +47,20 @@ public class NotificationService {
 	private final UserNotificationRepository userNotificationRepository;
 	private final UserRepository userRepository;
 	private final OrderItemRepository orderItemRepository;
+	private final AppRealtimeService appRealtimeService;
 
 	public NotificationService(
 			SessionAuthService sessionAuthService,
 			UserNotificationRepository userNotificationRepository,
 			UserRepository userRepository,
-			OrderItemRepository orderItemRepository
+			OrderItemRepository orderItemRepository,
+			AppRealtimeService appRealtimeService
 	) {
 		this.sessionAuthService = sessionAuthService;
 		this.userNotificationRepository = userNotificationRepository;
 		this.userRepository = userRepository;
 		this.orderItemRepository = orderItemRepository;
+		this.appRealtimeService = appRealtimeService;
 	}
 
 	@Transactional(readOnly = true)
@@ -191,7 +195,7 @@ public class NotificationService {
 			}
 			notifications.add(notification);
 		}
-		userNotificationRepository.saveAll(notifications);
+		saveNotifications(notifications);
 	}
 
 	@Transactional
@@ -229,7 +233,7 @@ public class NotificationService {
 			}
 			notifications.add(notification);
 		}
-		userNotificationRepository.saveAll(notifications);
+		saveNotifications(notifications);
 	}
 
 	@Transactional
@@ -284,7 +288,7 @@ public class NotificationService {
 			notification.setActionUrl("/admin/orders/" + order.getId());
 			notifications.add(notification);
 		}
-		userNotificationRepository.saveAll(notifications);
+		saveNotifications(notifications);
 	}
 
 	@Transactional
@@ -330,11 +334,11 @@ public class NotificationService {
 			return;
 		}
 
-		String title = "Pickup ready for order #%d".formatted(order.getId());
+		String title = "Delivery task ready for order #%d".formatted(order.getId());
 		String message = order.getDeliveringShipper() != null
-				? "The manager assigned you to order #%d at %s. Go to the store and scan the invoice QR to confirm pickup before delivery."
+				? "The manager assigned you to order #%d at %s. Open the task, review the delivery details, and tap Accept order when you are ready to take the delivery."
 						.formatted(order.getId(), resolveOrderStoreName(order))
-				: "Order #%d at %s is ready for pickup. Open the task and scan the invoice QR at the store to confirm pickup."
+				: "Order #%d at %s is ready for delivery. Open the task and tap Accept order when you are ready to start the route."
 						.formatted(order.getId(), resolveOrderStoreName(order));
 		createOrderTaskNotifications(recipients, order, title, message, "/employee/orders/" + order.getId());
 	}
@@ -352,7 +356,7 @@ public class NotificationService {
 			notification.setRelatedStoreName(orderStore.storeName());
 		});
 
-		userNotificationRepository.save(notification);
+		saveNotification(notification);
 	}
 
 	private void createOrderTaskNotifications(
@@ -378,12 +382,18 @@ public class NotificationService {
 			});
 			notifications.add(notification);
 		}
-		userNotificationRepository.saveAll(notifications);
+		saveNotifications(notifications);
 	}
 
 	private String buildOrderStatusMessage(Order order) {
 		Long orderId = order.getId();
 		if (order.getStatus() == OrderStatus.CANCELLED || order.getPaymentStatus() == PaymentStatus.CANCELLED) {
+			if (StringUtils.hasText(order.getCancellationNote())) {
+				return "Order #%d has been cancelled. Note from the store: %s".formatted(
+						orderId,
+						order.getCancellationNote().trim()
+				);
+			}
 			return "Order #%d has been cancelled.".formatted(orderId);
 		}
 		if (order.getPaymentStatus() == PaymentStatus.FAILED) {
@@ -396,7 +406,7 @@ public class NotificationService {
 			case PENDING -> "Order #%d has been paid successfully and is waiting for the store manager to confirm it.".formatted(orderId);
 			case CONFIRMED -> "Order #%d has been confirmed by the store and is moving into processing.".formatted(orderId);
 			case PREPARING -> "Order #%d is being prepared by the store.".formatted(orderId);
-			case READY_FOR_SHIPPER -> "Order #%d is ready and waiting for the assigned shipper to pick it up.".formatted(orderId);
+			case READY_FOR_SHIPPER -> "Order #%d is ready and waiting for the assigned shipper to accept it for delivery.".formatted(orderId);
 			case OUT_FOR_DELIVERY -> "Order #%d is on the way to you.".formatted(orderId);
 			case COMPLETED -> "Order #%d has been delivered successfully.".formatted(orderId);
 			case CANCELLED -> "Order #%d has been cancelled.".formatted(orderId);
@@ -474,7 +484,7 @@ public class NotificationService {
 		UserNotification notification = findOwnedNotification(id, user.getId());
 		if (notification.getReadAt() == null) {
 			notification.setReadAt(Instant.now());
-			userNotificationRepository.save(notification);
+			saveNotification(notification);
 		}
 		return UserNotificationResponse.from(notification);
 	}
@@ -482,7 +492,7 @@ public class NotificationService {
 	private UserNotificationResponse markAsUnread(User user, Long id) {
 		UserNotification notification = findOwnedNotification(id, user.getId());
 		notification.setReadAt(null);
-		return UserNotificationResponse.from(userNotificationRepository.save(notification));
+		return UserNotificationResponse.from(saveNotification(notification));
 	}
 
 	private MessageResponse markAllAsRead(User user) {
@@ -495,8 +505,20 @@ public class NotificationService {
 		for (UserNotification notification : unreadNotifications) {
 			notification.setReadAt(readAt);
 		}
-		userNotificationRepository.saveAll(unreadNotifications);
+		saveNotifications(unreadNotifications);
 		return new MessageResponse("Marked %d notification(s) as read".formatted(unreadNotifications.size()));
+	}
+
+	private UserNotification saveNotification(UserNotification notification) {
+		UserNotification saved = userNotificationRepository.save(notification);
+		appRealtimeService.publishNotificationStateChanged(saved.getUser(), saved.getId());
+		return saved;
+	}
+
+	private List<UserNotification> saveNotifications(List<UserNotification> notifications) {
+		List<UserNotification> savedNotifications = userNotificationRepository.saveAll(notifications);
+		appRealtimeService.publishNotificationUpdates(savedNotifications);
+		return savedNotifications;
 	}
 
 	private User requireBuyerUser(String authorizationHeader) {

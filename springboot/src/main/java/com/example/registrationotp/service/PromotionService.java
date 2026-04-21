@@ -143,23 +143,6 @@ public class PromotionService {
 		} catch (BadRequestException exception) {
 			return new PromotionCalculation(promotion, BigDecimal.ZERO, BigDecimal.ZERO, false);
 		}
-if (hasMultipleStores(cartItems)) {
-		StoreCheckoutContext context = new StoreCheckoutContext(
-				cartItems.isEmpty() ? null : cartItems.get(0).getStore(),
-				cartItems,
-				calculateSubtotal(cartItems),
-				null
-		);
-		CheckoutPromotionPlan checkoutPlan = planPromotionForCheckout(promotion, List.of(context));
-		StorePromotionAllocation allocation = checkoutPlan.storeAllocations().isEmpty()
-				? new StorePromotionAllocation(context.store(), context.subtotalAmount(), BigDecimal.ZERO, BigDecimal.ZERO, false, List.of(), true, null)
-				: checkoutPlan.storeAllocations().get(0);
-		return new PromotionCalculation(
-				promotion,
-				allocation.eligibleAmount(),
-				allocation.discountAmount(),
-				allocation.applicable()
-		);
 	}
 
 	@Transactional(readOnly = true)
@@ -212,35 +195,16 @@ if (hasMultipleStores(cartItems)) {
 		User user = requireBuyerUser(authorizationHeader);
 		Promotion promotion = findPromotion(promotionId);
 		validatePromotionAvailability(promotion);
-		int creditCost = resolveCreditCost(promotion);
-		if (creditCost <= 0) {
-			throw new BadRequestException("This voucher does not require credit redemption");
-		}
 		List<Long> currentLevelIds = resolveCurrentUserLevelIds(user);
 		if (!matchesUserLevel(promotion, currentLevelIds)) {
-			throw new BadRequestException("Your current membership level is not eligible to redeem this voucher");
+			throw new BadRequestException("Your current membership level is not eligible for this voucher");
 		}
-		if (user.getCreditPoints() < creditCost) {
-			throw new BadRequestException("You do not have enough credits to redeem this voucher");
-		}
-		user.setCreditPoints(user.getCreditPoints() - creditCost);
-		userRepository.save(user);
-
-		UserPromotionRedemption redemption = new UserPromotionRedemption();
-		redemption.setUser(user);
-		redemption.setPromotion(promotion);
-		redemption.setCreditCost(creditCost);
-		redemption.setRedeemedAt(Instant.now());
-		userPromotionRedemptionRepository.save(redemption);
-
-		int availableRedemptions = (int) userPromotionRedemptionRepository
-				.countByUserIdAndPromotionIdAndUsedAtIsNull(user.getId(), promotion.getId());
 		return new UserVoucherRedeemResponse(
-				"Voucher redeemed successfully",
+				"Voucher redemption is no longer required. Apply the code directly at checkout.",
 				promotion.getId(),
 				promotion.getCode(),
 				user.getCreditPoints(),
-				availableRedemptions
+				0
 		);
 	}
 
@@ -352,28 +316,11 @@ if (hasMultipleStores(cartItems)) {
 		} catch (BadRequestException exception) {
 			return new PromotionCalculation(promotion, BigDecimal.ZERO, BigDecimal.ZERO, false);
 		}
-if (hasMultipleStores(cartItems)) {
-		StoreCheckoutContext context = new StoreCheckoutContext(
-				cartItems.isEmpty() ? null : cartItems.get(0).getStore(),
-				cartItems,
-				calculateSubtotal(cartItems),
-				null
-		);
-		StorePromotionAllocation allocation = buildStoreAllocationCandidate(promotion, context);
-		return new PromotionCalculation(
-				promotion,
-				allocation.eligibleAmount(),
-				allocation.applicable() ? calculateDiscountAmount(promotion, allocation.eligibleAmount()) : BigDecimal.ZERO,
-				allocation.applicable()
-		);
 	}
 
 	public CheckoutPromotionPlan planPromotionForCheckout(Promotion promotion, List<StoreCheckoutContext> contexts) {
 		if (promotion == null) {
 			return new CheckoutPromotionPlan(null, List.of(), BigDecimal.ZERO, BigDecimal.ZERO, false);
-		}
-		if (contexts.size() > 1) {
-			throw new BadRequestException("Promotion code can only be applied to one store bill per checkout");
 		}
 		List<StorePromotionAllocation> candidates = contexts.stream()
 				.map(context -> buildStoreAllocationCandidate(promotion, context))
@@ -455,27 +402,26 @@ if (hasMultipleStores(cartItems)) {
 	}
 
 	private void applyRequest(Promotion promotion, PromotionRequest request, String normalizedCode) {
-		List<Long> normalizedDishIds = resolveDishIds(request);
 		List<Long> normalizedUserLevelIds = normalizeIds(request.eligibleUserLevelIds(), "eligibleUserLevelIds");
 		BigDecimal resolvedMinOrderAmount = resolveAmount("minOrderAmount", request.minOrderAmount(), request.minimumOrderAmount());
 		BigDecimal resolvedMaxDiscountAmount = resolveAmount("maxDiscountAmount", request.maxDiscountAmount(), request.maximumDiscountAmount());
-		validateRequest(request, normalizedDishIds, normalizedUserLevelIds, resolvedMinOrderAmount, resolvedMaxDiscountAmount);
+		validateRequest(request, normalizedUserLevelIds, resolvedMinOrderAmount, resolvedMaxDiscountAmount);
 		promotion.setCode(normalizedCode);
 		promotion.setName(resolveName(request, normalizedCode));
 		promotion.setDescription(StringUtils.hasText(request.description()) ? request.description().trim() : null);
 		promotion.setScope(request.scope());
-		promotion.setDiscountType(request.discountType());
-		promotion.setDiscountTarget(request.discountTarget() == null ? PromotionDiscountTarget.ITEMS : request.discountTarget());
+		promotion.setDiscountType(PromotionDiscountType.PERCENT);
+		promotion.setDiscountTarget(request.scope().discountTarget());
 		promotion.setDiscountValue(request.discountValue());
 		promotion.setMinOrderAmount(resolvedMinOrderAmount);
 		promotion.setMaxDiscountAmount(resolvedMaxDiscountAmount);
-		promotion.setCreditCost(request.creditCost());
+		promotion.setCreditCost(0);
 		promotion.setMinStoreBillAmount(null);
 		promotion.setMinCrossStoreBillAmount(null);
 		promotion.setUsageLimit(request.usageLimit());
 		promotion.setStartsAt(request.startsAt());
 		promotion.setEndsAt(request.endsAt());
-		promotion.setApplicableDishIds(normalizedDishIds);
+		promotion.setApplicableDishIds(List.of());
 		promotion.setEligibleStoreIds(List.of());
 		promotion.setEligibleUserLevelIds(normalizedUserLevelIds);
 		promotion.setActive(request.active());
@@ -483,19 +429,12 @@ if (hasMultipleStores(cartItems)) {
 
 	private void validateRequest(
 			PromotionRequest request,
-			List<Long> normalizedDishIds,
 			List<Long> normalizedUserLevelIds,
 			BigDecimal resolvedMinOrderAmount,
 			BigDecimal resolvedMaxDiscountAmount
 	) {
-		BigDecimal resolvedCrossStoreBillAmount = normalizeCrossStoreBillAmount(request.minCrossStoreBillAmount());
 		if (request.usageLimit() != null && request.usageLimit() < 0) {
 			throw new BadRequestException("usageLimit must be at least 0");
-		}
-		if (request.creditCost() != null && request.creditCost() < 0) {
-			throw new BadRequestException("creditCost must be at least 0");
-if (resolvedCrossStoreBillAmount != null) {
-			throw new BadRequestException("minCrossStoreBillAmount is not supported because promotions only apply to one store bill");
 		}
 		if (request.startsAt() != null && request.endsAt() != null && request.endsAt().isBefore(request.startsAt())) {
 			throw new BadRequestException("endsAt must be after startsAt");
@@ -510,28 +449,17 @@ if (resolvedCrossStoreBillAmount != null) {
 				&& request.discountValue().compareTo(BigDecimal.valueOf(100)) > 0) {
 			throw new BadRequestException("discountValue must be at most 100 for percentage promotions");
 		}
+		if (request.discountType() != null && request.discountType() != PromotionDiscountType.PERCENT) {
+			throw new BadRequestException("Only percentage vouchers are supported");
+		}
 		List<com.example.registrationotp.model.UserLevelDefinition> userLevels = normalizedUserLevelIds.isEmpty()
 				? List.of()
 				: userLevelDefinitionRepository.findAllById(normalizedUserLevelIds);
 		if (userLevels.size() != normalizedUserLevelIds.size()) {
 			throw new NotFoundException("One or more eligible user levels were not found");
 		}
-		if (request.scope() == PromotionScope.DISH) {
-			if (normalizedDishIds.isEmpty()) {
-				throw new BadRequestException("promotionDishIds or applicableDishIds is required when scope is DISH");
-			}
-			List<Dish> applicableDishes = dishRepository.findAllById(normalizedDishIds);
-			if (applicableDishes.size() != normalizedDishIds.size()) {
-				throw new NotFoundException("One or more applicable dishes were not found");
-			}
-			boolean hasNonSignatureDish = applicableDishes.stream().anyMatch(dish -> !isSignatureDish(dish));
-			if (hasNonSignatureDish) {
-				throw new BadRequestException("promotionDishIds or applicableDishIds can only contain SIGNATURE dishes");
-			}
-			return;
-		}
-		if (!normalizedDishIds.isEmpty()) {
-			throw new BadRequestException("promotionDishIds or applicableDishIds is only allowed when scope is DISH");
+		if (request.scope() == null) {
+			throw new BadRequestException("scope is required");
 		}
 	}
 
@@ -573,55 +501,27 @@ if (resolvedCrossStoreBillAmount != null) {
 		if (!anyLevelMatched) {
 			return "Your current membership level does not qualify for this voucher";
 		}
-		if (promotion.getScope() == PromotionScope.DISH && totalEligibleAmount.compareTo(BigDecimal.ZERO) <= 0) {
-			return "This voucher only works with matching signature items in your cart";
-		}
-		if (promotion.getScope() == PromotionScope.ORDER && totalEligibleAmount.compareTo(BigDecimal.ZERO) <= 0) {
-			return "This voucher only works when your cart includes eligible signature items";
-		}
-		if (promotion.getDiscountTarget() == PromotionDiscountTarget.SHIPPING
+		if (promotion.getScope() == PromotionScope.SHIP
 				&& totalDiscountableAmount.compareTo(BigDecimal.ZERO) <= 0) {
 			return "This voucher only applies when the order has a shipping fee";
 		}
 		if (promotion.getMinOrderAmount() != null && totalEligibleAmount.compareTo(promotion.getMinOrderAmount()) < 0) {
-boolean hasStoreSpecialtyItems = allocations.stream()
-				.anyMatch(StorePromotionAllocation::containsStoreSpecialtyItems);
-		if (hasStoreSpecialtyItems) {
-			return "Promotion code only applies to SIGNATURE dishes and cannot be used with store specialty dishes";
-		if (promotion.getScope() == PromotionScope.DISH && maxEligibleAmount.compareTo(BigDecimal.ZERO) <= 0) {
-			return "Promotion code does not apply to any dish in the cart";
-		if (promotion.getScope() == PromotionScope.ORDER && maxEligibleAmount.compareTo(BigDecimal.ZERO) <= 0) {
-			return "Promotion code only applies to SIGNATURE dishes";
-		if (promotion.getMinOrderAmount() != null && maxEligibleAmount.compareTo(promotion.getMinOrderAmount()) < 0) {
-			if (promotion.getScope() == PromotionScope.DISH) {
-				return "The eligible signature item total does not reach the minimum amount for this voucher";
-			}
-			return "The eligible signature subtotal does not reach the minimum amount for this voucher";
+			return "The order subtotal does not reach the minimum amount for this voucher";
 		}
 		return "This voucher is not applicable to the current checkout";
 	}
 
 	private BigDecimal calculateEligibleAmount(Promotion promotion, List<CartItem> cartItems) {
-		if (promotion.getScope() == PromotionScope.ORDER) {
-			return calculateSignatureAmount(cartItems);
-		}
-		Set<Long> applicableDishIds = Set.copyOf(promotion.getApplicableDishIds());
-		return cartItems.stream()
-				.filter(item -> isSignatureDish(item.getDish()))
-				.filter(item -> applicableDishIds.contains(item.getDish().getId()))
-				.map(item -> item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
-				.reduce(BigDecimal.ZERO, BigDecimal::add);
+		return calculateSubtotal(cartItems);
 	}
 
 	private List<Long> calculateMatchedDishIds(Promotion promotion, List<CartItem> cartItems) {
 		if (promotion.getScope() != PromotionScope.DISH) {
 			return List.of();
 		}
-		Set<Long> applicableDishIds = Set.copyOf(promotion.getApplicableDishIds());
 		return cartItems.stream()
-				.filter(item -> isSignatureDish(item.getDish()))
 				.map(item -> item.getDish().getId())
-				.filter(applicableDishIds::contains)
+				.filter(id -> id != null)
 				.distinct()
 				.toList();
 	}
@@ -638,23 +538,6 @@ boolean hasStoreSpecialtyItems = allocations.stream()
 		);
 		boolean applicable = levelMatched
 				&& discountableAmount.compareTo(BigDecimal.ZERO) > 0;
-boolean containsStoreSpecialtyItems = context.cartItems().stream()
-				.anyMatch(item -> !isSignatureDish(item.getDish()));
-		boolean storeMatched = context.store() != null
-				&& (promotion.getEligibleStoreIds().isEmpty() || promotion.getEligibleStoreIds().contains(context.store().getId()));
-		boolean levelMatched = promotion.getEligibleUserLevelIds().isEmpty()
-				|| (context.currentUserLevelId() != null && promotion.getEligibleUserLevelIds().contains(context.currentUserLevelId()));
-		boolean storeBillMatched = promotion.getMinStoreBillAmount() == null
-				|| context.subtotalAmount().compareTo(promotion.getMinStoreBillAmount()) >= 0;
-		boolean eligibleAmountMatched = promotion.getMinOrderAmount() == null
-				|| eligibleAmount.compareTo(promotion.getMinOrderAmount()) >= 0;
-		boolean scopeMatched = promotion.getScope() != PromotionScope.DISH || eligibleAmount.compareTo(BigDecimal.ZERO) > 0;
-		boolean applicable = storeMatched
-				&& levelMatched
-				&& storeBillMatched
-				&& eligibleAmountMatched
-				&& scopeMatched
-				&& !containsStoreSpecialtyItems;
 		return new StorePromotionAllocation(
 				context.store(),
 				context.subtotalAmount(),
@@ -665,8 +548,6 @@ boolean containsStoreSpecialtyItems = context.cartItems().stream()
 				applicable,
 				matchedDishIds,
 				levelMatched
-containsStoreSpecialtyItems,
-				context.currentUserLevelId()
 		);
 	}
 
@@ -726,10 +607,10 @@ containsStoreSpecialtyItems,
 	) {
 		BigDecimal safeEligibleAmount = eligibleAmount == null ? BigDecimal.ZERO : eligibleAmount.max(BigDecimal.ZERO);
 		BigDecimal safeShippingFeeAmount = shippingFeeAmount == null ? BigDecimal.ZERO : shippingFeeAmount.max(BigDecimal.ZERO);
-		return switch (promotion.getDiscountTarget()) {
-			case SHIPPING -> safeShippingFeeAmount;
-			case BOTH -> safeEligibleAmount.add(safeShippingFeeAmount);
-			case ITEMS -> safeEligibleAmount;
+		return switch (promotion.getScope()) {
+			case SHIP -> safeShippingFeeAmount;
+			case ORDER -> safeEligibleAmount.add(safeShippingFeeAmount);
+			case DISH -> safeEligibleAmount;
 		};
 	}
 
@@ -763,17 +644,6 @@ containsStoreSpecialtyItems,
 			));
 		}
 		return List.copyOf(contexts);
-private BigDecimal normalizeCrossStoreBillAmount(BigDecimal amount) {
-		if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-			return null;
-		return amount;
-	private boolean hasMultipleStores(List<CartItem> cartItems) {
-		return cartItems.stream()
-				.map(CartItem::getStore)
-				.filter(store -> store != null && store.getId() != null)
-				.map(store -> store.getId())
-				.distinct()
-				.count() > 1;
 	}
 
 	private boolean isSignatureDish(Dish dish) {
@@ -856,7 +726,7 @@ private BigDecimal normalizeCrossStoreBillAmount(BigDecimal amount) {
 	}
 
 	private int resolveCreditCost(Promotion promotion) {
-		return promotion == null ? 0 : Math.max(promotion.getCreditCost(), 0);
+		return 0;
 	}
 
 	private Map<Long, Integer> countAvailableRedemptionsByPromotionId(Long userId) {
@@ -939,8 +809,6 @@ private BigDecimal normalizeCrossStoreBillAmount(BigDecimal amount) {
 			boolean applicable,
 			List<Long> matchedDishIds,
 			boolean levelMatched
-boolean containsStoreSpecialtyItems,
-			Long currentUserLevelId
 	) {
 		public StorePromotionAllocation withDiscountAmount(BigDecimal resolvedDiscountAmount) {
 			return new StorePromotionAllocation(
@@ -953,8 +821,6 @@ boolean containsStoreSpecialtyItems,
 					applicable,
 					matchedDishIds,
 					levelMatched
-containsStoreSpecialtyItems,
-					currentUserLevelId
 			);
 		}
 	}

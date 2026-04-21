@@ -801,22 +801,21 @@ public class DemoDataSeeder {
 			promotion.setCode("PROMO-" + twoDigit(index + 1));
 			promotion.setName("Demo Promotion " + twoDigit(index + 1));
 			promotion.setDescription("Demo promotion for " + stores.get(index).getName() + ".");
-			promotion.setScope(index % 2 == 0 ? PromotionScope.ORDER : PromotionScope.DISH);
-			promotion.setDiscountType(index % 2 == 0 ? PromotionDiscountType.PERCENT : PromotionDiscountType.FIXED_AMOUNT);
-			promotion.setDiscountTarget(switch (index % 3) {
-				case 1 -> PromotionDiscountTarget.SHIPPING;
-				case 2 -> PromotionDiscountTarget.BOTH;
-				default -> PromotionDiscountTarget.ITEMS;
-			});
-			promotion.setApplicableDishIds(List.of(dishes.get(index).getId()));
+			PromotionScope scope = switch (index % 3) {
+				case 1 -> PromotionScope.ORDER;
+				case 2 -> PromotionScope.SHIP;
+				default -> PromotionScope.DISH;
+			};
+			promotion.setScope(scope);
+			promotion.setDiscountType(PromotionDiscountType.PERCENT);
+			promotion.setDiscountTarget(scope.discountTarget());
+			promotion.setApplicableDishIds(List.of());
 			promotion.setEligibleStoreIds(List.of());
 			promotion.setEligibleUserLevelIds(List.of(userLevels.get(index).getId()));
-			promotion.setDiscountValue(index % 2 == 0
-					? BigDecimal.valueOf(10 + (index % 11))
-					: BigDecimal.valueOf(12000L + (index * 1000L)));
+			promotion.setDiscountValue(BigDecimal.valueOf(10 + (index % 16)));
 			promotion.setMinOrderAmount(BigDecimal.valueOf(90000L + (index * 5000L)));
 			promotion.setMaxDiscountAmount(BigDecimal.valueOf(25000L + (index * 1500L)));
-			promotion.setCreditCost(80 + (index * 10));
+			promotion.setCreditCost(0);
 			promotion.setMinStoreBillAmount(null);
 			promotion.setMinCrossStoreBillAmount(null);
 			promotion.setUsageLimit(80 + index);

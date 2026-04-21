@@ -1,5 +1,6 @@
 package com.example.registrationotp.repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,7 +17,11 @@ public interface CustomerFeedbackRepository extends JpaRepository<CustomerFeedba
 
 	Page<CustomerFeedback> findAllByUserId(Long userId, Pageable pageable);
 
+	List<CustomerFeedback> findAllByUserIdAndRelatedOrderIdIn(Long userId, Collection<Long> relatedOrderIds);
+
 	Optional<CustomerFeedback> findByIdAndUserId(Long id, Long userId);
+
+	Optional<CustomerFeedback> findByRelatedOrderIdAndUserId(Long relatedOrderId, Long userId);
 
 	List<CustomerFeedback> findAllByRelatedStoreId(Long relatedStoreId);
 }

@@ -1,6 +1,7 @@
 package com.example.registrationotp.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -52,5 +53,14 @@ public class AiChatController {
 			@PathVariable Long threadId
 	) {
 		return ResponseEntity.ok(aiChatService.getThread(authorizationHeader, threadId));
+	}
+
+	@DeleteMapping("/threads/{threadId}")
+	public ResponseEntity<Void> deleteThread(
+			@RequestHeader("Authorization") String authorizationHeader,
+			@PathVariable Long threadId
+	) {
+		aiChatService.deleteThread(authorizationHeader, threadId);
+		return ResponseEntity.noContent().build();
 	}
 }

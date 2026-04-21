@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.registrationotp.dto.OrderInvoiceDocument;
+import com.example.registrationotp.dto.OrderCancellationRequest;
 import com.example.registrationotp.dto.OrderResponse;
 import com.example.registrationotp.dto.OrderScanAuditResponse;
 import com.example.registrationotp.dto.OrderStageFilter;
@@ -89,9 +90,10 @@ public class AdminOrderController {
 	@PostMapping("/{id}/cancel")
 	public ResponseEntity<OrderResponse> cancelOrder(
 			@RequestHeader("Authorization") String authorizationHeader,
-			@PathVariable Long id
+			@PathVariable Long id,
+			@Valid @RequestBody OrderCancellationRequest request
 	) {
-		return ResponseEntity.ok(orderService.cancelOrderByAdmin(authorizationHeader, id));
+		return ResponseEntity.ok(orderService.cancelOrderByAdmin(authorizationHeader, id, request));
 	}
 
 	@PostMapping("/{id}/mark-paid")

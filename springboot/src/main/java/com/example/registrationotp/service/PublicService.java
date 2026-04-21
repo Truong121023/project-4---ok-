@@ -509,7 +509,7 @@ public class PublicService {
 				List.of(),
 				promotion.getStartsAt(),
 				promotion.getEndsAt(),
-				null);
+				0);
 	}
 
 	private PublicEventCardResponse toEventCard(EventItem eventItem, Double lat, Double lng, CatalogSnapshot snapshot) {

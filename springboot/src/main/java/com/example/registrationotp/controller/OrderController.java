@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.registrationotp.dto.CartResponse;
 import com.example.registrationotp.dto.OrderInvoiceDocument;
 import com.example.registrationotp.dto.OrderResponse;
 import com.example.registrationotp.dto.PageResponse;
@@ -62,6 +63,22 @@ public class OrderController {
 			@PathVariable Long id
 	) {
 		return ResponseEntity.ok(orderService.refreshMyPaymentStatus(authorizationHeader, id, originHeader, refererHeader));
+	}
+
+	@PostMapping("/{id}/cancel")
+	public ResponseEntity<OrderResponse> cancelMyOrder(
+			@RequestHeader("Authorization") String authorizationHeader,
+			@PathVariable Long id
+	) {
+		return ResponseEntity.ok(orderService.cancelMyOrder(authorizationHeader, id));
+	}
+
+	@PostMapping("/{id}/reorder")
+	public ResponseEntity<CartResponse> reorderMyOrder(
+			@RequestHeader("Authorization") String authorizationHeader,
+			@PathVariable Long id
+	) {
+		return ResponseEntity.ok(orderService.reorderMyOrder(authorizationHeader, id));
 	}
 
 	private ResponseEntity<String> toInvoiceResponse(OrderInvoiceDocument document, boolean download) {

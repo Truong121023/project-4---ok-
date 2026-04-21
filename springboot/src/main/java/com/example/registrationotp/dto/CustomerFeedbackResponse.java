@@ -1,6 +1,7 @@
 package com.example.registrationotp.dto;
 
 import java.time.Instant;
+import java.util.List;
 
 import com.example.registrationotp.model.CustomerFeedback;
 import com.example.registrationotp.model.FeedbackCategory;
@@ -29,11 +30,19 @@ public record CustomerFeedbackResponse(
 		Long repliedByUserId,
 		String repliedByUserName,
 		Role repliedByUserRole,
+		List<CustomerFeedbackOrderHistoryItemResponse> customerStoreOrderHistory,
 		Instant createdAt,
 		Instant updatedAt
 ) {
 
 	public static CustomerFeedbackResponse from(CustomerFeedback feedback) {
+		return from(feedback, List.of());
+	}
+
+	public static CustomerFeedbackResponse from(
+			CustomerFeedback feedback,
+			List<CustomerFeedbackOrderHistoryItemResponse> customerStoreOrderHistory
+	) {
 		return new CustomerFeedbackResponse(
 				feedback.getId(),
 				feedback.getUser().getId(),
@@ -55,6 +64,7 @@ public record CustomerFeedbackResponse(
 				feedback.getRepliedByUserId(),
 				feedback.getRepliedByUserName(),
 				feedback.getRepliedByUserRole(),
+				customerStoreOrderHistory == null ? List.of() : List.copyOf(customerStoreOrderHistory),
 				feedback.getCreatedAt(),
 				feedback.getUpdatedAt()
 		);

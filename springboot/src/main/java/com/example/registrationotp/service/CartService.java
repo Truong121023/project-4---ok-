@@ -17,6 +17,7 @@ import com.example.registrationotp.exception.NotFoundException;
 import com.example.registrationotp.model.Cart;
 import com.example.registrationotp.model.CartItem;
 import com.example.registrationotp.model.CartStatus;
+import com.example.registrationotp.model.OrderItem;
 import com.example.registrationotp.model.Role;
 import com.example.registrationotp.model.StoreDish;
 import com.example.registrationotp.model.User;
@@ -121,6 +122,32 @@ public class CartService {
 		return new MessageResponse("Cart cleared successfully");
 	}
 
+	@Transactional
+	public CartResponse replaceCartWithOrderItems(User user, List<OrderItem> orderItems) {
+		if (user == null || user.getRole() != Role.USER) {
+			throw new ForbiddenException("Only USER accounts can reorder previous orders");
+		}
+		if (orderItems == null || orderItems.isEmpty()) {
+			throw new BadRequestException("Order has no items to reorder");
+		}
+
+		List<ReorderCartLine> reorderLines = buildValidatedReorderLines(orderItems);
+		Cart cart = getOrCreateOpenCart(user);
+		cartItemRepository.deleteAllByCartId(cart.getId());
+
+		for (ReorderCartLine reorderLine : reorderLines) {
+			CartItem cartItem = new CartItem();
+			cartItem.setCart(cart);
+			cartItem.setStore(reorderLine.storeDish().getStore());
+			cartItem.setDish(reorderLine.storeDish().getDish());
+			cartItem.setQuantity(reorderLine.quantity());
+			cartItem.setUnitPrice(catalogAvailabilityService.resolveEffectivePrice(reorderLine.storeDish()));
+			cartItemRepository.save(cartItem);
+		}
+
+		return toResponse(cart);
+	}
+
 	private User requireBuyerUser(String authorizationHeader) {
 		User user = sessionAuthService.requireUser(authorizationHeader);
 		if (user.getRole() != Role.USER) {
@@ -157,6 +184,32 @@ public class CartService {
 		if (storeDish.getQuantity() < quantity) {
 			throw new BadRequestException("quantity exceeds available stock");
 		}
+	}
+
+	private List<ReorderCartLine> buildValidatedReorderLines(List<OrderItem> orderItems) {
+		record ReorderKey(Long storeId, Long dishId) {}
+
+		java.util.LinkedHashMap<ReorderKey, Integer> quantityByStoreDish = new java.util.LinkedHashMap<>();
+		for (OrderItem orderItem : orderItems) {
+			if (orderItem.getStore() == null || orderItem.getDish() == null) {
+				throw new BadRequestException("Order contains invalid items and cannot be reordered");
+			}
+			ReorderKey key = new ReorderKey(orderItem.getStore().getId(), orderItem.getDish().getId());
+			quantityByStoreDish.merge(key, orderItem.getQuantity(), Integer::sum);
+		}
+
+		List<ReorderCartLine> reorderLines = new java.util.ArrayList<>();
+		for (java.util.Map.Entry<ReorderKey, Integer> entry : quantityByStoreDish.entrySet()) {
+			StoreDish storeDish = validateStoreDishForCart(
+					entry.getKey().storeId(),
+					entry.getKey().dishId(),
+					entry.getValue());
+			reorderLines.add(new ReorderCartLine(storeDish, entry.getValue()));
+		}
+		return reorderLines;
+	}
+
+	private record ReorderCartLine(StoreDish storeDish, int quantity) {
 	}
 
 	private CartResponse toResponse(Cart cart) {

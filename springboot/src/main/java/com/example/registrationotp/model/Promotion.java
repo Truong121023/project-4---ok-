@@ -177,7 +177,7 @@ public class Promotion {
 	}
 
 	public PromotionDiscountTarget getDiscountTarget() {
-		return discountTarget == null ? PromotionDiscountTarget.ITEMS : discountTarget;
+		return getScope().discountTarget();
 	}
 
 	public void setDiscountTarget(PromotionDiscountTarget discountTarget) {
@@ -185,7 +185,7 @@ public class Promotion {
 	}
 
 	public List<Long> getApplicableDishIds() {
-		return applicableDishIds;
+		return List.of();
 	}
 
 	public void setApplicableDishIds(List<Long> applicableDishIds) {
@@ -233,7 +233,7 @@ public class Promotion {
 	}
 
 	public Integer getCreditCost() {
-		return creditCost == null ? 0 : Math.max(creditCost, 0);
+		return 0;
 	}
 
 	public void setCreditCost(Integer creditCost) {

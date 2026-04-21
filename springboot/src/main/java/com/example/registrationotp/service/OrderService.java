@@ -54,10 +54,12 @@ import com.example.registrationotp.dto.CheckoutPreviewRequest;
 import com.example.registrationotp.dto.CheckoutPreviewResponse;
 import com.example.registrationotp.dto.CheckoutRequest;
 import com.example.registrationotp.dto.CheckoutResponse;
+import com.example.registrationotp.dto.CartResponse;
 import com.example.registrationotp.dto.DeliveryProofUploadResponse;
 import com.example.registrationotp.dto.EmployeeOrderScanRequest;
 import com.example.registrationotp.dto.EmployeeOrderScanResponse;
 import com.example.registrationotp.dto.MobileOrderQrResolveResponse;
+import com.example.registrationotp.dto.OrderCancellationRequest;
 import com.example.registrationotp.dto.OrderInvoiceDocument;
 import com.example.registrationotp.dto.OrderItemResponse;
 import com.example.registrationotp.dto.OrderResponse;
@@ -79,6 +81,7 @@ import com.example.registrationotp.model.Category;
 import com.example.registrationotp.model.Cart;
 import com.example.registrationotp.model.CartItem;
 import com.example.registrationotp.model.CartStatus;
+import com.example.registrationotp.model.CustomerFeedback;
 import com.example.registrationotp.model.DeliveryType;
 import com.example.registrationotp.model.Dish;
 import com.example.registrationotp.model.EmployeeOrderScanAction;
@@ -96,6 +99,7 @@ import com.example.registrationotp.model.User;
 import com.example.registrationotp.model.UserDeliveryAddress;
 import com.example.registrationotp.repository.CartItemRepository;
 import com.example.registrationotp.repository.CartRepository;
+import com.example.registrationotp.repository.CustomerFeedbackRepository;
 import com.example.registrationotp.repository.OrderItemRepository;
 import com.example.registrationotp.repository.OrderRepository;
 import com.example.registrationotp.repository.OrderScanAuditRepository;
@@ -122,6 +126,7 @@ public class OrderService {
 	private final SessionAuthService sessionAuthService;
 	private final CartRepository cartRepository;
 	private final CartItemRepository cartItemRepository;
+	private final CustomerFeedbackRepository customerFeedbackRepository;
 	private final StoreDishRepository storeDishRepository;
 	private final OrderRepository orderRepository;
 	private final OrderItemRepository orderItemRepository;
@@ -129,6 +134,7 @@ public class OrderService {
 	private final UserDeliveryAddressRepository userDeliveryAddressRepository;
 	private final PromotionRepository promotionRepository;
 	private final UserRepository userRepository;
+	private final CartService cartService;
 	private final CatalogAvailabilityService catalogAvailabilityService;
 	private final PromotionService promotionService;
 	private final UserLevelService userLevelService;
@@ -138,6 +144,7 @@ public class OrderService {
 	private final PayOsSignatureService payOsSignatureService;
 	private final EmailSender emailSender;
 	private final NotificationService notificationService;
+	private final AppRealtimeService appRealtimeService;
 	private final TokenGenerator tokenGenerator;
 	private final AppMobileProperties appMobileProperties;
 	private final FileStorageService fileStorageService;
@@ -146,6 +153,7 @@ public class OrderService {
 			SessionAuthService sessionAuthService,
 			CartRepository cartRepository,
 			CartItemRepository cartItemRepository,
+			CustomerFeedbackRepository customerFeedbackRepository,
 			StoreDishRepository storeDishRepository,
 			OrderRepository orderRepository,
 			OrderItemRepository orderItemRepository,
@@ -153,6 +161,7 @@ public class OrderService {
 			UserDeliveryAddressRepository userDeliveryAddressRepository,
 			PromotionRepository promotionRepository,
 			UserRepository userRepository,
+			CartService cartService,
 			CatalogAvailabilityService catalogAvailabilityService,
 			PromotionService promotionService,
 			UserLevelService userLevelService,
@@ -162,6 +171,7 @@ public class OrderService {
 			PayOsSignatureService payOsSignatureService,
 			EmailSender emailSender,
 			NotificationService notificationService,
+			AppRealtimeService appRealtimeService,
 			TokenGenerator tokenGenerator,
 			AppMobileProperties appMobileProperties,
 			FileStorageService fileStorageService
@@ -169,6 +179,7 @@ public class OrderService {
 		this.sessionAuthService = sessionAuthService;
 		this.cartRepository = cartRepository;
 		this.cartItemRepository = cartItemRepository;
+		this.customerFeedbackRepository = customerFeedbackRepository;
 		this.storeDishRepository = storeDishRepository;
 		this.orderRepository = orderRepository;
 		this.orderItemRepository = orderItemRepository;
@@ -176,6 +187,7 @@ public class OrderService {
 		this.userDeliveryAddressRepository = userDeliveryAddressRepository;
 		this.promotionRepository = promotionRepository;
 		this.userRepository = userRepository;
+		this.cartService = cartService;
 		this.catalogAvailabilityService = catalogAvailabilityService;
 		this.promotionService = promotionService;
 		this.userLevelService = userLevelService;
@@ -185,6 +197,7 @@ public class OrderService {
 		this.payOsSignatureService = payOsSignatureService;
 		this.emailSender = emailSender;
 		this.notificationService = notificationService;
+		this.appRealtimeService = appRealtimeService;
 		this.tokenGenerator = tokenGenerator;
 		this.appMobileProperties = appMobileProperties;
 		this.fileStorageService = fileStorageService;
@@ -257,6 +270,7 @@ public class OrderService {
 				})
 				.toList();
 	}
+
 	@Transactional
 	public CheckoutResponse checkout(String authorizationHeader, CheckoutRequest request) {
 		User user = requireBuyerUser(authorizationHeader);
@@ -336,10 +350,6 @@ public class OrderService {
 			if (voucherOrder != null) {
 				promotionService.consumeVoucherForOrder(user, checkoutComputation.sharedPromotion(), voucherOrder);
 			}
-int appliedPromotionCount = (int) checkoutComputation.storeOrderPlans().stream()
-					.filter(storeOrderPlan -> storeOrderPlan.appliedPromotion() != null)
-					.count();
-			promotionService.incrementUsage(checkoutComputation.sharedPromotion(), appliedPromotionCount);
 		}
 
 		Order primaryOrder = primaryOrder(savedOrders);
@@ -361,17 +371,6 @@ int appliedPromotionCount = (int) checkoutComputation.storeOrderPlans().stream()
 		for (Order savedOrder : savedOrders) {
 			savedOrder.setPayosOrderCode(payosOrderCode);
 		}
-
-		PayOsPaymentLinkData paymentLinkData = payOsClient.createPaymentLink(
-				buildPaymentLinkRequest(
-						payosOrderCode,
-						primaryOrder,
-						user,
-						checkoutComputation.cartItems(),
-						request,
-						checkoutComputation.totalAmount()
-				)
-		);
 		String paymentReference = resolvePendingPaymentReference(paymentLinkData.paymentLinkId(), paymentLinkData.orderCode());
 		for (Order savedOrder : savedOrders) {
 			savedOrder.setPaymentLinkId(paymentLinkData.paymentLinkId());
@@ -423,14 +422,6 @@ int appliedPromotionCount = (int) checkoutComputation.storeOrderPlans().stream()
 					availabilityInstant,
 					requestedQuantityByRoutedStore
 			);
-for (CartItem cartItem : cartItems) {
-			Store store = cartItem.getStore();
-			Dish dish = cartItem.getDish();
-			if (store == null || store.getId() == null || dish == null || dish.getId() == null) {
-				throw new BadRequestException("Cart contains invalid items");
-			}
-			StoreDish storeDish = storeDishRepository.findByStoreIdAndDishId(store.getId(), dish.getId())
-					.orElseThrow(() -> new NotFoundException("Store dish not found"));
 			String disabledReason = catalogAvailabilityService.resolveStoreDishDisabledReasonAt(storeDish, availabilityInstant);
 			if (disabledReason != null) {
 				throw new BadRequestException(buildAvailabilityMessage(disabledReason, deliveryType));
@@ -480,21 +471,12 @@ for (CartItem cartItem : cartItems) {
 					deliveryType
 			);
 			shippingQuotesByStoreId.put(entry.getKey(), shippingQuote);
-if (cartItem.getQuantity() == null || cartItem.getQuantity() <= 0) {
-				throw new BadRequestException("Cart item quantity must be greater than zero");
-			if (storeDish.getQuantity() == null || storeDish.getQuantity() < cartItem.getQuantity()) {
-				throw new BadRequestException("Requested quantity exceeds stock for dish: " + dish.getName());
-			storesById.putIfAbsent(store.getId(), storeDish.getStore());
-			cartItemsByStoreId.computeIfAbsent(store.getId(), ignored -> new ArrayList<>()).add(cartItem);
-		Promotion resolvedPromotion = promotionService.resolvePromotion(promotionCode);
-			Long currentUserLevelId = resolveCurrentUserLevelId(user, store);
 			storeContexts.add(new PromotionService.StoreCheckoutContext(
 					store,
 					List.copyOf(entry.getValue()),
 					subtotalAmount,
 					List.copyOf(currentUserLevelIds),
 					shippingQuote.shippingFeeAmount()
-currentUserLevelId
 			));
 		}
 
@@ -519,11 +501,6 @@ currentUserLevelId
 							context.store().getId(),
 							new ShippingFeeService.ShippingFeeQuote(BigDecimal.ZERO, BigDecimal.ZERO)
 					);
-ShippingFeeService.ShippingFeeQuote shippingQuote = shippingFeeService.calculate(
-					context.store(),
-					deliveryAddress,
-					deliveryType
-			);
 			PromotionService.StorePromotionAllocation allocation = context.store() == null || context.store().getId() == null
 					? null
 					: allocationsByStoreId.get(context.store().getId());
@@ -533,9 +510,6 @@ ShippingFeeService.ShippingFeeQuote shippingQuote = shippingFeeService.calculate
 			Promotion appliedPromotion = allocation != null && storeDiscountAmount.compareTo(BigDecimal.ZERO) > 0
 					? promotionPlan.promotion()
 					: null;
-BigDecimal storeChargeableAmount = context.subtotalAmount().subtract(storeDiscountAmount).max(BigDecimal.ZERO);
-			BigDecimal storeTotalAmount = storeChargeableAmount.add(shippingQuote.shippingFeeAmount());
-			Promotion appliedPromotion = allocation != null && allocation.applicable() ? promotionPlan.promotion() : null;
 			BigDecimal promotionEligibleAmount = appliedPromotion != null ? allocation.eligibleAmount() : null;
 			List<Long> promotionDishIds = appliedPromotion != null ? List.copyOf(allocation.matchedDishIds()) : List.of();
 
@@ -823,7 +797,6 @@ BigDecimal storeChargeableAmount = context.subtotalAmount().subtract(storeDiscou
 		String statusSummary = checkoutComputation.sharedPromotion() != null
 				? "Promotion " + checkoutComputation.sharedPromotion().getCode() + " is ready for checkout"
 				: "Preview ready";
-private CheckoutPreviewResponse toCheckoutPreviewResponse(CheckoutComputation checkoutComputation) {
 		return new CheckoutPreviewResponse(
 				checkoutComputation.subtotalAmount(),
 				checkoutComputation.discountAmount(),
@@ -833,7 +806,6 @@ private CheckoutPreviewResponse toCheckoutPreviewResponse(CheckoutComputation ch
 				checkoutComputation.totalAmount(),
 				checkoutComputation.sharedPromotion() != null ? checkoutComputation.sharedPromotion().getCode() : null,
 				statusSummary
-"Preview ready"
 		);
 	}
 
@@ -859,6 +831,35 @@ private CheckoutPreviewResponse toCheckoutPreviewResponse(CheckoutComputation ch
 				.orElseThrow(() -> new NotFoundException("Order not found"));
 		refreshPaymentStatus(order, originHeader, refererHeader);
 		return toResponse(findOrder(id), null, user);
+	}
+
+	@Transactional
+	public OrderResponse cancelMyOrder(String authorizationHeader, Long id) {
+		User user = requireBuyerUser(authorizationHeader);
+		Order order = orderRepository.findByIdAndUserId(id, user.getId())
+				.orElseThrow(() -> new NotFoundException("Order not found"));
+		List<Order> paymentGroup = loadPaymentGroup(order);
+		if (paymentGroup.stream().anyMatch(groupOrder -> !canUserCancelOrder(groupOrder, user))) {
+			throw new BadRequestException("Only unpaid orders can be cancelled by the customer");
+		}
+
+		Map<Long, OrderStateSnapshot> previousStates = snapshotOrderStates(paymentGroup);
+		for (Order groupOrder : paymentGroup) {
+			cancelOrder(groupOrder, user, null);
+		}
+		List<Order> savedOrders = orderRepository.saveAll(paymentGroup);
+		notifyEmployeeTaskChanges(savedOrders, previousStates);
+		notifyOrderStateChanges(savedOrders, previousStates);
+		return toResponse(findOrder(id), null, user);
+	}
+
+	@Transactional
+	public CartResponse reorderMyOrder(String authorizationHeader, Long id) {
+		User user = requireBuyerUser(authorizationHeader);
+		Order order = orderRepository.findByIdAndUserId(id, user.getId())
+				.orElseThrow(() -> new NotFoundException("Order not found"));
+		List<OrderItem> orderItems = orderItemRepository.findAllByOrderId(order.getId());
+		return cartService.replaceCartWithOrderItems(user, orderItems);
 	}
 
 	@Transactional(readOnly = true)
@@ -913,8 +914,6 @@ private CheckoutPreviewResponse toCheckoutPreviewResponse(CheckoutComputation ch
 				    <div class="card">
 				      <h1>Open Kamatcha App</h1>
 				      <p>This QR can open the Kamatcha mobile app for order tracking or store-delivery workflow.</p>
-<h1>Open Tea Matcha App</h1>
-				      <p>This QR can open the Tea Matcha mobile app for order tracking or store-delivery workflow.</p>
 				      <p>If the app does not open automatically, use one of the buttons below.</p>
 				      <div class="actions">
 				        <a class="btn btn-primary" href="%s">Open App</a>
@@ -950,6 +949,7 @@ private CheckoutPreviewResponse toCheckoutPreviewResponse(CheckoutComputation ch
 		Order order = findOrderByQrToken(qrToken);
 		return switch (actor.getRole()) {
 			case USER -> resolveUserMobileQr(actor, order);
+			case STAFF -> resolveStaffMobileQr(actor, order);
 			case SHIPPER -> resolveShipperMobileQr(actor, order);
 			case MANAGER -> resolveAdminMobileQr(actor, order);
 			case ADMIN -> resolveAdminMobileQr(actor, order);
@@ -974,7 +974,7 @@ private CheckoutPreviewResponse toCheckoutPreviewResponse(CheckoutComputation ch
 	}
 
 	@Transactional
-	public OrderResponse cancelOrderByAdmin(String authorizationHeader, Long id) {
+	public OrderResponse cancelOrderByAdmin(String authorizationHeader, Long id, OrderCancellationRequest request) {
 		User operator = requireManagerOrderOperator(authorizationHeader);
 		Order order = findOrder(id);
 		Long visibleStoreId = resolveVisibleStoreId(operator, order);
@@ -984,7 +984,7 @@ private CheckoutPreviewResponse toCheckoutPreviewResponse(CheckoutComputation ch
 		}
 
 		Map<Long, OrderStateSnapshot> previousStates = snapshotOrderStates(List.of(order));
-		cancelOrder(order);
+		cancelOrder(order, operator, request.note());
 		Order savedOrder = orderRepository.save(order);
 		notifyEmployeeTaskChanges(List.of(savedOrder), previousStates);
 		notifyOrderStateChanges(List.of(savedOrder), previousStates);
@@ -1054,6 +1054,18 @@ private CheckoutPreviewResponse toCheckoutPreviewResponse(CheckoutComputation ch
 			return new EmployeeOrderScanResponse(false, "Order does not belong to your store", null, null, null, null);
 		}
 
+		if (request.action() == EmployeeOrderScanAction.ACCEPT_DELIVERY) {
+			recordScanAudit(order, employee, request.action(), false, "Shipper QR pickup is disabled. Open the task and use Accept order instead.");
+			return new EmployeeOrderScanResponse(
+					false,
+					"Shipper QR pickup is disabled. Open the task and use Accept order instead.",
+					toResponse(order, visibleStoreId, employee),
+					order.getDeliveringShipper() != null ? order.getDeliveringShipper().getId() : null,
+					order.getDeliveringShipper() != null ? order.getDeliveringShipper().getFullName() : null,
+					order.getDeliveringShipper() != null ? order.getDeliveringShipper().getRole() : null
+			);
+		}
+
 		try {
 			Order savedOrder = switch (request.action()) {
 				case ACCEPT_PREPARING -> acceptPreparingOrderScan(order, employee);
@@ -1112,50 +1124,12 @@ private CheckoutPreviewResponse toCheckoutPreviewResponse(CheckoutComputation ch
 	public OrderResponse acceptPreparingOrder(String authorizationHeader, Long id) {
 		requireEmployeeOperator(authorizationHeader, Role.STAFF);
 		throw new ForbiddenException("Preparation workflow is now handled by manager accounts");
-User manager = requireEmployeeOperator(authorizationHeader, Role.MANAGER);
-		Order order = findOrder(id);
-		ensureEmployeeCanAccessOrder(manager, order);
-		if (order.getPaymentStatus() != PaymentStatus.PAID) {
-			throw new BadRequestException("Only paid orders can be accepted for preparation");
-		}
-		if (order.getStatus() != OrderStatus.CONFIRMED && order.getStatus() != OrderStatus.PREPARING) {
-			throw new BadRequestException("Order is not available for preparation");
-		}
-		if (order.getPreparingStaff() != null && !order.getPreparingStaff().getId().equals(manager.getId())) {
-			throw new ConflictException("Order is already being prepared by another manager");
-		}
-		Map<Long, OrderStateSnapshot> previousStates = snapshotOrderStates(List.of(order));
-		order.setPreparingStaff(manager);
-		order.setStatus(OrderStatus.PREPARING);
-		Order savedOrder = orderRepository.save(order);
-		notifyEmployeeTaskChanges(List.of(savedOrder), previousStates);
-		notifyOrderStateChanges(List.of(savedOrder), previousStates);
-		return toResponse(savedOrder, manager.getWorkingStore().getId(), manager);
 	}
 
 	@Transactional
 	public OrderResponse markOrderReadyForShipper(String authorizationHeader, Long id) {
 		requireEmployeeOperator(authorizationHeader, Role.STAFF);
 		throw new ForbiddenException("Shipper assignment is now handled by manager accounts");
-User manager = requireEmployeeOperator(authorizationHeader, Role.MANAGER);
-		Order order = findOrder(id);
-		ensureEmployeeCanAccessOrder(manager, order);
-		if (order.getPaymentStatus() != PaymentStatus.PAID) {
-			throw new BadRequestException("Only paid orders can be marked ready for shipper");
-		}
-		if (order.getStatus() != OrderStatus.PREPARING) {
-			throw new BadRequestException("Order is not currently being prepared");
-		}
-		if (order.getPreparingStaff() == null || !order.getPreparingStaff().getId().equals(manager.getId())) {
-			throw new ForbiddenException("Only the assigned manager can mark this order ready for shipper");
-		}
-		Map<Long, OrderStateSnapshot> previousStates = snapshotOrderStates(List.of(order));
-		order.setStatus(OrderStatus.READY_FOR_SHIPPER);
-		autoAssignAvailableShipper(order);
-		Order savedOrder = orderRepository.save(order);
-		notifyEmployeeTaskChanges(List.of(savedOrder), previousStates);
-		notifyOrderStateChanges(List.of(savedOrder), previousStates);
-		return toResponse(savedOrder, manager.getWorkingStore().getId(), manager);
 	}
 
 	@Transactional
@@ -1170,7 +1144,7 @@ User manager = requireEmployeeOperator(authorizationHeader, Role.MANAGER);
 			throw new BadRequestException("Order is not available for delivery");
 		}
 		if (order.getDeliveringShipper() == null) {
-			throw new ConflictException("Manager must assign a shipper before pickup can be confirmed");
+			throw new ConflictException("Manager must assign a shipper before delivery can be accepted");
 		}
 		if (!order.getDeliveringShipper().getId().equals(shipper.getId())) {
 			throw new ConflictException("Order is assigned to another shipper");
@@ -1286,8 +1260,6 @@ User manager = requireEmployeeOperator(authorizationHeader, Role.MANAGER);
 		}
 		if (request.preparingStaffId() != null) {
 			throw new BadRequestException("Direct preparing staff assignment is not allowed in this workflow");
-if (request.preparingStaffId() != null || request.deliveringShipperId() != null) {
-			throw new BadRequestException("Direct manager or shipper assignment is not allowed in this workflow");
 		}
 		OrderStatus requestedStatus = request.status();
 		if (request.deliveringShipperId() != null) {
@@ -1317,8 +1289,6 @@ if (request.preparingStaffId() != null || request.deliveringShipperId() != null)
 		awardCreditsForNewlyPaidOrders(paymentGroup, previousStates);
 		if (requestedStatus != null) {
 			if (requestedStatus == OrderStatus.CANCELLED && paymentGroup.size() > 1) {
-if (request.status() != null) {
-			if (request.status() == OrderStatus.CANCELLED && paymentGroup.size() > 1) {
 				throw new BadRequestException("Shared payment orders cannot be cancelled individually");
 			}
 			applyStatusUpdate(order, requestedStatus, operator, visibleStoreId, request.deliveringShipperId());
@@ -1371,6 +1341,9 @@ if (request.status() != null) {
 	}
 
 	private void refreshPaymentStatus(Order order, String originHeader, String refererHeader) {
+		if (order.getStatus() == OrderStatus.CANCELLED || order.getPaymentStatus() == PaymentStatus.CANCELLED) {
+			return;
+		}
 		List<Order> paymentGroup = loadPaymentGroup(order);
 		Map<Long, OrderStateSnapshot> previousStates = snapshotOrderStates(paymentGroup);
 		Order primaryOrder = primaryOrder(paymentGroup);
@@ -1748,7 +1721,7 @@ if (request.status() != null) {
 
 	private void applyAssignments(Order order, OrderStatusUpdateRequest request, Long visibleStoreId) {
 		if (request.preparingStaffId() != null) {
-			order.setPreparingStaff(resolveAssignedUser(request.preparingStaffId(), Role.MANAGER, order, visibleStoreId, "preparingStaffId"));
+			order.setPreparingStaff(resolveAssignedUser(request.preparingStaffId(), Role.STAFF, order, visibleStoreId, "preparingStaffId"));
 		}
 		if (request.deliveringShipperId() != null) {
 			order.setDeliveringShipper(resolveAssignedUser(request.deliveringShipperId(), Role.SHIPPER, order, visibleStoreId, "deliveringShipperId"));
@@ -1774,7 +1747,20 @@ if (request.status() != null) {
 	}
 
 	private void cancelOrder(Order order) {
+		cancelOrder(order, null, null);
+	}
+
+	private void cancelOrder(Order order, User cancelledByUser, String cancellationNote) {
 		if (order.getPaymentStatus() == PaymentStatus.CANCELLED && order.getStatus() == OrderStatus.CANCELLED) {
+			if (cancelledByUser != null) {
+				order.setCancelledByUser(cancelledByUser);
+			}
+			if (StringUtils.hasText(cancellationNote)) {
+				order.setCancellationNote(cancellationNote.trim());
+			}
+			if (order.getCancelledAt() == null && cancelledByUser != null) {
+				order.setCancelledAt(Instant.now());
+			}
 			return;
 		}
 		if (order.getPaymentStatus() != PaymentStatus.PAID) {
@@ -1783,6 +1769,13 @@ if (request.status() != null) {
 		}
 		order.setPaymentStatus(PaymentStatus.CANCELLED);
 		order.setStatus(OrderStatus.CANCELLED);
+		if (cancelledByUser != null) {
+			order.setCancelledByUser(cancelledByUser);
+			order.setCancelledAt(Instant.now());
+		}
+		if (StringUtils.hasText(cancellationNote)) {
+			order.setCancellationNote(cancellationNote.trim());
+		}
 	}
 
 	private void restoreInventory(Order order) {
@@ -1883,32 +1876,11 @@ if (request.status() != null) {
 	private int calculateCreditPointsForOrder(Order order) {
 		BigDecimal paidAmount = order.getTotalAmount() == null ? BigDecimal.ZERO : order.getTotalAmount();
 		return paidAmount
-BigDecimal brandPaidAmount = calculateBrandPaidAmount(order);
-		return brandPaidAmount
 				.max(BigDecimal.ZERO)
 				.divideToIntegralValue(BigDecimal.valueOf(1000))
 				.intValue();
 	}
 
-	private BigDecimal calculateBrandPaidAmount(Order order) {
-		List<OrderItem> orderItems = orderItemRepository.findAllByOrderId(order.getId());
-		if (orderItems.isEmpty()) {
-			return BigDecimal.ZERO;
-		}
-		BigDecimal signatureSubtotal = orderItems.stream()
-				.filter(item -> isSignatureDish(item.getDish()))
-				.map(item -> item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
-				.reduce(BigDecimal.ZERO, BigDecimal::add);
-		if (signatureSubtotal.compareTo(BigDecimal.ZERO) <= 0) {
-			return BigDecimal.ZERO;
-		}
-		boolean onlySignatureItems = orderItems.stream()
-				.allMatch(item -> isSignatureDish(item.getDish()));
-		if (onlySignatureItems && order.getTotalAmount() != null) {
-			return order.getTotalAmount().subtract(order.getShippingFeeAmount()).max(BigDecimal.ZERO);
-		}
-		return signatureSubtotal;
-	}
 	private int resolveCreditPointsAwarded(Order order) {
 		return order.getCreditPointsAwarded() == null ? 0 : Math.max(order.getCreditPointsAwarded(), 0);
 	}
@@ -1975,8 +1947,8 @@ BigDecimal brandPaidAmount = calculateBrandPaidAmount(order);
 
 	private User requireEmployeeOperator(String authorizationHeader, Role expectedRole) {
 		User user = sessionAuthService.requireUser(authorizationHeader);
-		if (user.getRole() != Role.MANAGER && user.getRole() != Role.SHIPPER) {
-			throw new ForbiddenException("Only MANAGER and SHIPPER accounts can manage employee orders");
+		if (user.getRole() != Role.STAFF && user.getRole() != Role.SHIPPER) {
+			throw new ForbiddenException("Only STAFF and SHIPPER accounts can manage employee orders");
 		}
 		if (expectedRole != null && user.getRole() != expectedRole) {
 			throw new ForbiddenException("This action requires role " + expectedRole);
@@ -1997,9 +1969,6 @@ BigDecimal brandPaidAmount = calculateBrandPaidAmount(order);
 		}
 		if (employee.getRole() == Role.STAFF) {
 			throw new ForbiddenException("Store preparation is managed by manager accounts in the current workflow");
-if (employee.getRole() == Role.MANAGER) {
-			ensureManagerCanAccessPreparingOrder(employee, order);
-			return;
 		}
 		ensureShipperCanAccessOrder(employee, order);
 	}
@@ -2007,7 +1976,6 @@ if (employee.getRole() == Role.MANAGER) {
 	private void ensureManagerCanAccessPreparingOrder(User manager, Order order) {
 		if (order.getPaymentStatus() != PaymentStatus.PAID) {
 			throw new ForbiddenException("Only paid orders are available for staff preparation workflow");
-throw new ForbiddenException("Only paid orders are available for manager preparation workflow");
 		}
 		Long assignedStaffId = order.getPreparingStaff() != null ? order.getPreparingStaff().getId() : null;
 		boolean canAccess = switch (order.getStatus()) {
@@ -2017,7 +1985,6 @@ throw new ForbiddenException("Only paid orders are available for manager prepara
 		};
 		if (!canAccess) {
 			throw new ForbiddenException("Order is not available for your staff preparation workflow");
-throw new ForbiddenException("Order is not available for your manager preparation workflow");
 		}
 	}
 
@@ -2253,8 +2220,7 @@ throw new ForbiddenException("Order is not available for your manager preparatio
 				        </div>
 				        <div class="qr-copy">
 				          <strong>Scan QR To Open Invoice</strong>
-				          <div class="muted">Users can open order status in the Kamatcha mobile app. Managers and shippers can scan the same QR to continue the fulfillment workflow.</div>
-<div class="muted">Users can open order status in the Tea Matcha mobile app. Managers and shippers can scan the same QR to continue the fulfillment workflow.</div>
+				          <div class="muted">Users can open order status in the Kamatcha mobile app. Store fulfillment is managed from the order task flow, while this QR keeps invoice access simple.</div>
 				          <div class="qr-link"><a href="%s">Open invoice in browser</a></div>
 				        </div>
 				      </div>
@@ -2280,10 +2246,6 @@ throw new ForbiddenException("Order is not available for your manager preparatio
 				escapeHtml(formatMoney(order.getDiscountAmount())),
 				escapeHtml(formatMoney(shippingFeeAmount)),
 				escapeHtml(formatMoney(order.getTotalAmount())),
-escapeHtml(order.getSubtotalAmount().toPlainString()),
-				escapeHtml(order.getDiscountAmount().toPlainString()),
-				escapeHtml(shippingFeeAmount.toPlainString()),
-				escapeHtml(order.getTotalAmount().toPlainString()),
 				escapeHtml(qrImageDataUri),
 				escapeHtml(buildAbsolutePublicInvoiceUrl(order))
 		);
@@ -2292,48 +2254,10 @@ escapeHtml(order.getSubtotalAmount().toPlainString()),
 
 	private Order acceptPreparingOrderScan(Order order, User manager) {
 		throw new ForbiddenException("Preparation workflow is now handled by manager accounts");
-if (manager.getRole() != Role.MANAGER) {
-			throw new ForbiddenException("Only manager can accept preparing orders");
-		}
-		if (order.getPaymentStatus() != PaymentStatus.PAID || order.getStatus() != OrderStatus.CONFIRMED) {
-			throw new BadRequestException("Order is not ready for manager pickup");
-		}
-		if (order.getPreparingStaff() != null && !order.getPreparingStaff().getId().equals(manager.getId())) {
-			throw new ConflictException("Order already claimed by another manager");
-		}
-		Map<Long, OrderStateSnapshot> previousStates = snapshotOrderStates(List.of(order));
-		order.setPreparingStaff(manager);
-		order.setStatus(OrderStatus.PREPARING);
-		Order savedOrder = orderRepository.save(order);
-		notifyEmployeeTaskChanges(List.of(savedOrder), previousStates);
-		notifyOrderStateChanges(List.of(savedOrder), previousStates);
-		return savedOrder;
 	}
 
 	private Order acceptDeliveryOrderScan(Order order, User shipper) {
-		if (shipper.getRole() != Role.SHIPPER) {
-			throw new ForbiddenException("Only shipper can accept delivery orders");
-		}
-		if (order.getPaymentStatus() != PaymentStatus.PAID) {
-			throw new BadRequestException("Order must be paid before shipper can accept it");
-		}
-		if (order.getStatus() != OrderStatus.READY_FOR_SHIPPER) {
-			throw new BadRequestException("Order must be waiting for the assigned shipper before pickup can be confirmed");
-throw new BadRequestException("Order must be prepared by manager before shipper can accept it");
-		}
-		if (order.getDeliveringShipper() == null) {
-			throw new ConflictException("Manager must assign a shipper before pickup can be confirmed");
-		}
-		if (!order.getDeliveringShipper().getId().equals(shipper.getId())) {
-			throw new ConflictException("Order is assigned to another shipper");
-		}
-
-		Map<Long, OrderStateSnapshot> previousStates = snapshotOrderStates(List.of(order));
-		order.setStatus(OrderStatus.OUT_FOR_DELIVERY);
-		Order savedOrder = orderRepository.save(order);
-		notifyEmployeeTaskChanges(List.of(savedOrder), previousStates);
-		notifyOrderStateChanges(List.of(savedOrder), previousStates);
-		return savedOrder;
+		throw new ForbiddenException("Shipper QR pickup is disabled. Open the task and use Accept order instead.");
 	}
 
 	private void recordScanAudit(
@@ -2535,25 +2459,6 @@ throw new BadRequestException("Order must be prepared by manager before shipper 
 
 			if (employee.getRole() == Role.STAFF) {
 				predicates.add(criteriaBuilder.disjunction());
-if (employee.getRole() == Role.MANAGER) {
-				Join<Order, User> preparingStaff = root.join("preparingStaff", JoinType.LEFT);
-				if (mine) {
-					predicates.add(criteriaBuilder.equal(root.get("status"), OrderStatus.PREPARING));
-					predicates.add(criteriaBuilder.equal(preparingStaff.get("id"), employee.getId()));
-				} else {
-					Predicate availableConfirmed = criteriaBuilder.and(
-							criteriaBuilder.equal(root.get("status"), OrderStatus.CONFIRMED),
-							criteriaBuilder.or(
-									criteriaBuilder.isNull(preparingStaff.get("id")),
-									criteriaBuilder.equal(preparingStaff.get("id"), employee.getId())
-							)
-					);
-					Predicate myPreparing = criteriaBuilder.and(
-							criteriaBuilder.equal(root.get("status"), OrderStatus.PREPARING),
-							criteriaBuilder.equal(preparingStaff.get("id"), employee.getId())
-					);
-					predicates.add(criteriaBuilder.or(availableConfirmed, myPreparing));
-				}
 			} else {
 				Join<Order, User> deliveringShipper = root.join("deliveringShipper", JoinType.LEFT);
 				if (mine) {
@@ -2742,18 +2647,22 @@ if (employee.getRole() == Role.MANAGER) {
 		List<OrderItem> visibleItems = visibleStoreId == null
 				? orderItemRepository.findAllByOrderId(order.getId())
 				: orderItemRepository.findAllByOrderIdAndStoreId(order.getId(), visibleStoreId);
+		Store store = visibleItems.isEmpty() ? null : visibleItems.get(0).getStore();
 		List<OrderItemResponse> items = visibleItems.stream()
 				.map(OrderItemResponse::from)
 				.toList();
 		boolean invoiceAvailable = hasInvoice(order);
 		String invoicePreviewUrl = invoiceAvailable ? buildPublicInvoiceUrl(order) : null;
 		String invoiceDownloadUrl = invoiceAvailable ? buildPublicInvoiceUrl(order) + "?download=true" : null;
+		CustomerFeedback orderFeedback = resolveOrderFeedback(order, actor);
 		return new OrderResponse(
 				order.getId(),
 				order.getUser().getId(),
 				resolveStoreId(items),
 				resolveStoreSlug(items),
 				resolveStoreName(items),
+				store != null ? store.getAddress() : null,
+				store != null ? store.getPhoneNumber() : null,
 				order.getStatus(),
 				order.getPaymentStatus(),
 				order.getPaymentProvider(),
@@ -2784,6 +2693,11 @@ if (employee.getRole() == Role.MANAGER) {
 				order.getConfirmedByUser() != null ? order.getConfirmedByUser().getFullName() : null,
 				order.getConfirmedByUser() != null && order.getConfirmedByUser().getRole() != null ? order.getConfirmedByUser().getRole().name() : null,
 				order.getConfirmedAt(),
+				order.getCancelledByUser() != null ? order.getCancelledByUser().getId() : null,
+				order.getCancelledByUser() != null ? order.getCancelledByUser().getFullName() : null,
+				order.getCancelledByUser() != null && order.getCancelledByUser().getRole() != null ? order.getCancelledByUser().getRole().name() : null,
+				order.getCancelledAt(),
+				order.getCancellationNote(),
 				order.getPreparingStaff() != null ? order.getPreparingStaff().getId() : null,
 				order.getPreparingStaff() != null ? order.getPreparingStaff().getFullName() : null,
 				order.getDeliveringShipper() != null ? order.getDeliveringShipper().getId() : null,
@@ -2799,6 +2713,12 @@ if (employee.getRole() == Role.MANAGER) {
 				order.getDeliveryProofCapturedAt(),
 				order.getDeliveryProofUploadedAt(),
 				order.getDeliveryProofNote(),
+				orderFeedback != null ? orderFeedback.getId() : null,
+				orderFeedback != null,
+				orderFeedback != null ? orderFeedback.getCreatedAt() : null,
+				orderFeedback != null ? orderFeedback.getUpdatedAt() : null,
+				orderFeedback != null ? orderFeedback.getMessage() : null,
+				orderFeedback != null ? orderFeedback.getReplyMessage() : null,
 				resolveAllowedActions(order, actor, visibleStoreId, invoiceAvailable),
 				resolveStatusSummary(order),
 				items,
@@ -2817,6 +2737,8 @@ if (employee.getRole() == Role.MANAGER) {
 				response.storeId(),
 				response.storeSlug(),
 				response.storeName(),
+				response.storeAddress(),
+				response.storePhoneNumber(),
 				response.status(),
 				response.paymentStatus(),
 				response.paymentProvider(),
@@ -2847,6 +2769,11 @@ if (employee.getRole() == Role.MANAGER) {
 				response.confirmedByUserName(),
 				response.confirmedByUserRole(),
 				response.confirmedAt(),
+				response.cancelledByUserId(),
+				response.cancelledByUserName(),
+				response.cancelledByUserRole(),
+				response.cancelledAt(),
+				response.cancellationNote(),
 				response.preparingStaffId(),
 				response.preparingStaffName(),
 				response.deliveringShipperId(),
@@ -2862,6 +2789,12 @@ if (employee.getRole() == Role.MANAGER) {
 				response.deliveryProofCapturedAt(),
 				response.deliveryProofUploadedAt(),
 				response.deliveryProofNote(),
+				response.feedbackId(),
+				response.feedbackSubmitted(),
+				response.feedbackCreatedAt(),
+				response.feedbackUpdatedAt(),
+				response.feedbackMessage(),
+				response.feedbackReplyMessage(),
 				allowed,
 				response.statusSummary(),
 				response.items(),
@@ -2945,32 +2878,6 @@ if (employee.getRole() == Role.MANAGER) {
 				}
 			}
 			case STAFF -> {
-case MANAGER -> {
-				if (canConfirmOrder(order)) {
-					actions.add(OrderAllowedAction.CONFIRM_ORDER);
-				}
-				if (canCancelOrder(order)) {
-					actions.add(OrderAllowedAction.CANCEL_ORDER);
-				}
-				if (canMarkPaid(order)) {
-					actions.add(OrderAllowedAction.MARK_PAID);
-				}
-				if (canGenerateInvoice(order)) {
-					actions.add(OrderAllowedAction.GENERATE_INVOICE);
-				}
-				if (visibleStoreId != null && actor.getWorkingStore() != null && visibleStoreId.equals(actor.getWorkingStore().getId())) {
-					if (order.getPaymentStatus() == PaymentStatus.PAID
-							&& order.getStatus() == OrderStatus.CONFIRMED
-							&& (order.getPreparingStaff() == null || actor.getId().equals(order.getPreparingStaff().getId()))) {
-						actions.add(OrderAllowedAction.ACCEPT_PREPARING);
-					}
-					if (order.getPaymentStatus() == PaymentStatus.PAID
-							&& order.getStatus() == OrderStatus.PREPARING
-							&& order.getPreparingStaff() != null
-							&& actor.getId().equals(order.getPreparingStaff().getId())) {
-						actions.add(OrderAllowedAction.MARK_READY);
-					}
-				}
 				if (invoiceAvailable) {
 					actions.add(OrderAllowedAction.VIEW_INVOICE);
 				}
@@ -2992,6 +2899,12 @@ case MANAGER -> {
 				if (canRefreshPayment(order, actor)) {
 					actions.add(OrderAllowedAction.REFRESH_PAYMENT);
 				}
+				if (canUserCancelOrder(order, actor)) {
+					actions.add(OrderAllowedAction.CANCEL_ORDER);
+				}
+				if (canReorderOrder(order, actor)) {
+					actions.add(OrderAllowedAction.REORDER_ORDER);
+				}
 				if (invoiceAvailable) {
 					actions.add(OrderAllowedAction.VIEW_INVOICE);
 				}
@@ -3004,6 +2917,19 @@ case MANAGER -> {
 		return order.getPaymentStatus() == PaymentStatus.PAID && order.getStatus() == OrderStatus.PENDING;
 	}
 
+	private CustomerFeedback resolveOrderFeedback(Order order, User actor) {
+		if (order == null || order.getId() == null || actor == null) {
+			return null;
+		}
+
+		if (actor.getRole() != Role.USER || order.getUser() == null || !actor.getId().equals(order.getUser().getId())) {
+			return null;
+		}
+
+		return customerFeedbackRepository.findByRelatedOrderIdAndUserId(order.getId(), actor.getId())
+				.orElse(null);
+	}
+
 	private boolean canMarkReadyForShipper(Order order) {
 		return order.getPaymentStatus() == PaymentStatus.PAID
 				&& (order.getStatus() == OrderStatus.PREPARING || order.getStatus() == OrderStatus.READY_FOR_SHIPPER);
@@ -3011,6 +2937,22 @@ case MANAGER -> {
 
 	private boolean canCancelOrder(Order order) {
 		return order.getStatus() != OrderStatus.CANCELLED && order.getStatus() != OrderStatus.COMPLETED;
+	}
+
+	private boolean canUserCancelOrder(Order order, User actor) {
+		return actor.getRole() == Role.USER
+				&& order.getUser() != null
+				&& actor.getId().equals(order.getUser().getId())
+				&& order.getPaymentStatus() != PaymentStatus.PAID
+				&& order.getPaymentStatus() != PaymentStatus.CANCELLED
+				&& order.getStatus() != OrderStatus.CANCELLED
+				&& order.getStatus() != OrderStatus.COMPLETED;
+	}
+
+	private boolean canReorderOrder(Order order, User actor) {
+		return actor.getRole() == Role.USER
+				&& order.getUser() != null
+				&& actor.getId().equals(order.getUser().getId());
 	}
 
 	private boolean canMarkPaid(Order order) {
@@ -3116,35 +3058,6 @@ case MANAGER -> {
 				order.getPreparingStaff() != null ? order.getPreparingStaff().getRole() : null,
 				toResponse(order, visibleStoreId, staff)
 		);
-private MobileOrderQrResolveResponse resolveManagerMobileQr(User manager, Order order) {
-		Long visibleStoreId = requireWorkingStoreId(manager);
-		try {
-			Order savedOrder = acceptPreparingOrderScan(order, manager);
-			recordScanAudit(savedOrder, manager, EmployeeOrderScanAction.ACCEPT_PREPARING, true, null);
-			return new MobileOrderQrResolveResponse(
-					manager.getRole(),
-					"EMPLOYEE_ORDER_DETAIL",
-					true,
-					"Order claimed successfully",
-					EmployeeOrderScanAction.ACCEPT_PREPARING,
-					savedOrder.getPreparingStaff() != null ? savedOrder.getPreparingStaff().getId() : null,
-					savedOrder.getPreparingStaff() != null ? savedOrder.getPreparingStaff().getFullName() : null,
-					savedOrder.getPreparingStaff() != null ? savedOrder.getPreparingStaff().getRole() : null,
-					toResponse(savedOrder, visibleStoreId, manager)
-			);
-		} catch (BadRequestException | ConflictException | ForbiddenException exception) {
-			recordScanAudit(order, manager, EmployeeOrderScanAction.ACCEPT_PREPARING, false, exception.getMessage());
-			return new MobileOrderQrResolveResponse(
-					manager.getRole(),
-					"EMPLOYEE_ORDER_DETAIL",
-					false,
-					exception.getMessage(),
-					null,
-					order.getPreparingStaff() != null ? order.getPreparingStaff().getId() : null,
-					order.getPreparingStaff() != null ? order.getPreparingStaff().getFullName() : null,
-					order.getPreparingStaff() != null ? order.getPreparingStaff().getRole() : null,
-					toResponse(order, visibleStoreId, manager)
-			);
 	}
 
 	private MobileOrderQrResolveResponse resolveAdminMobileQr(User operator, Order order) {
@@ -3171,38 +3084,34 @@ private MobileOrderQrResolveResponse resolveManagerMobileQr(User manager, Order 
 		if (!orderItemRepository.existsByOrderIdAndStoreId(order.getId(), visibleStoreId)) {
 			throw new ForbiddenException("Order does not belong to your store");
 		}
-		try {
-			Order savedOrder = acceptDeliveryOrderScan(order, shipper);
-			recordScanAudit(savedOrder, shipper, EmployeeOrderScanAction.ACCEPT_DELIVERY, true, null);
-			return new MobileOrderQrResolveResponse(
-					shipper.getRole(),
-					"EMPLOYEE_ORDER_DETAIL",
-					true,
-					"Order claimed successfully",
-					EmployeeOrderScanAction.ACCEPT_DELIVERY,
-					savedOrder.getDeliveringShipper() != null ? savedOrder.getDeliveringShipper().getId() : null,
-					savedOrder.getDeliveringShipper() != null ? savedOrder.getDeliveringShipper().getFullName() : null,
-					savedOrder.getDeliveringShipper() != null ? savedOrder.getDeliveringShipper().getRole() : null,
-					toResponse(savedOrder, visibleStoreId, shipper)
-			);
-		} catch (BadRequestException | ConflictException | ForbiddenException exception) {
-			recordScanAudit(order, shipper, EmployeeOrderScanAction.ACCEPT_DELIVERY, false, exception.getMessage());
-			return new MobileOrderQrResolveResponse(
-					shipper.getRole(),
-					"EMPLOYEE_ORDER_DETAIL",
-					false,
-					exception.getMessage(),
-					null,
-					order.getDeliveringShipper() != null ? order.getDeliveringShipper().getId() : null,
-					order.getDeliveringShipper() != null ? order.getDeliveringShipper().getFullName() : null,
-					order.getDeliveringShipper() != null ? order.getDeliveringShipper().getRole() : null,
-					toResponse(order, visibleStoreId, shipper)
-			);
-		}
+		recordScanAudit(order, shipper, EmployeeOrderScanAction.ACCEPT_DELIVERY, false, "Shipper QR pickup is disabled. Open the task and use Accept order instead.");
+		return new MobileOrderQrResolveResponse(
+				shipper.getRole(),
+				"EMPLOYEE_ORDER_DETAIL",
+				false,
+				"Shipper QR pickup is disabled. Open the task and use Accept order instead.",
+				null,
+				order.getDeliveringShipper() != null ? order.getDeliveringShipper().getId() : null,
+				order.getDeliveringShipper() != null ? order.getDeliveringShipper().getFullName() : null,
+				order.getDeliveringShipper() != null ? order.getDeliveringShipper().getRole() : null,
+				toResponse(order, visibleStoreId, shipper)
+		);
 	}
 
 	private String resolveStatusSummary(Order order) {
 		if (order.getStatus() == OrderStatus.CANCELLED || order.getPaymentStatus() == PaymentStatus.CANCELLED) {
+			if (order.getCancelledByUser() != null && StringUtils.hasText(order.getCancellationNote())) {
+				return "%s cancelled the order. Note: %s".formatted(
+						order.getCancelledByUser().getFullName(),
+						order.getCancellationNote().trim()
+				);
+			}
+			if (order.getCancelledByUser() != null) {
+				return order.getCancelledByUser().getFullName() + " cancelled the order";
+			}
+			if (StringUtils.hasText(order.getCancellationNote())) {
+				return "Order cancelled. Note: " + order.getCancellationNote().trim();
+			}
 			return "Order cancelled";
 		}
 		if (order.getPaymentStatus() == PaymentStatus.FAILED) {
@@ -3219,14 +3128,12 @@ private MobileOrderQrResolveResponse resolveManagerMobileQr(User manager, Order 
 				return order.getConfirmedByUser().getFullName() + " confirmed the order - moving it into processing";
 			}
 			return "Order confirmed";
-return order.getConfirmedByUser().getFullName() + " da xac nhan don - cho quan ly nhan don";
-			return "Cho quan ly nhan don";
 		}
 		if (order.getStatus() == OrderStatus.READY_FOR_SHIPPER) {
 			if (order.getDeliveringShipper() != null) {
-				return "Assigned to shipper " + order.getDeliveringShipper().getFullName() + " - waiting for pickup";
+				return "Assigned to shipper " + order.getDeliveringShipper().getFullName() + " - waiting for the order to be accepted";
 			}
-			return "Waiting for shipper pickup";
+			return "Waiting for a shipper to accept the order";
 		}
 		if (order.getStatus() == OrderStatus.OUT_FOR_DELIVERY) {
 			return order.getDeliveringShipper() != null
@@ -3237,8 +3144,6 @@ return order.getConfirmedByUser().getFullName() + " da xac nhan don - cho quan l
 			return order.getPreparingStaff() != null
 					? order.getPreparingStaff().getFullName() + " is processing the order at the store"
 					: "The store is processing the order";
-? "Quan ly " + order.getPreparingStaff().getFullName() + " dang xu ly don"
-					: "Don hang dang lam mon";
 		}
 		if (order.getStatus() == OrderStatus.COMPLETED) {
 			return order.getDeliveringShipper() != null
@@ -3378,48 +3283,6 @@ return order.getConfirmedByUser().getFullName() + " da xac nhan don - cho quan l
 		return order.getPaymentExpiresAt() == null || order.getPaymentExpiresAt().isAfter(Instant.now());
 	}
 
-	private String resolvePendingPaymentReference(String paymentLinkId, Long orderCode) {
-		if (StringUtils.hasText(paymentLinkId)) {
-			return paymentLinkId;
-		}
-		return orderCode == null ? null : String.valueOf(orderCode);
-	}
-
-	private String resolveDisplayPaymentReference(Order order) {
-		if (StringUtils.hasText(order.getPaymentReference())) {
-			return order.getPaymentReference();
-		}
-		return resolvePendingPaymentReference(order.getPaymentLinkId(), order.getPayosOrderCode());
-	}
-
-	private String resolveVisiblePaymentCheckoutUrl(Order order) {
-		return isPaymentLinkVisible(order) ? order.getPaymentCheckoutUrl() : null;
-	}
-
-	private String resolveVisiblePaymentQrCode(Order order) {
-		return isPaymentLinkVisible(order) ? order.getPaymentQrCode() : null;
-	}
-
-	private Instant resolveVisiblePaymentExpiresAt(Order order) {
-		return isPaymentLinkVisible(order) ? order.getPaymentExpiresAt() : null;
-	}
-
-	private boolean isPaymentLinkVisible(Order order) {
-		if (order == null) {
-			return false;
-		}
-		if (order.getStatus() == OrderStatus.CANCELLED) {
-			return false;
-		}
-		if (order.getPaymentStatus() != PaymentStatus.PENDING) {
-			return false;
-		}
-		if (!StringUtils.hasText(order.getPaymentCheckoutUrl()) && !StringUtils.hasText(order.getPaymentQrCode())) {
-			return false;
-		}
-		return order.getPaymentExpiresAt() == null || order.getPaymentExpiresAt().isAfter(Instant.now());
-	}
-
 	private long resolvePaymentExpirySeconds() {
 		int minutes = payOsProperties.getPaymentExpiryMinutes() == null ? 15 : Math.max(payOsProperties.getPaymentExpiryMinutes(), 5);
 		return minutes * 60L;
@@ -3484,6 +3347,7 @@ return order.getConfirmedByUser().getFullName() + " da xac nhan don - cho quan l
 	private DeliveryType resolveDeliveryType(CheckoutPromotionSuggestionsRequest request) {
 		return request.deliveryType() == null ? DeliveryType.IMMEDIATE : request.deliveryType();
 	}
+
 	private Instant resolveScheduledDeliveryAt(CheckoutRequest request, DeliveryType deliveryType) {
 		if (deliveryType == DeliveryType.SCHEDULED) {
 			if (request.scheduledDeliveryAt() == null) {
@@ -3519,11 +3383,6 @@ return order.getConfirmedByUser().getFullName() + " da xac nhan don - cho quan l
 			return scheduledDeliveryAt;
 		}
 		if (scheduledDeliveryAt != null) {
-if (deliveryType == DeliveryType.SCHEDULED) {
-			if (request.scheduledDeliveryAt() == null) {
-			if (!request.scheduledDeliveryAt().isAfter(Instant.now())) {
-			return request.scheduledDeliveryAt();
-		if (request.scheduledDeliveryAt() != null) {
 			throw new BadRequestException("scheduledDeliveryAt is only allowed when deliveryType is SCHEDULED");
 		}
 		return null;
@@ -3594,11 +3453,6 @@ if (deliveryType == DeliveryType.SCHEDULED) {
 			return List.of();
 		}
 		return userLevelService.resolveCurrentLevelDefinitionIds(user, Instant.now());
-private Long resolveCurrentUserLevelId(User user, Store store) {
-		if (user == null || store == null || store.getId() == null) {
-			return null;
-		UserLevelService.CurrentLevelSnapshot snapshot = userLevelService.resolveCurrentLevelSnapshot(user, store.getId(), Instant.now());
-		return snapshot.level() != null ? snapshot.level().getId() : null;
 	}
 
 	private List<ShippingFeeBreakdownItemResponse> buildShippingFeeBreakdown(List<StoreOrderPlan> storeOrderPlans) {
@@ -3653,6 +3507,7 @@ private Long resolveCurrentUserLevelId(User user, Store store) {
 		for (Order order : orders) {
 			notificationService.notifyOrderCreated(order);
 			notificationService.notifyManagerAboutNewOrder(order);
+			appRealtimeService.publishOrderUpdated(order);
 		}
 	}
 
@@ -3662,6 +3517,7 @@ private Long resolveCurrentUserLevelId(User user, Store store) {
 			if (snapshot != null) {
 				notificationService.notifyOrderStatusChanged(order, snapshot.status(), snapshot.paymentStatus());
 			}
+			appRealtimeService.publishOrderUpdated(order);
 		}
 	}
 
@@ -3674,9 +3530,6 @@ private Long resolveCurrentUserLevelId(User user, Store store) {
 			if (snapshot.paymentStatus() != PaymentStatus.PAID
 					&& order.getPaymentStatus() == PaymentStatus.PAID
 					&& order.getStatus() == OrderStatus.PENDING) {
-if (snapshot.status() != OrderStatus.CONFIRMED
-					&& order.getStatus() == OrderStatus.CONFIRMED
-					&& order.getPaymentStatus() == PaymentStatus.PAID) {
 				notificationService.notifyPaidOrderWaitingForManager(order);
 			}
 			if (snapshot.status() != OrderStatus.READY_FOR_SHIPPER && order.getStatus() == OrderStatus.READY_FOR_SHIPPER) {

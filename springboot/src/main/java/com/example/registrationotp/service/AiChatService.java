@@ -19,6 +19,7 @@ import java.util.regex.Pattern;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -51,6 +52,8 @@ import com.example.registrationotp.model.Dish;
 import com.example.registrationotp.model.EventItem;
 import com.example.registrationotp.model.NewsArticle;
 import com.example.registrationotp.model.Order;
+import com.example.registrationotp.model.OrderStatus;
+import com.example.registrationotp.model.PaymentStatus;
 import com.example.registrationotp.model.Promotion;
 import com.example.registrationotp.model.Role;
 import com.example.registrationotp.model.Store;
@@ -155,15 +158,17 @@ public class AiChatService {
 	public AiChatResponse query(String authorizationHeader, AiChatQueryRequest request) {
 		User operator = sessionAuthService.requireUser(authorizationHeader);
 		validateOpenAiConfiguration();
-		AiChatThread thread = resolveThread(operator, request.threadId(), request.message());
-		List<AiChatHistoryItem> historyForAi = resolveHistoryForAi(thread, request.history());
+		AiChatThread thread = request.threadId() == null ? null : requireOwnedThread(operator, request.threadId());
 		List<ReferenceCandidate> candidates = buildCandidates(operator, request.message());
-		ObjectNode aiResult = requestAnswerFromOpenAi(operator, request.message(), historyForAi, candidates);
+		ObjectNode aiResult = requestAnswerFromOpenAi(operator, request.message(), List.of(), candidates);
 		List<AiChatReferenceResponse> references = resolveReferenceResponses(aiResult.path("referenceKeys"), candidates);
 		references = enrichReferencesForUserAssistant(operator, request.message(), references, candidates);
 		List<AiChatActionResponse> actions = buildActions(operator, request.message(), references, candidates);
 		String answer = sanitizeAiHtml(aiResult.path("answer").asText());
 		answer = StringUtils.hasText(toPlainText(answer)) ? answer : defaultHtmlFallback();
+		if (thread == null) {
+			thread = createThread(operator, request.message());
+		}
 		saveChatMessage(thread, "user", request.message(), List.of(), List.of(), null);
 		saveChatMessage(thread, "assistant", answer, references, actions, openAiProperties.getModel());
 		return new AiChatResponse(
@@ -180,17 +185,19 @@ public class AiChatService {
 	@Transactional(readOnly = true)
 	public PageResponse<AiChatThreadSummaryResponse> listThreads(String authorizationHeader, int page, int size) {
 		User operator = sessionAuthService.requireUser(authorizationHeader);
-		Page<AiChatThreadSummaryResponse> threadPage = aiChatThreadRepository
-				.findAllByUserIdOrderByUpdatedAtDesc(operator.getId(), PageRequest.of(Math.max(page, 0), normalizePageSize(size)))
-				.map(this::toThreadSummaryResponse);
-		return PageResponse.from(threadPage);
+		Pageable pageable = PageRequest.of(Math.max(page, 0), normalizePageSize(size));
+		return PageResponse.from(
+				aiChatThreadRepository.findAllByUserIdOrderByUpdatedAtDesc(operator.getId(), pageable)
+						.map(this::toThreadSummaryResponse)
+		);
 	}
 
 	@Transactional(readOnly = true)
 	public AiChatThreadDetailResponse getThread(String authorizationHeader, Long threadId) {
 		User operator = sessionAuthService.requireUser(authorizationHeader);
 		AiChatThread thread = requireOwnedThread(operator, threadId);
-		List<AiChatMessageResponse> messages = aiChatMessageRepository.findAllByThreadIdOrderByCreatedAtAscIdAsc(thread.getId()).stream()
+		List<AiChatMessageResponse> messages = aiChatMessageRepository.findAllByThreadIdOrderByCreatedAtAscIdAsc(thread.getId())
+				.stream()
 				.map(this::toMessageResponse)
 				.toList();
 		return new AiChatThreadDetailResponse(
@@ -200,6 +207,22 @@ public class AiChatService {
 				thread.getCreatedAt(),
 				thread.getUpdatedAt()
 		);
+	}
+
+	@Transactional
+	public void deleteThread(String authorizationHeader, Long threadId) {
+		User operator = sessionAuthService.requireUser(authorizationHeader);
+		AiChatThread thread = requireOwnedThread(operator, threadId);
+		aiChatMessageRepository.deleteAllByThreadId(thread.getId());
+		aiChatThreadRepository.delete(thread);
+	}
+
+	private AiChatThread createThread(User operator, String message) {
+		AiChatThread thread = new AiChatThread();
+		thread.setUser(operator);
+		thread.setTitle(buildThreadTitle(message));
+		thread.setMessageCount(0);
+		return aiChatThreadRepository.save(thread);
 	}
 
 	private void validateOpenAiConfiguration() {
@@ -539,10 +562,11 @@ public class AiChatService {
 					BigDecimal subtotal = items.stream()
 							.map(item -> item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
 							.reduce(BigDecimal.ZERO, BigDecimal::add);
+					String metricsSummary = buildCartMetricsSummary(items, subtotal);
 					String subtitle = itemCount > 0
 							? itemCount + " item(s) - subtotal " + subtotal.toPlainString()
 							: "Empty cart";
-					String searchText = buildSearchText("cart", "checkout", subtitle);
+					String searchText = buildSearchText("cart", "checkout", subtitle, metricsSummary);
 					candidates.add(new ReferenceCandidate(
 							"cart:" + cart.getId(),
 							"CART",
@@ -555,7 +579,7 @@ public class AiChatService {
 							null,
 							null,
 							"/api/user/cart",
-							null,
+							metricsSummary,
 							searchText,
 							scoreEntity(tokens, normalizedPrompt, searchText, List.of("cart", "shopping", "checkout"))
 					));
@@ -574,13 +598,15 @@ public class AiChatService {
 							.findFirst()
 							.map(item -> item.getStore().getName())
 							.orElse("Order");
+					String metricsSummary = buildOrderMetricsSummary(order, storeName);
 					String subtitle = joinNonBlank(storeName, order.getStatus().name() + " / " + order.getPaymentStatus().name());
 					String searchText = buildSearchText(
 							"order",
 							String.valueOf(order.getId()),
 							storeName,
 							order.getStatus().name(),
-							order.getPaymentStatus().name()
+							order.getPaymentStatus().name(),
+							metricsSummary
 					);
 					candidates.add(new ReferenceCandidate(
 							"order:" + order.getId(),
@@ -594,7 +620,7 @@ public class AiChatService {
 							null,
 							null,
 							"/api/user/orders/" + order.getId(),
-							null,
+							metricsSummary,
 							searchText,
 							scoreEntity(tokens, normalizedPrompt, searchText, List.of("order", "payment", "delivery", "status"))
 					));
@@ -633,7 +659,7 @@ public class AiChatService {
 			if (operator.getWorkingStore() != null && operator.getWorkingStore().getId() != null) {
 				users.addAll(userRepository.findAllByWorkingStoreIdAndRoleInAndEnabledTrue(
 						operator.getWorkingStore().getId(),
-						List.of(Role.SHIPPER)
+						List.of(Role.STAFF, Role.SHIPPER)
 				));
 			}
 			return users.stream().distinct().toList();
@@ -651,7 +677,7 @@ public class AiChatService {
 		return target.getWorkingStore() != null
 				&& operator.getWorkingStore() != null
 				&& Objects.equals(target.getWorkingStore().getId(), operator.getWorkingStore().getId())
-				&& target.getRole() == Role.SHIPPER;
+				&& (target.getRole() == Role.STAFF || target.getRole() == Role.SHIPPER);
 	}
 
 	private boolean isVisiblePromotion(Promotion promotion) {
@@ -774,20 +800,27 @@ public class AiChatService {
 		return """
 				You are an assistant for the Kamatcha system.
 				Answer in English.
+				Treat each request independently and do not rely on previous chat history.
+				Be direct and focused on the user's current question.
+				Lead with the answer in the first paragraph instead of long setup text.
+				Keep the response short unless the user explicitly asks for more detail.
 				Return the answer as a clean HTML fragment, not Markdown and not a full HTML document.
 				Use only these HTML tags: section, h2, h3, p, ul, ol, li, strong, em, small, br, code.
 				Do not use inline styles, classes, ids, tables, images, forms, buttons, anchors, or raw URLs.
 				Start with a <section> root and keep the structure compact, readable, and mobile-friendly.
-				Prefer a short opening paragraph, then optional subheadings and bullet lists when helpful.
+				Prefer one short paragraph, then only add a short list when it improves clarity.
 				Do not duplicate the reference list or quick actions inside the HTML because the client renders those separately.
 				Use only the provided candidate records and current user status.
 				Candidate records can include metricsSummary for ranking questions such as best-selling stores or revenue comparisons.
+				For cart questions, use the cart metricsSummary to describe item names, quantities, subtotal, and stores.
+				For payment questions, prioritize the latest unpaid order that already has a payment session and explain that QR or checkout is ready.
+				For account questions, use the currentUserStatus first, then supplement with USER candidates.
 				When the user asks which store is selling best, prioritize STORE candidates and compare their metricsSummary before saying data is insufficient.
 				If you mention a ranking, briefly mention the basis, for example paid revenue or top dish quantity.
 				For USER role, act like a shopping assistant: suggest drinks, mention similar dishes, and guide the user to quick actions such as add to cart, view cart, or open a recent order.
 				Never claim an order has been placed or paid unless the candidate data explicitly shows that order already exists.
 				Never invent IDs, links, stores, dishes, events, news, promotions, or user details.
-				If data is insufficient, say so briefly and suggest a more specific question.
+				If data is insufficient, say so briefly and ask one focused follow-up question.
 				For referenceKeys, choose only keys that exist in the candidate list and keep the list short.
 				Respect role scope. The current authenticated role is %s.
 				""".formatted(operator.getRole().name());
@@ -801,14 +834,10 @@ public class AiChatService {
 	) {
 		ObjectNode payload = objectMapper.createObjectNode();
 		payload.put("currentRole", operator.getRole().name());
-		payload.set("currentUserStatus", objectMapper.valueToTree(AiChatCurrentUserStatusResponse.from(operator)));
+		ObjectNode currentUserStatus = (ObjectNode) objectMapper.valueToTree(AiChatCurrentUserStatusResponse.from(operator));
+		currentUserStatus.put("creditPoints", operator.getCreditPoints());
+		payload.set("currentUserStatus", currentUserStatus);
 		payload.put("question", question);
-		ArrayNode historyArray = payload.putArray("history");
-		for (AiChatHistoryItem item : history) {
-			ObjectNode node = historyArray.addObject();
-			node.put("role", item.role());
-			node.put("content", item.content());
-		}
 		ArrayNode candidateArray = payload.putArray("candidates");
 		for (ReferenceCandidate candidate : candidates) {
 			ObjectNode node = candidateArray.addObject();
@@ -1054,6 +1083,37 @@ public class AiChatService {
 		String normalizedPrompt = normalizeText(message);
 
 		if (operator.getRole() == Role.USER) {
+			if (isPaymentIntent(normalizedPrompt)) {
+				latestPendingPaymentOrder(operator).ifPresent(order -> {
+					ObjectNode payload = objectMapper.createObjectNode();
+					payload.put("orderId", order.getId());
+					payload.put("paymentQrCode", StringUtils.hasText(order.getPaymentQrCode()) ? order.getPaymentQrCode() : "");
+					payload.put("paymentCheckoutUrl", StringUtils.hasText(order.getPaymentCheckoutUrl()) ? order.getPaymentCheckoutUrl() : "");
+					payload.put("paymentProvider", StringUtils.hasText(order.getPaymentProvider()) ? order.getPaymentProvider() : "");
+					payload.put("paymentReference", StringUtils.hasText(order.getPaymentReference()) ? order.getPaymentReference() : "");
+					payload.put("paymentStatus", order.getPaymentStatus() == null ? "" : order.getPaymentStatus().name());
+					payload.put("status", order.getStatus() == null ? "" : order.getStatus().name());
+					payload.put(
+							"totalAmount",
+							order.getTotalAmount() == null ? BigDecimal.ZERO : order.getTotalAmount()
+					);
+					if (order.getPaymentExpiresAt() != null) {
+						payload.put("paymentExpiresAt", order.getPaymentExpiresAt().toString());
+					}
+					AiChatActionResponse action = new AiChatActionResponse(
+							"show-payment-qr:" + order.getId(),
+							"SHOW_PAYMENT_QR",
+							"Show payment QR",
+							"Display the latest payment QR for order #" + order.getId(),
+							"GET",
+							"/api/user/orders/" + order.getId(),
+							"order:" + order.getId(),
+							payload
+					);
+					actions.putIfAbsent(action.actionKey(), action);
+				});
+			}
+
 			references.stream()
 					.filter(reference -> "DISH".equals(reference.entityType()))
 					.limit(3)
@@ -1235,6 +1295,13 @@ public class AiChatService {
 				.findFirst();
 	}
 
+	private Optional<Order> latestPendingPaymentOrder(User operator) {
+		return orderRepository.findAllByUserId(operator.getId()).stream()
+				.filter(this::hasUsableAiPaymentSession)
+				.sorted(Comparator.comparing(Order::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+				.findFirst();
+	}
+
 	private boolean isShoppingIntent(String normalizedPrompt) {
 		return containsAny(normalizedPrompt, "buy", "order", "add to cart", "checkout", "payment", "cart");
 	}
@@ -1245,6 +1312,10 @@ public class AiChatService {
 
 	private boolean isOrderIntent(String normalizedPrompt) {
 		return containsAny(normalizedPrompt, "order", "order status", "delivery", "payment");
+	}
+
+	private boolean isPaymentIntent(String normalizedPrompt) {
+		return containsAny(normalizedPrompt, "payment", "pay", "payos", "qr", "checkout", "bank transfer", "banking app", "scan to pay");
 	}
 
 	private boolean containsAny(String normalizedPrompt, String... keywords) {
@@ -1364,6 +1435,55 @@ public class AiChatService {
 		);
 	}
 
+	private String buildCartMetricsSummary(List<CartItem> items, BigDecimal subtotal) {
+		if (items == null || items.isEmpty()) {
+			return "cart is empty";
+		}
+
+		String itemSummary = items.stream()
+				.limit(6)
+				.map(item -> {
+					String storeName = item.getStore() == null ? null : item.getStore().getName();
+					String quantitySummary = item.getDish().getName() + " x" + item.getQuantity();
+					return StringUtils.hasText(storeName) ? quantitySummary + " at " + storeName : quantitySummary;
+				})
+				.reduce((left, right) -> left + "; " + right)
+				.orElse("");
+		return "subtotal " + subtotal.toPlainString() + ", items: " + itemSummary;
+	}
+
+	private String buildOrderMetricsSummary(Order order, String storeName) {
+		String expiresAt = order.getPaymentExpiresAt() == null ? null : order.getPaymentExpiresAt().toString();
+		String paymentReady = hasUsableAiPaymentSession(order) ? "payment session ready" : "payment session unavailable";
+		return buildSearchText(
+				storeName,
+				"total " + (order.getTotalAmount() == null ? "0" : order.getTotalAmount().toPlainString()),
+				"status " + (order.getStatus() == null ? "" : order.getStatus().name()),
+				"payment " + (order.getPaymentStatus() == null ? "" : order.getPaymentStatus().name()),
+				StringUtils.hasText(order.getPaymentReference()) ? "reference " + order.getPaymentReference() : null,
+				expiresAt == null ? null : "expires " + expiresAt,
+				paymentReady
+		);
+	}
+
+	private boolean hasUsableAiPaymentSession(Order order) {
+		if (order == null || order.getId() == null) {
+			return false;
+		}
+		if (!StringUtils.hasText(order.getPaymentQrCode()) && !StringUtils.hasText(order.getPaymentCheckoutUrl())) {
+			return false;
+		}
+		if (order.getPaymentStatus() == PaymentStatus.PAID
+				|| order.getPaymentStatus() == PaymentStatus.CANCELLED
+				|| order.getPaymentStatus() == PaymentStatus.FAILED) {
+			return false;
+		}
+		if (order.getStatus() == OrderStatus.CANCELLED) {
+			return false;
+		}
+		return order.getPaymentExpiresAt() == null || order.getPaymentExpiresAt().isAfter(Instant.now());
+	}
+
 	private StoreDish resolveBestStoreDishForAi(Long dishId) {
 		if (dishId == null) {
 			return null;
@@ -1464,3 +1584,4 @@ public class AiChatService {
 	}
 
 }
+

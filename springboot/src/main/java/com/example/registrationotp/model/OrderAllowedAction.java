@@ -3,6 +3,7 @@ package com.example.registrationotp.model;
 public enum OrderAllowedAction {
 	CONFIRM_ORDER,
 	CANCEL_ORDER,
+	REORDER_ORDER,
 	MARK_PAID,
 	GENERATE_INVOICE,
 	VIEW_INVOICE,

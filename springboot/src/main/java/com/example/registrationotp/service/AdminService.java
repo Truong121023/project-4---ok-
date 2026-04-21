@@ -1174,10 +1174,12 @@ public class AdminService {
 	}
 
 	private OrderResponse toOrderPreview(Order order) {
-		List<OrderItemResponse> items = orderItemRepository.findAllByOrderId(order.getId()).stream()
+		List<OrderItem> orderItems = orderItemRepository.findAllByOrderId(order.getId());
+		List<OrderItemResponse> items = orderItems.stream()
 				.map(OrderItemResponse::from)
 				.toList();
 		OrderItemResponse firstItem = items.isEmpty() ? null : items.get(0);
+		Store firstStore = orderItems.isEmpty() ? null : orderItems.get(0).getStore();
 		boolean invoiceAvailable = order.getInvoiceNumber() != null
 				&& !order.getInvoiceNumber().isBlank()
 				&& order.getInvoiceIssuedAt() != null
@@ -1199,6 +1201,8 @@ public class AdminService {
 				firstItem != null ? firstItem.storeId() : null,
 				firstItem != null ? firstItem.storeSlug() : null,
 				firstItem != null ? firstItem.storeName() : null,
+				firstStore != null ? firstStore.getAddress() : null,
+				firstStore != null ? firstStore.getPhoneNumber() : null,
 				order.getStatus(),
 				order.getPaymentStatus(),
 				order.getPaymentProvider(),
@@ -1229,6 +1233,11 @@ public class AdminService {
 				order.getConfirmedByUser() != null ? order.getConfirmedByUser().getFullName() : null,
 				order.getConfirmedByUser() != null && order.getConfirmedByUser().getRole() != null ? order.getConfirmedByUser().getRole().name() : null,
 				order.getConfirmedAt(),
+				order.getCancelledByUser() != null ? order.getCancelledByUser().getId() : null,
+				order.getCancelledByUser() != null ? order.getCancelledByUser().getFullName() : null,
+				order.getCancelledByUser() != null && order.getCancelledByUser().getRole() != null ? order.getCancelledByUser().getRole().name() : null,
+				order.getCancelledAt(),
+				order.getCancellationNote(),
 				order.getPreparingStaff() != null ? order.getPreparingStaff().getId() : null,
 				order.getPreparingStaff() != null ? order.getPreparingStaff().getFullName() : null,
 				order.getDeliveringShipper() != null ? order.getDeliveringShipper().getId() : null,
@@ -1244,6 +1253,12 @@ public class AdminService {
 				order.getDeliveryProofCapturedAt(),
 				order.getDeliveryProofUploadedAt(),
 				order.getDeliveryProofNote(),
+				null,
+				false,
+				null,
+				null,
+				null,
+				null,
 				List.<OrderAllowedAction>of(),
 				order.getStatus() != null ? order.getStatus().name() : "UNKNOWN",
 				items,

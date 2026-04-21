@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.example.registrationotp.dto.AdminFeedbackReplyRequest;
 import com.example.registrationotp.dto.AdminFeedbackReplyResponse;
+import com.example.registrationotp.dto.CustomerFeedbackOrderHistoryItemResponse;
 import com.example.registrationotp.dto.CustomerFeedbackRequest;
 import com.example.registrationotp.dto.CustomerFeedbackResponse;
 import com.example.registrationotp.dto.MessageResponse;
@@ -26,14 +27,16 @@ import com.example.registrationotp.exception.BadRequestException;
 import com.example.registrationotp.exception.ForbiddenException;
 import com.example.registrationotp.exception.NotFoundException;
 import com.example.registrationotp.model.CustomerFeedback;
+import com.example.registrationotp.model.FeedbackCategory;
 import com.example.registrationotp.model.Order;
+import com.example.registrationotp.model.OrderStatus;
+import com.example.registrationotp.model.PaymentStatus;
 import com.example.registrationotp.model.Role;
 import com.example.registrationotp.model.Store;
 import com.example.registrationotp.model.User;
 import com.example.registrationotp.repository.CustomerFeedbackRepository;
 import com.example.registrationotp.repository.OrderItemRepository;
 import com.example.registrationotp.repository.OrderRepository;
-import com.example.registrationotp.repository.StoreRepository;
 
 @Service
 public class CustomerFeedbackService {
@@ -44,20 +47,17 @@ public class CustomerFeedbackService {
 
 	private final SessionAuthService sessionAuthService;
 	private final CustomerFeedbackRepository customerFeedbackRepository;
-	private final StoreRepository storeRepository;
 	private final OrderRepository orderRepository;
 	private final OrderItemRepository orderItemRepository;
 
 	public CustomerFeedbackService(
 			SessionAuthService sessionAuthService,
 			CustomerFeedbackRepository customerFeedbackRepository,
-			StoreRepository storeRepository,
 			OrderRepository orderRepository,
 			OrderItemRepository orderItemRepository
 	) {
 		this.sessionAuthService = sessionAuthService;
 		this.customerFeedbackRepository = customerFeedbackRepository;
-		this.storeRepository = storeRepository;
 		this.orderRepository = orderRepository;
 		this.orderItemRepository = orderItemRepository;
 	}
@@ -78,9 +78,14 @@ public class CustomerFeedbackService {
 	@Transactional
 	public CustomerFeedbackResponse createMyFeedback(String authorizationHeader, CustomerFeedbackRequest request) {
 		User user = requireBuyerUser(authorizationHeader);
+		Order relatedOrder = findEligibleCompletedOrder(user.getId(), request.relatedOrderId());
+		if (customerFeedbackRepository.findByRelatedOrderIdAndUserId(relatedOrder.getId(), user.getId()).isPresent()) {
+			throw new BadRequestException("Feedback for this order already exists");
+		}
+
 		CustomerFeedback feedback = new CustomerFeedback();
 		feedback.setUser(user);
-		applyRequest(feedback, request, user);
+		applyRequest(feedback, request, relatedOrder);
 		return CustomerFeedbackResponse.from(customerFeedbackRepository.save(feedback));
 	}
 
@@ -109,7 +114,7 @@ public class CustomerFeedbackService {
 		User operator = sessionAuthService.requireAdminOrManager(authorizationHeader);
 		CustomerFeedback feedback = findFeedback(id);
 		validateFeedbackAccess(operator, feedback);
-		return CustomerFeedbackResponse.from(feedback);
+		return CustomerFeedbackResponse.from(feedback, buildCustomerStoreOrderHistory(feedback));
 	}
 
 	@Transactional(readOnly = true)
@@ -166,18 +171,13 @@ public class CustomerFeedbackService {
 		return user;
 	}
 
-	private void applyRequest(CustomerFeedback feedback, CustomerFeedbackRequest request, User user) {
-		feedback.setCategory(request.category());
-		feedback.setSubject(request.subject().trim());
+	private void applyRequest(CustomerFeedback feedback, CustomerFeedbackRequest request, Order relatedOrder) {
+		Store relatedStore = resolveOrderStore(relatedOrder);
+		feedback.setCategory(FeedbackCategory.ORDER_EXPERIENCE);
+		feedback.setSubject("Order #" + relatedOrder.getId() + " feedback");
 		feedback.setMessage(request.message().trim());
-		Order relatedOrder = request.relatedOrderId() == null ? null : findMyOrder(user.getId(), request.relatedOrderId());
-		Store explicitStore = request.relatedStoreId() == null ? null : findStore(request.relatedStoreId());
-		Store orderStore = relatedOrder == null ? null : resolveOrderStore(relatedOrder);
-		if (explicitStore != null && orderStore != null && !explicitStore.getId().equals(orderStore.getId())) {
-			throw new BadRequestException("relatedStoreId must match the store of relatedOrderId");
-		}
 		feedback.setRelatedOrder(relatedOrder);
-		feedback.setRelatedStore(orderStore != null ? orderStore : explicitStore);
+		feedback.setRelatedStore(relatedStore);
 	}
 
 	private CustomerFeedback findMyFeedback(Long userId, Long id) {
@@ -195,15 +195,24 @@ public class CustomerFeedbackService {
 				.orElseThrow(() -> new NotFoundException("Order not found"));
 	}
 
+	private Order findEligibleCompletedOrder(Long userId, Long orderId) {
+		Order order = findMyOrder(userId, orderId);
+
+		if (order.getStatus() != OrderStatus.COMPLETED) {
+			throw new BadRequestException("Only completed orders can receive feedback");
+		}
+
+		if (order.getPaymentStatus() != PaymentStatus.PAID) {
+			throw new BadRequestException("Only paid orders can receive feedback");
+		}
+
+		return order;
+	}
+
 	private void requireReply(CustomerFeedback feedback) {
 		if (trimToNull(feedback.getReplyMessage()) == null) {
 			throw new NotFoundException("Feedback reply not found");
 		}
-	}
-
-	private Store findStore(Long id) {
-		return storeRepository.findById(id)
-				.orElseThrow(() -> new NotFoundException("Store not found"));
 	}
 
 	private Store resolveOrderStore(Order order) {
@@ -211,6 +220,26 @@ public class CustomerFeedbackService {
 				.findFirst()
 				.map(item -> item.getStore())
 				.orElseThrow(() -> new BadRequestException("Order has no store items"));
+	}
+
+	private List<CustomerFeedbackOrderHistoryItemResponse> buildCustomerStoreOrderHistory(CustomerFeedback feedback) {
+		if (feedback.getUser() == null || feedback.getUser().getId() == null) {
+			return List.of();
+		}
+		if (feedback.getRelatedStore() == null || feedback.getRelatedStore().getId() == null) {
+			return List.of();
+		}
+
+		Long userId = feedback.getUser().getId();
+		Long storeId = feedback.getRelatedStore().getId();
+
+		return orderRepository.findAllByUserId(userId).stream()
+				.filter(order -> order.getPaymentStatus() == PaymentStatus.PAID)
+				.filter(order -> order.getStatus() == OrderStatus.COMPLETED)
+				.filter(order -> orderItemRepository.existsByOrderIdAndStoreId(order.getId(), storeId))
+				.sorted((left, right) -> right.getCreatedAt().compareTo(left.getCreatedAt()))
+				.map(CustomerFeedbackOrderHistoryItemResponse::from)
+				.toList();
 	}
 
 	private void validateFeedbackAccess(User operator, CustomerFeedback feedback) {
